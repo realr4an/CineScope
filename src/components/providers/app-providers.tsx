@@ -5,6 +5,7 @@ import { Toaster } from "sonner";
 
 import { AgeGatePrompt } from "@/features/age-gate/age-gate-prompt";
 import { LanguageProvider } from "@/features/i18n/language-provider";
+import { HorizontalScrollEnhancer } from "@/features/ui/horizontal-scroll-enhancer";
 import { WatchlistProvider } from "@/features/watchlist/watchlist-provider";
 import type { AgeGateState } from "@/lib/age-gate";
 import type { Locale } from "@/lib/i18n/types";
@@ -31,6 +32,7 @@ export function AppProviders({
       <LanguageProvider initialLocale={initialLocale}>
         <WatchlistProvider initialUser={initialUser} initialWatchlist={initialWatchlist}>
           {children}
+          <HorizontalScrollEnhancer />
           <AgeGatePrompt initialState={initialAgeGate} user={initialUser} />
           <Toaster
             theme="dark"
