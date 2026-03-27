@@ -4,12 +4,11 @@ import { useMemo, useState } from "react";
 import { RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 
-import { AIPanelShell, AITagList } from "@/features/ai/ai-primitives";
+import { Button } from "@/components/ui/button";
 import { AIComparePanel } from "@/features/ai/compare-panel";
 import { postAIAction } from "@/features/ai/client";
 import { useLanguage } from "@/features/i18n/language-provider";
 import { useWatchlist } from "@/features/watchlist/watchlist-provider";
-import { Button } from "@/components/ui/button";
 import type { AIFitResponse, AITitleInsightsResponse } from "@/lib/ai/types";
 import type { MediaDetail } from "@/types/media";
 
@@ -23,26 +22,22 @@ export function AITitlePanel({ media, initialInsights, initialFit, hasProfileSig
     ? {
         insightsError: "Vibe tags could not be loaded.",
         fitError: "Personal fit could not be loaded.",
-        title: "AI layer",
-        description: "Automatically generated AI insights for tone, soft warnings and personal fit.",
-        refreshInsights: "Refresh vibe & warnings",
+        refreshInsights: "Refresh warnings",
         refreshFit: "Refresh personal fit",
         warningHeading: "Content warning light",
         fitHeading: "Why this fits you",
-        insightsEmpty: "The vibe tags could not be generated on first load. You can refresh this section above.",
+        insightsEmpty: "The soft content warning could not be generated on first load. You can refresh it above.",
         fitRetry: "The personal fit could not be generated on first load. You can recalculate it above.",
         fitHint: "As soon as you mark watchlist titles as watched or rate them, this section will explain why the title matches your taste."
       }
     : {
-        insightsError: "Vibe-Tags konnten nicht geladen werden.",
+        insightsError: "Hinweise konnten nicht geladen werden.",
         fitError: "Die persönliche Einordnung konnte nicht geladen werden.",
-        title: "AI Layer",
-        description: "Automatisch generierte KI-Insights für Ton, Warnhinweise und persönliche Passung.",
-        refreshInsights: "Vibe & Warnings aktualisieren",
+        refreshInsights: "Hinweise aktualisieren",
         refreshFit: "Passung neu bewerten",
         warningHeading: "Content Warning Light",
         fitHeading: "Warum passt das zu dir?",
-        insightsEmpty: "Die Vibe-Tags konnten beim ersten Laden nicht erzeugt werden. Du kannst den Bereich oben erneut anstoßen.",
+        insightsEmpty: "Die Hinweise konnten beim ersten Laden nicht erzeugt werden. Du kannst den Bereich oben erneut anstoßen.",
         fitRetry: "Die persönliche Einordnung konnte beim ersten Laden nicht erzeugt werden. Du kannst sie oben neu berechnen.",
         fitHint: "Sobald du Watchlist-Titel als gesehen markierst oder bewertest, wird hier automatisch erklärt, warum dieser Titel zu deinem Geschmack passt."
       };
@@ -87,20 +82,23 @@ export function AITitlePanel({ media, initialInsights, initialFit, hasProfileSig
 
   return (
     <div className="space-y-4">
-      <AIPanelShell
-        title={text.title}
-        description={text.description}
-        actions={<div className="flex flex-wrap gap-2"><Button variant="outline" size="sm" onClick={loadInsights} disabled={loadingInsights}>{loadingInsights ? <RefreshCw className="size-4 animate-spin" /> : null}{text.refreshInsights}</Button><Button variant="outline" size="sm" onClick={loadFit} disabled={loadingFit}>{loadingFit ? <RefreshCw className="size-4 animate-spin" /> : null}{text.refreshFit}</Button></div>}
-      >
+      <div className="rounded-[2rem] border border-border/50 bg-card/50 p-6">
+        <div className="mb-4 flex flex-wrap gap-2">
+          <Button variant="outline" size="sm" onClick={loadInsights} disabled={loadingInsights}>
+            {loadingInsights ? <RefreshCw className="size-4 animate-spin" /> : null}
+            {text.refreshInsights}
+          </Button>
+          <Button variant="outline" size="sm" onClick={loadFit} disabled={loadingFit}>
+            {loadingFit ? <RefreshCw className="size-4 animate-spin" /> : null}
+            {text.refreshFit}
+          </Button>
+        </div>
         <div className="space-y-4">
           {error ? <div className="rounded-2xl border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive">{error}</div> : null}
           {insights ? (
-            <div className="space-y-4">
-              <AITagList tags={insights.vibeTags} />
-              <div className="rounded-2xl border border-border/50 bg-background/50 p-4">
-                <h3 className="text-sm font-semibold uppercase tracking-[0.16em] text-muted-foreground">{text.warningHeading}</h3>
-                <p className="mt-2 text-sm text-muted-foreground">{insights.contentWarning}</p>
-              </div>
+            <div className="rounded-2xl border border-border/50 bg-background/50 p-4">
+              <h3 className="text-sm font-semibold uppercase tracking-[0.16em] text-muted-foreground">{text.warningHeading}</h3>
+              <p className="mt-2 text-sm text-muted-foreground">{insights.contentWarning}</p>
             </div>
           ) : <div className="rounded-2xl border border-border/50 bg-background/50 p-4 text-sm text-muted-foreground">{text.insightsEmpty}</div>}
           {fit ? (
@@ -112,7 +110,7 @@ export function AITitlePanel({ media, initialInsights, initialFit, hasProfileSig
             </div>
           ) : hasProfileSignals ? <div className="rounded-2xl border border-border/50 bg-background/50 p-4 text-sm text-muted-foreground">{text.fitRetry}</div> : <div className="rounded-2xl border border-border/50 bg-background/50 p-4 text-sm text-muted-foreground">{text.fitHint}</div>}
         </div>
-      </AIPanelShell>
+      </div>
 
       <AIComparePanel leftPreset={{ title: media.title, mediaType: media.mediaType }} />
     </div>

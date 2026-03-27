@@ -6,7 +6,7 @@ import { CastSection, InfoPanel, TrailerSection } from "@/components/sections/de
 import { HorizontalMediaRow } from "@/components/sections/media-sections";
 import { GenreList, RatingBadge, StatPill } from "@/components/shared/ui-components";
 import { ErrorState } from "@/components/states/state-components";
-import { SummaryPanel } from "@/features/ai-chat/ai-panel";
+import { AITagList } from "@/features/ai/ai-primitives";
 import { AITitlePanel } from "@/features/ai/title-ai-panel";
 import { WhereToWatchSection } from "@/features/watch-providers/where-to-watch-section";
 import { WatchlistFeedbackControls } from "@/features/watchlist/watchlist-feedback-controls";
@@ -55,6 +55,7 @@ export default async function TvPage({ params }: TvPageProps) {
       filterMediaForViewerAge(series.similar),
       getInitialDetailAI(series, locale)
     ]);
+    const summaryText = initialAI.summary ?? series.overview;
 
     return (
       <AppShell>
@@ -106,16 +107,22 @@ export default async function TvPage({ params }: TvPageProps) {
                       </span>
                     ) : null}
                   </div>
-                  <GenreList genres={series.genres} />
+                  <div className="space-y-3">
+                    <GenreList genres={series.genres} />
+                    {initialAI.insights?.vibeTags?.length ? <AITagList tags={initialAI.insights.vibeTags} /> : null}
+                  </div>
                   <div className="space-y-3">
                     <div className="flex flex-wrap gap-3">
                       <WatchlistToggleButton item={series} />
                     </div>
                     <WatchlistFeedbackControls media={series} compact />
                   </div>
-                  <p className="max-w-3xl text-sm leading-7 text-muted-foreground sm:text-base">
-                    {series.overview}
-                  </p>
+                  <div className="max-w-3xl space-y-2">
+                    <div className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                      {locale === "en" ? "Quick take" : "Kurzüberblick"}
+                    </div>
+                    <p className="text-sm leading-7 text-muted-foreground sm:text-base">{summaryText}</p>
+                  </div>
                 </div>
               </div>
             </div>
@@ -125,7 +132,6 @@ export default async function TvPage({ params }: TvPageProps) {
             <div className="min-w-0 space-y-8">
               <CastSection cast={series.cast} />
               <TrailerSection videos={series.videos} />
-              <SummaryPanel media={series} initialSummary={initialAI.summary} />
               <AITitlePanel
                 media={series}
                 initialInsights={initialAI.insights}
@@ -195,5 +201,3 @@ export default async function TvPage({ params }: TvPageProps) {
     );
   }
 }
-
-
