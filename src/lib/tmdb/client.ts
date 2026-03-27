@@ -1,12 +1,19 @@
 import "server-only";
 
 import { getTmdbEnv, isTmdbConfigured } from "@/lib/env";
+import type { Locale } from "@/lib/i18n/types";
+
 const TMDB_BASE_URL = "https://api.themoviedb.org/3";
+
+export function getTmdbLanguage(locale: Locale = "de") {
+  return locale === "en" ? "en-US" : "de-DE";
+}
 
 export async function fetchTmdb<T>(
   path: string,
   params?: Record<string, string | number | undefined>,
-  init?: RequestInit
+  init?: RequestInit,
+  locale: Locale = "de"
 ) {
   if (!isTmdbConfigured()) {
     throw new Error("TMDB_API_KEY oder TMDB_ACCESS_TOKEN fehlt.");
@@ -19,7 +26,7 @@ export async function fetchTmdb<T>(
   }
 
   const searchParams = new URLSearchParams();
-  searchParams.set("language", "de-DE");
+  searchParams.set("language", getTmdbLanguage(locale));
 
   for (const [key, value] of Object.entries(params ?? {})) {
     if (value !== undefined && value !== "") {

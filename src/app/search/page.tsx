@@ -1,4 +1,4 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 
 import { AppShell } from "@/components/layout/app-shell";
 import { MediaGrid } from "@/components/sections/media-sections";
@@ -61,7 +61,7 @@ function interleavePopularItems(movieItems: MediaListItem[], tvItems: MediaListI
   return items.slice(0, POPULAR_PAGE_SIZE);
 }
 
-async function getPopularStartingPoints(page: number) {
+async function getPopularStartingPoints(page: number, locale: "de" | "en") {
   const requestedPage = Math.max(1, page);
   const movieStartPage = (requestedPage - 1) * FEED_PAGE_COUNT + 1;
   const tvStartPage = (requestedPage - 1) * FEED_PAGE_COUNT + 1;
@@ -69,8 +69,8 @@ async function getPopularStartingPoints(page: number) {
   const tvPages = Array.from({ length: FEED_PAGE_COUNT }, (_, index) => tvStartPage + index);
 
   const [movieResponses, tvResponses] = await Promise.all([
-    Promise.all(moviePages.map(currentPage => getPopularMovies(currentPage))),
-    Promise.all(tvPages.map(currentPage => getPopularTv(currentPage)))
+    Promise.all(moviePages.map(currentPage => getPopularMovies(currentPage, locale))),
+    Promise.all(tvPages.map(currentPage => getPopularTv(currentPage, locale)))
   ]);
 
   const movieItems = movieResponses.flatMap(response => response.items).slice(0, FEED_SPLIT_SIZE);
@@ -86,7 +86,7 @@ async function getPopularStartingPoints(page: number) {
 }
 
 export default async function SearchPage({ searchParams }: SearchPageProps) {
-  const { dictionary } = await getServerDictionary();
+  const { dictionary, locale } = await getServerDictionary();
   const rawSearchParams = await searchParams;
   const parsed = searchParamsSchema.parse({
     q: rawSearchParams.q,
@@ -97,7 +97,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
 
   try {
     const searchResult = parsed.q
-      ? await searchMediaWithFallback({ query: parsed.q, mediaType: parsed.type, page: parsed.page })
+      ? await searchMediaWithFallback({ query: parsed.q, mediaType: parsed.type, page: parsed.page, locale })
       : { items: [], appliedQuery: parsed.q, fallbackUsed: false, page: 1, totalPages: 1, totalResults: 0 };
 
     const safeResults = await filterMediaForViewerAge(searchResult.items);
@@ -116,7 +116,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
 
     const popularStartingPoints =
       parsed.q.trim().length === 0
-        ? await getPopularStartingPoints(parsed.page)
+        ? await getPopularStartingPoints(parsed.page, locale)
         : { items: [], page: 1, totalPages: 1 };
     const discoveryItems =
       parsed.q.trim().length === 0

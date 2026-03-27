@@ -1,4 +1,4 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 
 import { AppShell } from "@/components/layout/app-shell";
 import { MediaGrid } from "@/components/sections/media-sections";
@@ -53,8 +53,8 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
 
   try {
     const [{ movieList, tvList }, result] = await Promise.all([
-      getGenreMaps(),
-      getDiscoverResults(parsed)
+      getGenreMaps(locale),
+      getDiscoverResults({ ...parsed, locale })
     ]);
     const safeItems = await filterMediaForViewerAge(result.items);
     const totalPages = Math.max(1, Math.min(result.totalPages, 167));
@@ -146,3 +146,4 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
     );
   }
 }
+

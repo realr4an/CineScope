@@ -1,5 +1,6 @@
-﻿import { fetchTmdb } from "@/lib/tmdb/client";
+import { fetchTmdb } from "@/lib/tmdb/client";
 import { mapMediaListItem } from "@/lib/tmdb/mappers";
+import type { Locale } from "@/lib/i18n/types";
 import type { TmdbGenre, TmdbPaginatedResponse } from "@/lib/tmdb/types";
 
 const TMDB_PAGE_SIZE = 20;
@@ -7,13 +8,13 @@ const DISCOVER_PAGE_SIZE = 60;
 const TMDB_MAX_PAGES = 500;
 const TMDB_PAGES_PER_DISCOVER_PAGE = DISCOVER_PAGE_SIZE / TMDB_PAGE_SIZE;
 
-export async function getGenres(mediaType: "movie" | "tv") {
-  const response = await fetchTmdb<{ genres: TmdbGenre[] }>(`/genre/${mediaType}/list`);
+export async function getGenres(mediaType: "movie" | "tv", locale: Locale = "de") {
+  const response = await fetchTmdb<{ genres: TmdbGenre[] }>(`/genre/${mediaType}/list`, undefined, undefined, locale);
   return response.genres;
 }
 
-export async function getGenreMaps() {
-  const [movieGenres, tvGenres] = await Promise.all([getGenres("movie"), getGenres("tv")]);
+export async function getGenreMaps(locale: Locale = "de") {
+  const [movieGenres, tvGenres] = await Promise.all([getGenres("movie", locale), getGenres("tv", locale)]);
 
   return {
     movieGenres: new Map(movieGenres.map(genre => [genre.id, genre])),
@@ -30,8 +31,10 @@ export async function getDiscoverResults(input: {
   rating?: number;
   page: number;
   sort: string;
+  locale?: Locale;
 }) {
-  const { movieGenres, tvGenres } = await getGenreMaps();
+  const locale = input.locale ?? "de";
+  const { movieGenres, tvGenres } = await getGenreMaps(locale);
   const genresById = input.mediaType === "movie" ? movieGenres : tvGenres;
 
   const releaseField =
@@ -50,7 +53,7 @@ export async function getDiscoverResults(input: {
         page,
         "vote_average.gte": input.rating,
         [releaseField]: input.year
-      })
+      }, undefined, locale)
     )
   );
 

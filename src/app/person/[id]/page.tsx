@@ -1,4 +1,4 @@
-﻿import { AppShell } from "@/components/layout/app-shell";
+import { AppShell } from "@/components/layout/app-shell";
 import { MediaGrid } from "@/components/sections/media-sections";
 import { ErrorState } from "@/components/states/state-components";
 import { AIPersonInsightsPanel } from "@/features/ai/person-insights-panel";
@@ -10,7 +10,7 @@ import { getPersonDetail } from "@/lib/tmdb/people";
 type PersonPageProps = { params: Promise<{ id: string }> };
 
 export default async function PersonPage({ params }: PersonPageProps) {
-  const { dictionary } = await getServerDictionary();
+  const { dictionary, locale } = await getServerDictionary();
   const isEnglish = dictionary.common.language === "Language";
   const text = isEnglish
     ? {
@@ -37,7 +37,7 @@ export default async function PersonPage({ params }: PersonPageProps) {
   const { id } = await params;
 
   try {
-    const person = await getPersonDetail(Number(id));
+    const person = await getPersonDetail(Number(id), locale);
     const safeCredits = await filterMediaForViewerAge(person.credits);
 
     return (

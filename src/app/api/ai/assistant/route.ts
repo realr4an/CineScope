@@ -68,7 +68,7 @@ async function ensureResolvedMediaAllowed(
   locale: Locale
 ) {
   const text = getText(locale);
-  const resolved = await resolveMediaAIContext(input);
+  const resolved = await resolveMediaAIContext({ ...input, locale });
 
   if (!resolved) {
     return {
@@ -182,7 +182,7 @@ export async function POST(request: Request) {
       }
 
       case "priority": {
-        const titles = await getManyMediaAIContexts(parsed.data.items);
+        const titles = await getManyMediaAIContexts(parsed.data.items, locale);
         const data = await askOpenRouterJson(
           priorityPrompt(
             {
@@ -193,7 +193,7 @@ export async function POST(request: Request) {
           ),
           aiPriorityResponseSchema
         );
-        const order = await resolveAIPicks(data.order);
+        const order = await resolveAIPicks(data.order, locale);
 
         return NextResponse.json({
           mode: "priority",
@@ -229,7 +229,7 @@ export async function POST(request: Request) {
           ),
           aiAssistantResponseSchema
         );
-        const picks = await resolveAllowedAIPicks(data.picks);
+        const picks = await resolveAllowedAIPicks(data.picks, locale);
 
         return NextResponse.json({
           mode: "assistant",
@@ -268,7 +268,7 @@ export async function POST(request: Request) {
       }
 
       case "person_insights": {
-        const person = await getPersonAIContext(parsed.data.personId);
+        const person = await getPersonAIContext(parsed.data.personId, locale);
         const data = await askOpenRouterJson(
           personInsightsPrompt(person, locale),
           aiPersonInsightsResponseSchema

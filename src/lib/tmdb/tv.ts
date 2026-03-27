@@ -2,6 +2,7 @@ import { getMediaAgeCertification } from "@/lib/age-gate/server";
 import { fetchTmdb } from "@/lib/tmdb/client";
 import { getGenreMaps } from "@/lib/tmdb/discover";
 import { mapMediaListItem, mapTvDetail } from "@/lib/tmdb/mappers";
+import type { Locale } from "@/lib/i18n/types";
 import type {
   TmdbCreditsResponse,
   TmdbPaginatedResponse,
@@ -9,15 +10,15 @@ import type {
   TmdbVideosResponse
 } from "@/lib/tmdb/types";
 
-export async function getTrendingTv() {
-  const { tvGenres } = await getGenreMaps();
-  const response = await fetchTmdb<TmdbPaginatedResponse<any>>("/trending/tv/week");
+export async function getTrendingTv(locale: Locale = "de") {
+  const { tvGenres } = await getGenreMaps(locale);
+  const response = await fetchTmdb<TmdbPaginatedResponse<any>>("/trending/tv/week", undefined, undefined, locale);
   return response.results.map(item => mapMediaListItem(item, "tv", tvGenres));
 }
 
-export async function getPopularTv(page = 1) {
-  const { tvGenres } = await getGenreMaps();
-  const response = await fetchTmdb<TmdbPaginatedResponse<any>>("/tv/popular", { page });
+export async function getPopularTv(page = 1, locale: Locale = "de") {
+  const { tvGenres } = await getGenreMaps(locale);
+  const response = await fetchTmdb<TmdbPaginatedResponse<any>>("/tv/popular", { page }, undefined, locale);
   return {
     items: response.results.map(item => mapMediaListItem(item, "tv", tvGenres)),
     page: response.page,
@@ -26,13 +27,13 @@ export async function getPopularTv(page = 1) {
   };
 }
 
-export async function getTvDetail(id: number) {
-  const { tvGenres } = await getGenreMaps();
+export async function getTvDetail(id: number, locale: Locale = "de") {
+  const { tvGenres } = await getGenreMaps(locale);
   const [details, credits, videos, similar, ageCertification] = await Promise.all([
-    fetchTmdb<TmdbTvDetails>(`/tv/${id}`),
-    fetchTmdb<TmdbCreditsResponse>(`/tv/${id}/credits`),
-    fetchTmdb<TmdbVideosResponse>(`/tv/${id}/videos`),
-    fetchTmdb<TmdbPaginatedResponse<any>>(`/tv/${id}/similar`),
+    fetchTmdb<TmdbTvDetails>(`/tv/${id}`, undefined, undefined, locale),
+    fetchTmdb<TmdbCreditsResponse>(`/tv/${id}/credits`, undefined, undefined, locale),
+    fetchTmdb<TmdbVideosResponse>(`/tv/${id}/videos`, undefined, undefined, locale),
+    fetchTmdb<TmdbPaginatedResponse<any>>(`/tv/${id}/similar`, undefined, undefined, locale),
     getMediaAgeCertification("tv", id)
   ]);
 

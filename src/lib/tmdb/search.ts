@@ -1,7 +1,8 @@
-﻿import { getSearchFallbackQueries } from "@/lib/ai/search-query";
+import { getSearchFallbackQueries } from "@/lib/ai/search-query";
 import { fetchTmdb } from "@/lib/tmdb/client";
 import { getGenreMaps } from "@/lib/tmdb/discover";
 import { mapMediaListItem } from "@/lib/tmdb/mappers";
+import type { Locale } from "@/lib/i18n/types";
 import type { MediaListItem } from "@/types/media";
 import type { TmdbPaginatedResponse } from "@/lib/tmdb/types";
 
@@ -14,6 +15,7 @@ async function runTmdbSearch(input: {
   query: string;
   mediaType: "all" | "movie" | "tv";
   page?: number;
+  locale?: Locale;
 }) {
   if (!input.query.trim()) {
     return {
@@ -24,7 +26,8 @@ async function runTmdbSearch(input: {
     };
   }
 
-  const { movieGenres, tvGenres } = await getGenreMaps();
+  const locale = input.locale ?? "de";
+  const { movieGenres, tvGenres } = await getGenreMaps(locale);
   const requestedPage = Math.max(1, input.page ?? 1);
   const tmdbStartPage = (requestedPage - 1) * TMDB_PAGES_PER_SEARCH_PAGE + 1;
   const tmdbPages = Array.from({ length: TMDB_PAGES_PER_SEARCH_PAGE }, (_, index) => tmdbStartPage + index)
@@ -36,7 +39,7 @@ async function runTmdbSearch(input: {
         fetchTmdb<TmdbPaginatedResponse<any>>("/search/multi", {
           query: input.query,
           page
-        })
+        }, undefined, locale)
       )
     );
 
@@ -66,7 +69,7 @@ async function runTmdbSearch(input: {
       fetchTmdb<TmdbPaginatedResponse<any>>(`/search/${type}`, {
         query: input.query,
         page
-      })
+      }, undefined, locale)
     )
   );
 
@@ -104,6 +107,7 @@ export async function searchMedia(input: {
   query: string;
   mediaType: "all" | "movie" | "tv";
   page?: number;
+  locale?: Locale;
 }) {
   return runTmdbSearch(input);
 }
@@ -112,6 +116,7 @@ export async function searchMediaWithFallback(input: {
   query: string;
   mediaType: "all" | "movie" | "tv";
   page?: number;
+  locale?: Locale;
 }) {
   const originalQuery = input.query.trim();
   const baseResult = await runTmdbSearch({ ...input, query: originalQuery });

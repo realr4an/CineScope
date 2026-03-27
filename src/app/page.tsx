@@ -1,4 +1,4 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import { Flame, Sparkles, Star, TrendingUp } from "lucide-react";
 
 import { AppShell } from "@/components/layout/app-shell";
@@ -11,14 +11,14 @@ import { getPopularMovies, getTrendingMovies } from "@/lib/tmdb/movies";
 import { getPopularTv, getTrendingTv } from "@/lib/tmdb/tv";
 
 export default async function HomePage() {
-  const { dictionary } = await getServerDictionary();
+  const { dictionary, locale } = await getServerDictionary();
 
   try {
     const [trendingMovies, trendingTv, popularMoviesResponse, popularTvResponse] = await Promise.all([
-      getTrendingMovies(),
-      getTrendingTv(),
-      getPopularMovies(),
-      getPopularTv()
+      getTrendingMovies(locale),
+      getTrendingTv(locale),
+      getPopularMovies(1, locale),
+      getPopularTv(1, locale)
     ]);
 
     const [safeTrendingMovies, safeTrendingTv, safePopularMovies, safePopularTv] =

@@ -1,4 +1,4 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import { ArrowLeft, Calendar, Layers, ShieldAlert, Star, Tv } from "lucide-react";
 
 import { AppShell } from "@/components/layout/app-shell";
@@ -28,7 +28,7 @@ export default async function TvPage({ params }: TvPageProps) {
 
   try {
     const [series, access] = await Promise.all([
-      getTvDetail(tmdbId),
+      getTvDetail(tmdbId, locale),
       getAgeAccessForMedia("tv", tmdbId)
     ]);
 
@@ -201,3 +201,4 @@ export default async function TvPage({ params }: TvPageProps) {
     );
   }
 }
+

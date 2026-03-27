@@ -1,4 +1,4 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import { ArrowLeft, Calendar, Clock, DollarSign, ShieldAlert, Star } from "lucide-react";
 
 import { AppShell } from "@/components/layout/app-shell";
@@ -28,7 +28,7 @@ export default async function MoviePage({ params }: MoviePageProps) {
 
   try {
     const [movie, access] = await Promise.all([
-      getMovieDetail(tmdbId),
+      getMovieDetail(tmdbId, locale),
       getAgeAccessForMedia("movie", tmdbId)
     ]);
 
@@ -193,3 +193,4 @@ export default async function MoviePage({ params }: MoviePageProps) {
     );
   }
 }
+

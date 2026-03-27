@@ -3,14 +3,17 @@ import "server-only";
 import { getAgeAccessForMedia } from "@/lib/age-gate/server";
 import { resolveMediaAIContext } from "@/lib/ai/context";
 import type { AIAssistantPick } from "@/lib/ai/types";
+import type { Locale } from "@/lib/i18n/types";
 import type { MediaType } from "@/types/media";
 
 export async function resolveAIPick<T extends { title: string; mediaType: MediaType }>(
-  pick: T
+  pick: T,
+  locale: Locale = "de"
 ) {
   const resolved = await resolveMediaAIContext({
     query: pick.title,
-    mediaType: pick.mediaType
+    mediaType: pick.mediaType,
+    locale
   });
 
   if (!resolved) {
@@ -28,17 +31,20 @@ export async function resolveAIPick<T extends { title: string; mediaType: MediaT
 }
 
 export async function resolveAIPicks<T extends { title: string; mediaType: MediaType }>(
-  picks: T[]
+  picks: T[],
+  locale: Locale = "de"
 ) {
-  return Promise.all(picks.map(resolveAIPick));
+  return Promise.all(picks.map(pick => resolveAIPick(pick, locale)));
 }
 
 export async function resolveAllowedAIPick<T extends { title: string; mediaType: MediaType }>(
-  pick: T
+  pick: T,
+  locale: Locale = "de"
 ) {
   const resolved = await resolveMediaAIContext({
     query: pick.title,
-    mediaType: pick.mediaType
+    mediaType: pick.mediaType,
+    locale
   });
 
   if (!resolved) {
@@ -59,9 +65,10 @@ export async function resolveAllowedAIPick<T extends { title: string; mediaType:
 }
 
 export async function resolveAllowedAIPicks<T extends { title: string; mediaType: MediaType }>(
-  picks: T[]
+  picks: T[],
+  locale: Locale = "de"
 ) {
-  const resolved = await Promise.all(picks.map(resolveAllowedAIPick));
+  const resolved = await Promise.all(picks.map(pick => resolveAllowedAIPick(pick, locale)));
 
   return resolved.filter(Boolean) as Array<
     T & {

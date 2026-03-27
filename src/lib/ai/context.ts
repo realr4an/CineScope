@@ -1,10 +1,11 @@
-﻿import "server-only";
+import "server-only";
 
 import { getMovieDetail } from "@/lib/tmdb/movies";
 import { getPersonDetail } from "@/lib/tmdb/people";
 import { searchMedia } from "@/lib/tmdb/search";
 import { getTvDetail } from "@/lib/tmdb/tv";
 import type { AIPersonContext, AITitleContext } from "@/lib/ai/types";
+import type { Locale } from "@/lib/i18n/types";
 import type { MediaType, MovieDetail, TvDetail } from "@/types/media";
 
 export function mapMediaDetailToAIContext(detail: MovieDetail | TvDetail): AITitleContext {
@@ -28,9 +29,9 @@ export function mapMediaDetailToAIContext(detail: MovieDetail | TvDetail): AITit
   };
 }
 
-export async function getMediaAIContext(mediaType: MediaType, tmdbId: number) {
+export async function getMediaAIContext(mediaType: MediaType, tmdbId: number, locale: Locale = "de") {
   const detail =
-    mediaType === "movie" ? await getMovieDetail(tmdbId) : await getTvDetail(tmdbId);
+    mediaType === "movie" ? await getMovieDetail(tmdbId, locale) : await getTvDetail(tmdbId, locale);
 
   return mapMediaDetailToAIContext(detail);
 }
@@ -38,10 +39,13 @@ export async function getMediaAIContext(mediaType: MediaType, tmdbId: number) {
 export async function resolveMediaAIContext(input: {
   query: string;
   mediaType?: "all" | MediaType;
+  locale?: Locale;
 }) {
+  const locale = input.locale ?? "de";
   const results = await searchMedia({
     query: input.query,
-    mediaType: input.mediaType ?? "all"
+    mediaType: input.mediaType ?? "all",
+    locale
   });
 
   const normalizedQuery = input.query.toLowerCase().trim();
@@ -56,7 +60,7 @@ export async function resolveMediaAIContext(input: {
     return null;
   }
 
-  const context = await getMediaAIContext(match.mediaType, match.tmdbId);
+  const context = await getMediaAIContext(match.mediaType, match.tmdbId, locale);
 
   return {
     context,
@@ -64,8 +68,8 @@ export async function resolveMediaAIContext(input: {
   };
 }
 
-export async function getPersonAIContext(id: number): Promise<AIPersonContext> {
-  const person = await getPersonDetail(id);
+export async function getPersonAIContext(id: number, locale: Locale = "de"): Promise<AIPersonContext> {
+  const person = await getPersonDetail(id, locale);
 
   return {
     id: person.id,
@@ -85,10 +89,11 @@ export async function getPersonAIContext(id: number): Promise<AIPersonContext> {
 }
 
 export async function getManyMediaAIContexts(
-  items: Array<{ tmdbId: number; mediaType: MediaType }>
+  items: Array<{ tmdbId: number; mediaType: MediaType }>,
+  locale: Locale = "de"
 ) {
   const contexts = await Promise.all(
-    items.map(item => getMediaAIContext(item.mediaType, item.tmdbId))
+    items.map(item => getMediaAIContext(item.mediaType, item.tmdbId, locale))
   );
 
   return contexts;

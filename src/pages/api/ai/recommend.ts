@@ -1,4 +1,4 @@
-﻿import type { NextApiRequest, NextApiResponse } from "next";
+import type { NextApiRequest, NextApiResponse } from "next";
 
 import { resolveAllowedAIPicks } from "@/lib/ai/formatters";
 import { askOpenRouter } from "@/lib/ai/openrouter";
@@ -65,7 +65,7 @@ export default async function handler(
             candidate.mediaType === recommendation.mediaType
         ) === index
     );
-    const resolvedRecommendations = await resolveAllowedAIPicks(dedupedRecommendations);
+    const resolvedRecommendations = await resolveAllowedAIPicks(dedupedRecommendations, locale);
 
     return response.status(200).json({
       recommendations: resolvedRecommendations,
