@@ -140,9 +140,16 @@ export function AIAssistantPanel() {
     <AIPanelShell
       title={text.title}
       description={text.description}
-      actions={<Button onClick={submit} disabled={loading}>{loading ? <RefreshCw className="size-4 animate-spin" /> : null}{text.button}</Button>}
+      actions={<Button type="submit" form="ai-assistant-form" disabled={loading}>{loading ? <RefreshCw className="size-4 animate-spin" /> : null}{text.button}</Button>}
     >
-      <div className="space-y-4">
+      <form
+        id="ai-assistant-form"
+        onSubmit={event => {
+          event.preventDefault();
+          submit();
+        }}
+        className="space-y-4"
+      >
         <div className="flex flex-wrap gap-2">
           {text.quickPrompts.map(quickPrompt => (
             <button key={quickPrompt} type="button" onClick={() => setPrompt(quickPrompt)} className="rounded-full border border-border/50 bg-background/50 px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:border-primary/30 hover:text-foreground">
@@ -151,7 +158,12 @@ export function AIAssistantPanel() {
           ))}
         </div>
 
-        <textarea value={prompt} onChange={event => setPrompt(event.target.value)} placeholder={text.promptPlaceholder} className="min-h-28 w-full rounded-2xl border border-border/60 bg-background/70 px-4 py-3 text-sm outline-none transition-colors focus:border-primary/40 focus:ring-2 focus:ring-primary/30" />
+        <textarea value={prompt} onChange={event => setPrompt(event.target.value)} onKeyDown={event => {
+          if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
+            event.preventDefault();
+            submit();
+          }
+        }} placeholder={text.promptPlaceholder} className="min-h-28 w-full rounded-2xl border border-border/60 bg-background/70 px-4 py-3 text-sm outline-none transition-colors focus:border-primary/40 focus:ring-2 focus:ring-primary/30" />
 
         <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
           <select value={mediaType} onChange={event => setMediaType(event.target.value as "all" | "movie" | "tv")} className="h-11 rounded-xl border border-border/60 bg-background px-3 text-sm">
@@ -188,7 +200,7 @@ export function AIAssistantPanel() {
         ) : (
           <div className="rounded-2xl border border-border/50 bg-background/50 p-4 text-sm text-muted-foreground">{text.noAllowed}</div>
         )) : null}
-      </div>
+      </form>
     </AIPanelShell>
   );
 }

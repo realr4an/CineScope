@@ -37,7 +37,13 @@ export function SearchForm({
   };
 
   return (
-    <div className="space-y-4 rounded-[2rem] border border-border/50 bg-card/50 p-5">
+    <form
+      onSubmit={event => {
+        event.preventDefault();
+        submit();
+      }}
+      className="space-y-4 rounded-[2rem] border border-border/50 bg-card/50 p-5"
+    >
       <SearchField
         value={query}
         onChange={setQuery}
@@ -66,10 +72,10 @@ export function SearchForm({
           <option value="rating">{dictionary.searchForm.rating}</option>
           <option value="release_date">{dictionary.searchForm.releaseDate}</option>
         </select>
-        <Button onClick={submit} disabled={isPending}>
+        <Button type="submit" disabled={isPending}>
           {dictionary.searchForm.search}
         </Button>
       </div>
-    </div>
+    </form>
   );
 }

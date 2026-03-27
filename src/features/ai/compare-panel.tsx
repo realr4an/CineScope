@@ -271,9 +271,16 @@ export function AIComparePanel({ leftPreset }: { leftPreset?: { title: string; m
     <AIPanelShell
       title={text.title}
       description={text.description}
-      actions={<Button onClick={submit} disabled={loading}>{loading ? <RefreshCw className="size-4 animate-spin" /> : null}{text.button}</Button>}
+      actions={<Button type="submit" form="ai-compare-form" disabled={loading}>{loading ? <RefreshCw className="size-4 animate-spin" /> : null}{text.button}</Button>}
     >
-      <div className="space-y-4">
+      <form
+        id="ai-compare-form"
+        onSubmit={event => {
+          event.preventDefault();
+          submit();
+        }}
+        className="space-y-4"
+      >
         <div className="grid gap-3 md:grid-cols-2">
           <div className="space-y-2">
             {!leftPreset ? (
@@ -335,7 +342,7 @@ export function AIComparePanel({ leftPreset }: { leftPreset?: { title: string; m
             <p className="text-sm text-muted-foreground">{result.data.guidance}</p>
           </div>
         ) : null}
-      </div>
+      </form>
     </AIPanelShell>
   );
 }

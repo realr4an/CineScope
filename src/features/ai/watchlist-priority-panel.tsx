@@ -114,14 +114,21 @@ export function AIWatchlistPriorityPanel({
           <Button variant="outline" onClick={onClearSelection} disabled={!selectedItems.length || loading}>
             {text.clear}
           </Button>
-          <Button onClick={submit} disabled={loading || selectedItems.length < 2}>
+          <Button type="submit" form="watchlist-priority-form" disabled={loading || selectedItems.length < 2}>
             {loading ? <RefreshCw className="size-4 animate-spin" /> : null}
             {text.button}
           </Button>
         </div>
       }
     >
-      <div className="space-y-4">
+      <form
+        id="watchlist-priority-form"
+        onSubmit={event => {
+          event.preventDefault();
+          submit();
+        }}
+        className="space-y-4"
+      >
         <div className="rounded-2xl border border-border/50 bg-background/50 p-4 text-sm text-muted-foreground">
           <p>{text.helper}</p>
           <p className="mt-2 text-xs uppercase tracking-[0.16em] text-primary">
@@ -172,7 +179,7 @@ export function AIWatchlistPriorityPanel({
             <AIPicksGrid picks={result.order} ordered emptyText={text.empty} />
           </div>
         ) : null}
-      </div>
+      </form>
     </AIPanelShell>
   );
 }
