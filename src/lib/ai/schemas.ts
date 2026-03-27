@@ -1,4 +1,4 @@
-import { z } from "zod";
+﻿import { z } from "zod";
 
 const feedbackSchema = z.object({
   title: z.string().min(1).max(200),
@@ -74,7 +74,7 @@ export const aiPriorityResponseSchema = z.object({
       })
     )
     .min(2)
-    .max(5)
+    .max(10)
 });
 
 export const aiAssistantResponseSchema = z.object({
@@ -117,7 +117,7 @@ export const aiActionSchema = z.discriminatedUnion("mode", [
   }),
   z.object({
     mode: z.literal("priority"),
-    items: z.array(selectedMediaSchema).min(2).max(5),
+    items: z.array(selectedMediaSchema).min(2).max(10),
     context: z.string().trim().max(200).optional()
   }),
   z.object({
@@ -127,9 +127,7 @@ export const aiActionSchema = z.discriminatedUnion("mode", [
     timeBudget: z.string().trim().max(120).optional(),
     mood: z.string().trim().max(120).optional(),
     intensity: z.enum(["easy", "balanced", "intense"]).optional(),
-    socialContext: z
-      .enum(["solo", "parents", "friends", "date", "family"])
-      .optional(),
+    socialContext: z.enum(["solo", "parents", "friends", "date", "family"]).optional(),
     referenceTitles: z.array(aiTitleReferenceSchema).max(3).default([]),
     feedback: z.array(feedbackSchema).max(50).default([])
   }),

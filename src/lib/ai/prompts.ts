@@ -1,4 +1,4 @@
-import type { AIPersonContext, AITitleContext } from "@/lib/ai/types";
+﻿import type { AIPersonContext, AITitleContext } from "@/lib/ai/types";
 
 type RecommendationFeedbackItem = {
   title: string;
@@ -148,7 +148,12 @@ ${baseGuardrails()}
 Antworte ausschließlich als JSON im Format:
 {"summary":"string","order":[{"title":"string","mediaType":"movie|tv","reason":"string"}]}
 
-Priorisiere die Titel in eine sinnvolle Reihenfolge und erkläre je Titel kurz warum.
+Regeln:
+- gib eine vollständige Reihenfolge für alle bereitgestellten Titel zurück
+- halte die Reihenfolge explizit und nummerierbar
+- wenn die Titel erkennbar zu einer Reihe oder Franchise gehören, liefere eine klare Watch Order
+- erkläre je Titel kurz, warum er genau an dieser Position steht
+- wenn es unterschiedliche sinnvolle Wege gäbe, entscheide dich für einen klaren Hauptpfad und erwähne die Logik kurz in der summary
 
 ${input.context ? `Nutzerkontext:\n${input.context}\n` : ""}
 Kandidaten:

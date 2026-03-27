@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { ExternalLink, Sparkles } from "lucide-react";
@@ -56,10 +56,12 @@ export function AITagList({ tags }: { tags: string[] }) {
 
 export function AIPicksGrid({
   picks,
-  emptyText = "Noch keine Vorschläge."
+  emptyText = "Noch keine Vorschläge.",
+  ordered = false
 }: {
   picks: AIAssistantPick[];
   emptyText?: string;
+  ordered?: boolean;
 }) {
   if (!picks.length) {
     return <p className="text-sm text-muted-foreground">{emptyText}</p>;
@@ -67,18 +69,22 @@ export function AIPicksGrid({
 
   return (
     <div className="grid gap-3 md:grid-cols-2">
-      {picks.map(pick => (
+      {picks.map((pick, index) => (
         <Link
           key={`${pick.mediaType}-${pick.title}`}
-          href={
-            pick.href ??
-            `/search?q=${encodeURIComponent(pick.title)}&type=${pick.mediaType}`
-          }
+          href={pick.href ?? `/search?q=${encodeURIComponent(pick.title)}&type=${pick.mediaType}`}
           className="group rounded-2xl border border-border/50 bg-background/60 p-4 transition-colors hover:border-primary/40 hover:bg-background/80"
         >
           <div className="flex items-start justify-between gap-3">
-            <div className="text-xs uppercase tracking-[0.18em] text-primary">
-              {pick.mediaType === "movie" ? "Film" : "Serie"}
+            <div className="flex items-center gap-3">
+              {ordered ? (
+                <div className="flex size-8 shrink-0 items-center justify-center rounded-full border border-primary/35 bg-primary/10 text-sm font-bold text-primary">
+                  {index + 1}
+                </div>
+              ) : null}
+              <div className="text-xs uppercase tracking-[0.18em] text-primary">
+                {pick.mediaType === "movie" ? "Film" : "Serie"}
+              </div>
             </div>
             <ExternalLink className="size-4 text-muted-foreground transition-colors group-hover:text-primary" />
           </div>
@@ -87,9 +93,7 @@ export function AIPicksGrid({
           </h3>
           <p className="mt-2 text-sm text-muted-foreground">{pick.reason}</p>
           {pick.comparableTitle ? (
-            <p className="mt-3 text-xs text-muted-foreground">
-              Referenz: {pick.comparableTitle}
-            </p>
+            <p className="mt-3 text-xs text-muted-foreground">Referenz: {pick.comparableTitle}</p>
           ) : null}
         </Link>
       ))}
@@ -110,4 +114,3 @@ export function AIRetry({
     </Button>
   );
 }
-
