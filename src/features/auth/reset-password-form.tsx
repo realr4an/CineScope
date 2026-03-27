@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -7,6 +7,7 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useLanguage } from "@/features/i18n/language-provider";
 import { createSupabaseBrowserClient, isSupabaseConfigured } from "@/lib/supabase/client";
 
 function getHashParams() {
@@ -25,10 +26,11 @@ export function ResetPasswordForm() {
   const [ready, setReady] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const router = useRouter();
+  const { dictionary } = useLanguage();
 
   useEffect(() => {
     if (!isSupabaseConfigured()) {
-      setErrorMessage("Supabase ist nicht konfiguriert.");
+      setErrorMessage(dictionary.auth.supabaseNotConfigured);
       setVerifying(false);
       return;
     }
@@ -75,7 +77,7 @@ export function ResetPasswordForm() {
         }
 
         if (!session) {
-          setErrorMessage("Der Reset-Link ist ungueltig oder abgelaufen. Bitte fordere einen neuen an.");
+          setErrorMessage(dictionary.auth.invalidResetLink);
           setReady(false);
           setVerifying(false);
           return;
@@ -89,7 +91,7 @@ export function ResetPasswordForm() {
         }
 
         setErrorMessage(
-          error instanceof Error ? error.message : "Reset-Link konnte nicht verifiziert werden."
+          error instanceof Error ? error.message : dictionary.auth.verifyResetError
         );
         setReady(false);
         setVerifying(false);
@@ -101,7 +103,7 @@ export function ResetPasswordForm() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [dictionary.auth.invalidResetLink, dictionary.auth.supabaseNotConfigured, dictionary.auth.verifyResetError]);
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -111,12 +113,12 @@ export function ResetPasswordForm() {
     }
 
     if (password.length < 8) {
-      toast.error("Das Passwort muss mindestens 8 Zeichen haben.");
+      toast.error(dictionary.auth.passwordTooShort);
       return;
     }
 
     if (password !== confirmPassword) {
-      toast.error("Die PasswÖrter stimmen nicht Überein.");
+      toast.error(dictionary.auth.passwordsNoMatch);
       return;
     }
 
@@ -130,18 +132,18 @@ export function ResetPasswordForm() {
         throw error;
       }
 
-      toast.success("Passwort aktualisiert. Du kannst dich jetzt einloggen.");
+      toast.success(dictionary.auth.passwordUpdated);
       router.push("/auth/login");
       router.refresh();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Passwort konnte nicht aktualisiert werden.");
+      toast.error(error instanceof Error ? error.message : dictionary.auth.updatePasswordError);
     } finally {
       setLoading(false);
     }
   };
 
   if (verifying) {
-    return <p className="text-sm text-muted-foreground">Reset-Link wird verifiziert...</p>;
+    return <p className="text-sm text-muted-foreground">{dictionary.auth.resetLinkChecking}</p>;
   }
 
   if (errorMessage) {
@@ -149,11 +151,11 @@ export function ResetPasswordForm() {
       <div className="space-y-4">
         <p className="text-sm text-destructive">{errorMessage}</p>
         <p className="text-sm text-muted-foreground">
-          Fordere einen neuen Link unter{" "}
+          {dictionary.auth.requestNewLinkStart}{" "}
           <Link href="/auth/forgot-password" className="text-primary">
-            Passwort vergessen
+            {dictionary.auth.forgotPassword}
           </Link>{" "}
-          an.
+          {dictionary.auth.requestNewLinkEnd}
         </p>
       </div>
     );
@@ -162,29 +164,29 @@ export function ResetPasswordForm() {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="space-y-2">
-        <label className="text-sm font-medium">Neues Passwort</label>
+        <label className="text-sm font-medium">{dictionary.auth.newPassword}</label>
         <Input
           type="password"
           value={password}
           onChange={event => setPassword(event.target.value)}
-          placeholder="Mindestens 8 Zeichen"
+          placeholder={dictionary.auth.minEight}
           minLength={8}
           required
         />
       </div>
       <div className="space-y-2">
-        <label className="text-sm font-medium">Passwort wiederholen</label>
+        <label className="text-sm font-medium">{dictionary.auth.confirmPassword}</label>
         <Input
           type="password"
           value={confirmPassword}
           onChange={event => setConfirmPassword(event.target.value)}
-          placeholder="Passwort bestaetigen"
+          placeholder={dictionary.auth.confirmPasswordPlaceholder}
           minLength={8}
           required
         />
       </div>
       <Button type="submit" className="w-full" disabled={loading}>
-        Neues Passwort speichern
+        {dictionary.auth.saveNewPassword}
       </Button>
     </form>
   );

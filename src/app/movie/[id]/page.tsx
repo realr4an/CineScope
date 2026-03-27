@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { ArrowLeft, Calendar, Clock, DollarSign, ShieldAlert, Star } from "lucide-react";
 
 import { AppShell } from "@/components/layout/app-shell";
@@ -13,6 +13,7 @@ import { WatchlistFeedbackControls } from "@/features/watchlist/watchlist-feedba
 import { WatchlistToggleButton } from "@/features/watchlist/watchlist-toggle-button";
 import { filterMediaForViewerAge, getAgeAccessForMedia } from "@/lib/age-gate/server";
 import { formatCurrency, formatDate, formatRuntime } from "@/lib/format";
+import { getServerDictionary } from "@/lib/i18n/server";
 import { getMovieDetail } from "@/lib/tmdb/movies";
 
 type MoviePageProps = {
@@ -20,6 +21,7 @@ type MoviePageProps = {
 };
 
 export default async function MoviePage({ params }: MoviePageProps) {
+  const { dictionary } = await getServerDictionary();
   const { id } = await params;
   const tmdbId = Number(id);
 
@@ -33,9 +35,9 @@ export default async function MoviePage({ params }: MoviePageProps) {
       return (
         <AppShell>
           <ErrorState
-            title="Dieser Titel ist fÜr dein Alter gesperrt"
-            description={`${movie.title} ist aktuell mit ${access.certification?.label ?? "einer hoeheren Altersfreigabe"} gekennzeichnet und wird deshalb ausgeblendet.`}
-            action={{ label: "Zur Startseite", href: "/" }}
+            title={dictionary.detail.titleBlocked}
+            description={`${movie.title} ${dictionary.detail.blockedDescriptionMiddle} ${access.certification?.label ?? dictionary.detail.blockedHigherRating} ${dictionary.detail.blockedDescriptionEnd}`}
+            action={{ label: dictionary.detail.backHome, href: "/" }}
           />
         </AppShell>
       );
@@ -60,7 +62,7 @@ export default async function MoviePage({ params }: MoviePageProps) {
                 className="mb-8 inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
               >
                 <ArrowLeft className="size-4" />
-                Zur Startseite
+                {dictionary.detail.backHome}
               </Link>
               <div className="grid min-w-0 gap-5 sm:gap-6 lg:grid-cols-[260px_minmax(0,1fr)] lg:items-end lg:gap-8">
                 <div className="hidden overflow-hidden rounded-3xl border border-border/50 shadow-2xl shadow-black/40 lg:block">
@@ -69,7 +71,7 @@ export default async function MoviePage({ params }: MoviePageProps) {
                 <div className="min-w-0 space-y-5">
                   <div className="space-y-2">
                     <div className="inline-flex rounded-full border border-primary/30 bg-primary/15 px-3 py-1 text-xs font-semibold text-primary">
-                      Film
+                      {dictionary.common.movie}
                     </div>
                     <h1 className="break-words text-4xl font-bold tracking-tight sm:text-5xl">{movie.title}</h1>
                     {movie.tagline ? (
@@ -118,8 +120,8 @@ export default async function MoviePage({ params }: MoviePageProps) {
               <HorizontalMediaRow
                 section={{
                   id: "similar-movies",
-                  title: "Ähnliche Filme",
-                  subtitle: "Passende Anschlusskandidaten",
+                  title: dictionary.detail.similarMovies,
+                  subtitle: dictionary.detail.similarMoviesSubtitle,
                   items: safeSimilar
                 }}
               />
@@ -127,36 +129,36 @@ export default async function MoviePage({ params }: MoviePageProps) {
             <aside className="min-w-0 space-y-4">
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
                 <StatPill
-                  label="Bewertung"
+                  label={dictionary.detail.rating}
                   value={`${movie.rating.toFixed(1)} / 10`}
                   icon={<Star className="size-4 text-amber-400" />}
                 />
                 <StatPill
-                  label="Laufzeit"
+                  label={dictionary.detail.runtime}
                   value={formatRuntime(movie.runtime)}
                   icon={<Clock className="size-4" />}
                 />
                 <StatPill
-                  label="Budget"
+                  label={dictionary.detail.budget}
                   value={formatCurrency(movie.budget)}
                   icon={<DollarSign className="size-4" />}
                 />
                 <StatPill
-                  label="Einspielergebnis"
+                  label={dictionary.detail.revenue}
                   value={formatCurrency(movie.revenue)}
                   icon={<DollarSign className="size-4" />}
                 />
               </div>
               <div className="rounded-[2rem] border border-border/50 bg-card/50 p-5">
-                <h2 className="mb-4 text-lg font-semibold">Details</h2>
+                <h2 className="mb-4 text-lg font-semibold">{dictionary.detail.details}</h2>
                 <InfoPanel
                   items={[
-                    { label: "Status", value: movie.status },
-                    { label: "Originaltitel", value: movie.originalTitle ?? "-" },
-                    { label: "VerÖffentlichung", value: formatDate(movie.releaseDate) },
-                    { label: "Originalsprache", value: movie.originalLanguage ?? "-" },
-                    { label: "Altersfreigabe", value: movie.ageCertification?.label ?? "Nicht hinterlegt" },
-                    { label: "Sprachen", value: movie.spokenLanguages.join(", ") || movie.originalLanguage || "-" }
+                    { label: dictionary.detail.status, value: movie.status },
+                    { label: dictionary.detail.originalTitle, value: movie.originalTitle ?? "-" },
+                    { label: dictionary.detail.release, value: formatDate(movie.releaseDate) },
+                    { label: dictionary.detail.originalLanguage, value: movie.originalLanguage ?? "-" },
+                    { label: dictionary.detail.ageRating, value: movie.ageCertification?.label ?? dictionary.detail.notAvailable },
+                    { label: dictionary.detail.languages, value: movie.spokenLanguages.join(", ") || movie.originalLanguage || "-" }
                   ]}
                 />
               </div>
@@ -169,8 +171,8 @@ export default async function MoviePage({ params }: MoviePageProps) {
     return (
       <AppShell>
         <ErrorState
-          title="Filmdetails konnten nicht geladen werden"
-          description={error instanceof Error ? error.message : "Unbekannter Fehler"}
+          title={dictionary.common.movie === "Movie" ? "Could not load movie details" : "Filmdetails konnten nicht geladen werden"}
+          description={error instanceof Error ? error.message : dictionary.common.unknownError}
         />
       </AppShell>
     );

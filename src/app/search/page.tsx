@@ -1,9 +1,10 @@
-import { AppShell } from "@/components/layout/app-shell";
+﻿import { AppShell } from "@/components/layout/app-shell";
 import { MediaGrid } from "@/components/sections/media-sections";
 import { SectionHeader } from "@/components/shared/ui-components";
-import { ErrorState, NoResultsState } from "@/components/states/state-components";
+import { EmptyState, ErrorState } from "@/components/states/state-components";
 import { SearchForm } from "@/features/search/search-form";
 import { filterMediaForViewerAge } from "@/lib/age-gate/server";
+import { getServerDictionary } from "@/lib/i18n/server";
 import { getPopularMovies } from "@/lib/tmdb/movies";
 import { searchMedia } from "@/lib/tmdb/search";
 import { getPopularTv } from "@/lib/tmdb/tv";
@@ -14,6 +15,7 @@ type SearchPageProps = {
 };
 
 export default async function SearchPage({ searchParams }: SearchPageProps) {
+  const { dictionary } = await getServerDictionary();
   const rawSearchParams = await searchParams;
   const parsed = searchParamsSchema.parse({
     q: rawSearchParams.q,
@@ -52,10 +54,10 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
       <AppShell>
         <div className="space-y-8">
           <div className="space-y-2">
-            <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">Suche</h1>
-            <p className="text-muted-foreground">
-              Suche Über TMDB nach Filmen und Serien mit produktionsnahen ZustÄnden.
-            </p>
+            <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
+              {dictionary.searchPage.title}
+            </h1>
+            <p className="text-muted-foreground">{dictionary.searchPage.description}</p>
           </div>
 
           <SearchForm
@@ -68,19 +70,26 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
             sortedResults.length ? (
               <div className="space-y-4">
                 <SectionHeader
-                  title={`${sortedResults.length} Ergebnisse`}
-                  subtitle={`Treffer fÜr "${parsed.q}"`}
+                  title={`${sortedResults.length} ${dictionary.searchPage.results}`}
+                  subtitle={`${dictionary.searchPage.matchesFor} "${parsed.q}"`}
                 />
                 <MediaGrid items={sortedResults} />
               </div>
             ) : (
-              <NoResultsState query={parsed.q} />
+              <EmptyState
+                title={dictionary.searchPage.title === "Search" ? "No matches found" : "Keine Treffer gefunden"}
+                description={
+                  dictionary.searchPage.title === "Search"
+                    ? `No matching movies or series were found for "${parsed.q}".`
+                    : `Für "${parsed.q}" wurden keine passenden Filme oder Serien gefunden.`
+                }
+              />
             )
           ) : (
             <div className="space-y-4">
               <SectionHeader
-                title="Beliebte Einstiege"
-                subtitle="Suche gezielt oder starte mit populaeren Titeln."
+                title={dictionary.searchPage.discoverTitle}
+                subtitle={dictionary.searchPage.discoverSubtitle}
               />
               <MediaGrid items={discoveryItems} />
             </div>
@@ -92,8 +101,8 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
     return (
       <AppShell>
         <ErrorState
-          title="Suche konnte nicht geladen werden"
-          description={error instanceof Error ? error.message : "Unbekannter Fehler"}
+          title={dictionary.searchPage.errorTitle}
+          description={error instanceof Error ? error.message : dictionary.common.unknownError}
         />
       </AppShell>
     );

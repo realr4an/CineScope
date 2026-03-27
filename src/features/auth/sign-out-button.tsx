@@ -1,21 +1,23 @@
-"use client";
+﻿"use client";
 
 import { LogOut } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { useLanguage } from "@/features/i18n/language-provider";
 import { createSupabaseBrowserClient, isSupabaseConfigured } from "@/lib/supabase/client";
 
 export function SignOutButton() {
   const router = useRouter();
+  const { dictionary } = useLanguage();
 
   return (
     <Button
       variant="ghost"
       onClick={async () => {
         if (!isSupabaseConfigured()) {
-          toast.error("Supabase ist nicht konfiguriert.");
+          toast.error(dictionary.auth.supabaseNotConfigured);
           return;
         }
 
@@ -27,13 +29,15 @@ export function SignOutButton() {
           return;
         }
 
-        toast.success("Du wurdest abgemeldet.");
+        toast.success(
+          dictionary.common.language === "Language" ? "You have been signed out." : "Du wurdest abgemeldet."
+        );
         router.push("/");
         router.refresh();
       }}
     >
       <LogOut className="size-4" />
-      Logout
+      {dictionary.common.logout}
     </Button>
   );
 }

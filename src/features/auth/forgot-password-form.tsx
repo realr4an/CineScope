@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import Link from "next/link";
@@ -6,17 +6,19 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useLanguage } from "@/features/i18n/language-provider";
 import { createSupabaseBrowserClient, isSupabaseConfigured } from "@/lib/supabase/client";
 
 export function ForgotPasswordForm() {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
+  const { dictionary } = useLanguage();
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
 
     if (!isSupabaseConfigured()) {
-      toast.error("Supabase ist nicht konfiguriert.");
+      toast.error(dictionary.auth.supabaseNotConfigured);
       return;
     }
 
@@ -38,14 +40,14 @@ export function ForgotPasswordForm() {
       return;
     }
 
-    toast.success("Reset-Link versendet. Bitte pruefe dein Postfach.");
+    toast.success(dictionary.auth.resetSent);
     setLoading(false);
   };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="space-y-2">
-        <label className="text-sm font-medium">E-Mail</label>
+        <label className="text-sm font-medium">{dictionary.auth.email}</label>
         <Input
           type="email"
           value={email}
@@ -55,12 +57,12 @@ export function ForgotPasswordForm() {
         />
       </div>
       <Button type="submit" className="w-full" disabled={loading}>
-        Reset-Link senden
+        {dictionary.auth.sendResetLink}
       </Button>
       <p className="text-sm text-muted-foreground">
-        ZurÜck zum{" "}
+        {dictionary.auth.backToLogin}{" "}
         <Link href="/auth/login" className="text-primary">
-          Login
+          {dictionary.auth.login}
         </Link>
       </p>
     </form>

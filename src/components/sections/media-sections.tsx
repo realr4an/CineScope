@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { motion } from "framer-motion";
 
@@ -6,6 +6,7 @@ import { MediaCard } from "@/components/cards/media-card";
 import { SectionHeader } from "@/components/shared/ui-components";
 import { MediaGridSkeleton, MediaRowSkeleton } from "@/components/states/skeletons";
 import { ErrorState } from "@/components/states/state-components";
+import { useLanguage } from "@/features/i18n/language-provider";
 import { useWatchlist } from "@/features/watchlist/watchlist-provider";
 import type { MediaListItem, MediaSection } from "@/types/media";
 
@@ -19,6 +20,7 @@ export function HorizontalMediaRow({
   error?: string;
 }) {
   const { isSaved, toggleItem } = useWatchlist();
+  const { dictionary } = useLanguage();
 
   if (loading) {
     return (
@@ -33,14 +35,22 @@ export function HorizontalMediaRow({
     return (
       <div className="space-y-4">
         <SectionHeader title={section.title} subtitle={section.subtitle} />
-        <ErrorState title="Inhalte konnten nicht geladen werden" description={error} />
+        <ErrorState
+          title={dictionary.common.movie === "Movie" ? "Could not load titles" : "Inhalte konnten nicht geladen werden"}
+          description={error}
+        />
       </div>
     );
   }
 
   return (
     <div className="space-y-4">
-      <SectionHeader title={section.title} subtitle={section.subtitle} href={section.href} />
+      <SectionHeader
+        title={section.title}
+        subtitle={section.subtitle}
+        href={section.href}
+        ctaLabel={dictionary.common.language === "Language" ? "View all" : "Alle anzeigen"}
+      />
       <div className="scroll-row">
         {section.items.map((item, index) => (
           <motion.div
@@ -72,13 +82,19 @@ export function MediaGrid({
   error?: string;
 }) {
   const { isSaved, toggleItem } = useWatchlist();
+  const { dictionary } = useLanguage();
 
   if (loading) {
     return <MediaGridSkeleton />;
   }
 
   if (error) {
-    return <ErrorState title="Ergebnisse konnten nicht geladen werden" description={error} />;
+    return (
+      <ErrorState
+        title={dictionary.common.language === "Language" ? "Could not load results" : "Ergebnisse konnten nicht geladen werden"}
+        description={error}
+      />
+    );
   }
 
   return (

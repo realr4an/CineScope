@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -8,26 +8,28 @@ import { useTheme } from "next-themes";
 
 import { Button } from "@/components/ui/button";
 import { SignOutButton } from "@/features/auth/sign-out-button";
+import { useLanguage } from "@/features/i18n/language-provider";
 import { useWatchlist } from "@/features/watchlist/watchlist-provider";
 import { cn } from "@/lib/utils";
-
-const NAV_ITEMS = [
-  { href: "/", label: "Entdecken", icon: Tv2 },
-  { href: "/search", label: "Suche", icon: Search },
-  { href: "/discover", label: "Kategorien", icon: Search },
-  { href: "/ai", label: "KI", icon: Sparkles },
-  { href: "/watchlist", label: "Watchlist", icon: Heart }
-];
 
 export function Header() {
   const pathname = usePathname();
   const { resolvedTheme, setTheme } = useTheme();
+  const { locale, setLocale, dictionary } = useLanguage();
   const { items, user } = useWatchlist();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  const navItems = [
+    { href: "/", label: dictionary.nav.discover, icon: Tv2 },
+    { href: "/search", label: dictionary.nav.search, icon: Search },
+    { href: "/discover", label: dictionary.nav.categories, icon: Search },
+    { href: "/ai", label: dictionary.nav.ai, icon: Sparkles },
+    { href: "/watchlist", label: dictionary.nav.watchlist, icon: Heart }
+  ];
 
   return (
     <header className="sticky top-0 z-50 border-b border-border/50 bg-background/85 backdrop-blur-xl">
@@ -43,7 +45,7 @@ export function Header() {
           </Link>
 
           <nav className="hidden items-center gap-1 lg:flex">
-            {NAV_ITEMS.map(item => {
+            {navItems.map(item => {
               const active = pathname === item.href;
               const Icon = item.icon;
 
@@ -71,11 +73,39 @@ export function Header() {
           </nav>
 
           <div className="flex items-center gap-2">
+            <div className="hidden items-center rounded-xl border border-border/50 bg-card/60 p-1 sm:flex">
+              <button
+                type="button"
+                className={cn(
+                  "rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors",
+                  locale === "de"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+                onClick={() => setLocale("de")}
+                aria-label={dictionary.common.german}
+              >
+                DE
+              </button>
+              <button
+                type="button"
+                className={cn(
+                  "rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors",
+                  locale === "en"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+                onClick={() => setLocale("en")}
+                aria-label={dictionary.common.english}
+              >
+                EN
+              </button>
+            </div>
             <Button
               variant="ghost"
               size="icon"
               onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
-              aria-label="Theme wechseln"
+              aria-label={dictionary.common.themeSwitch}
             >
               {!mounted ? (
                 <span className="size-4" aria-hidden="true" />
@@ -92,7 +122,7 @@ export function Header() {
                   className="inline-flex items-center gap-2 rounded-xl border border-border/50 px-3 py-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
                 >
                   <User2 className="size-4" />
-                  <span className="hidden sm:inline">{user.email ?? "Account"}</span>
+                  <span className="hidden sm:inline">{user.email ?? dictionary.common.account}</span>
                 </Link>
                 <div className="hidden sm:block">
                   <SignOutButton />
@@ -102,7 +132,7 @@ export function Header() {
               <Button asChild variant="outline">
                 <Link href="/auth/login">
                   <LogIn className="size-4" />
-                  Login
+                  {dictionary.common.login}
                 </Link>
               </Button>
             )}
@@ -112,4 +142,3 @@ export function Header() {
     </header>
   );
 }
-

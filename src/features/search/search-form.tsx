@@ -1,10 +1,11 @@
-"use client";
+﻿"use client";
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import { SearchField } from "@/components/shared/ui-components";
 import { Button } from "@/components/ui/button";
+import { useLanguage } from "@/features/i18n/language-provider";
 
 export function SearchForm({
   initialQuery,
@@ -20,6 +21,7 @@ export function SearchForm({
   const [sort, setSort] = useState(initialSort);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
+  const { dictionary } = useLanguage();
 
   const submit = () => {
     const params = new URLSearchParams();
@@ -41,6 +43,7 @@ export function SearchForm({
         onChange={setQuery}
         onClear={() => setQuery("")}
         className="max-w-3xl"
+        placeholder={dictionary.searchForm.searchPlaceholder}
       />
       <div className="flex flex-wrap gap-3">
         <select
@@ -48,9 +51,9 @@ export function SearchForm({
           onChange={event => setType(event.target.value as "all" | "movie" | "tv")}
           className="h-10 rounded-xl border border-border/50 bg-background px-3 text-sm"
         >
-          <option value="all">Alle</option>
-          <option value="movie">Filme</option>
-          <option value="tv">Serien</option>
+          <option value="all">{dictionary.searchForm.all}</option>
+          <option value="movie">{dictionary.searchForm.movies}</option>
+          <option value="tv">{dictionary.searchForm.series}</option>
         </select>
         <select
           value={sort}
@@ -59,12 +62,12 @@ export function SearchForm({
           }
           className="h-10 rounded-xl border border-border/50 bg-background px-3 text-sm"
         >
-          <option value="popularity">Beliebtheit</option>
-          <option value="rating">Bewertung</option>
-          <option value="release_date">Erscheinungsdatum</option>
+          <option value="popularity">{dictionary.searchForm.popularity}</option>
+          <option value="rating">{dictionary.searchForm.rating}</option>
+          <option value="release_date">{dictionary.searchForm.releaseDate}</option>
         </select>
         <Button onClick={submit} disabled={isPending}>
-          Suchen
+          {dictionary.searchForm.search}
         </Button>
       </div>
     </div>

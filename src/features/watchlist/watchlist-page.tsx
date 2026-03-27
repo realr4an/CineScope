@@ -1,30 +1,23 @@
-"use client";
+﻿"use client";
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Heart, Trash2 } from "lucide-react";
 
-import { EmptyFavoritesState, EmptyState } from "@/components/states/state-components";
+import { EmptyState } from "@/components/states/state-components";
 import { FilterChips } from "@/components/shared/ui-components";
 import { Button } from "@/components/ui/button";
 import { getMediaHref } from "@/components/cards/media-card";
 import { formatYear } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { useLanguage } from "@/features/i18n/language-provider";
 import { WatchlistFeedbackControls } from "@/features/watchlist/watchlist-feedback-controls";
 import { useWatchlist } from "@/features/watchlist/watchlist-provider";
 import type { WatchlistItem } from "@/types/media";
 
-const FALLBACK_POSTER =
-  "https://placehold.co/500x750/181414/f5f5f4?text=CineScope";
+const FALLBACK_POSTER = "https://placehold.co/500x750/181414/f5f5f4?text=CineScope";
 
-const FILTER_OPTIONS = [
-  { label: "Alle", value: "all" },
-  { label: "Gesehen", value: "watched" },
-  { label: "Gemocht", value: "liked" },
-  { label: "Nicht gemocht", value: "disliked" }
-] as const;
-
-type WatchlistFilter = (typeof FILTER_OPTIONS)[number]["value"];
+type WatchlistFilter = "all" | "watched" | "liked" | "disliked";
 
 function StatusBadge({
   label,
@@ -55,6 +48,7 @@ function StatusBadge({
 
 function WatchlistCard({ item }: { item: WatchlistItem }) {
   const { toggleItem, loading } = useWatchlist();
+  const { dictionary } = useLanguage();
 
   return (
     <div className="overflow-hidden rounded-[1.75rem] border border-border/50 bg-card/60">
@@ -71,17 +65,17 @@ function WatchlistCard({ item }: { item: WatchlistItem }) {
           <div className="min-w-0 space-y-4">
             <div className="space-y-2">
               <div className="text-xs uppercase tracking-[0.18em] text-primary">
-                {item.mediaType === "movie" ? "Film" : "Serie"}
+                {item.mediaType === "movie" ? dictionary.common.movie : dictionary.common.tv}
               </div>
               <h2 className="break-words text-xl font-semibold leading-tight">{item.title}</h2>
               <p className="text-sm text-muted-foreground">{formatYear(item.releaseDate)}</p>
             </div>
 
             <div className="flex flex-wrap gap-2">
-              <StatusBadge label="Gesehen" active={item.watched} tone="primary" />
-              <StatusBadge label="GefÄllt mir" active={item.liked === true} tone="positive" />
+              <StatusBadge label={dictionary.watchlist.watched} active={item.watched} tone="primary" />
+              <StatusBadge label={dictionary.watchlist.likedMe} active={item.liked === true} tone="positive" />
               <StatusBadge
-                label="GefÄllt mir nicht"
+                label={dictionary.watchlist.dislikedMe}
                 active={item.liked === false}
                 tone="negative"
               />
@@ -102,7 +96,7 @@ function WatchlistCard({ item }: { item: WatchlistItem }) {
             onClick={() => toggleItem(item)}
           >
             <Trash2 className="size-4" />
-            Entfernen
+            {dictionary.watchlist.remove}
           </Button>
         </div>
       </div>
@@ -112,7 +106,15 @@ function WatchlistCard({ item }: { item: WatchlistItem }) {
 
 export function WatchlistPageContent() {
   const { items } = useWatchlist();
+  const { dictionary } = useLanguage();
   const [filter, setFilter] = useState<WatchlistFilter>("all");
+
+  const filterOptions = [
+    { label: dictionary.watchlist.all, value: "all" as const },
+    { label: dictionary.watchlist.watched, value: "watched" as const },
+    { label: dictionary.watchlist.liked, value: "liked" as const },
+    { label: dictionary.watchlist.disliked, value: "disliked" as const }
+  ];
 
   const filteredItems = useMemo(() => {
     switch (filter) {
@@ -128,7 +130,13 @@ export function WatchlistPageContent() {
   }, [filter, items]);
 
   if (!items.length) {
-    return <EmptyFavoritesState action={{ label: "Inhalte entdecken", href: "/" }} />;
+    return (
+      <EmptyState
+        title={dictionary.watchlist.noItemsTitle}
+        description={dictionary.watchlist.noItemsDescription}
+        action={{ label: dictionary.watchlist.emptyAction, href: "/" }}
+      />
+    );
   }
 
   return (
@@ -137,10 +145,10 @@ export function WatchlistPageContent() {
         <div className="mb-3 flex items-center gap-2">
           <Heart className="size-4 text-primary" />
           <h2 className="text-sm font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-            Filter
+            {dictionary.watchlist.filter}
           </h2>
         </div>
-        <FilterChips options={[...FILTER_OPTIONS]} value={filter} onChange={setFilter} />
+        <FilterChips options={filterOptions} value={filter} onChange={setFilter} />
       </div>
 
       {filteredItems.length ? (
@@ -151,9 +159,9 @@ export function WatchlistPageContent() {
         </div>
       ) : (
         <EmptyState
-          title="Keine passenden Watchlist-Eintraege"
-          description="FÜr den aktuell gewÄhlten Filter gibt es noch keine Titel."
-          action={{ label: "Alle anzeigen", onClick: () => setFilter("all") }}
+          title={dictionary.watchlist.noFilteredTitle}
+          description={dictionary.watchlist.noFilteredDescription}
+          action={{ label: dictionary.watchlist.showAll, onClick: () => setFilter("all") }}
         />
       )}
     </div>

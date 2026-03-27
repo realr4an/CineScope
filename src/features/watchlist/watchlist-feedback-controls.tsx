@@ -1,8 +1,9 @@
-"use client";
+﻿"use client";
 
 import { CheckCircle2, ThumbsDown, ThumbsUp } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { useLanguage } from "@/features/i18n/language-provider";
 import { cn } from "@/lib/utils";
 import { useWatchlist } from "@/features/watchlist/watchlist-provider";
 import type { MediaListItem, WatchlistItem } from "@/types/media";
@@ -17,16 +18,11 @@ export function WatchlistFeedbackControls({
   compact?: boolean;
 }) {
   const { getItem, updateFeedback, loading } = useWatchlist();
-  const resolvedItem =
-    item ?? (media ? getItem(media.tmdbId, media.mediaType) : undefined);
+  const { dictionary } = useLanguage();
+  const resolvedItem = item ?? (media ? getItem(media.tmdbId, media.mediaType) : undefined);
 
   if (!resolvedItem) {
-    return (
-      <p className="text-sm text-muted-foreground">
-        Füge den Titel zuerst zur Watchlist hinzu, um ihn als gesehen zu markieren oder zu
-        bewerten.
-      </p>
-    );
+    return <p className="text-sm text-muted-foreground">{dictionary.watchlist.saveFirst}</p>;
   }
 
   const buttonSize = compact ? "sm" : "default";
@@ -50,7 +46,7 @@ export function WatchlistFeedbackControls({
           }
         >
           <CheckCircle2 className={cn("size-4", resolvedItem.watched ? "fill-current" : "")} />
-          {resolvedItem.watched ? "Gesehen" : "Als gesehen markieren"}
+          {resolvedItem.watched ? dictionary.watchlist.watched : dictionary.watchlist.markWatched}
         </Button>
 
         <Button
@@ -65,7 +61,7 @@ export function WatchlistFeedbackControls({
           }
         >
           <ThumbsUp className="size-4" />
-          Gefällt mir
+          {dictionary.watchlist.like}
         </Button>
 
         <Button
@@ -80,15 +76,12 @@ export function WatchlistFeedbackControls({
           }
         >
           <ThumbsDown className="size-4" />
-          Gefällt mir nicht
+          {dictionary.watchlist.dislike}
         </Button>
       </div>
 
       {!resolvedItem.watched ? (
-        <p className="text-xs text-muted-foreground">
-          Erst nach dem Abhaken als gesehen kannst du speichern, ob dir der Titel gefallen hat
-          oder nicht.
-        </p>
+        <p className="text-xs text-muted-foreground">{dictionary.watchlist.rateAfterWatch}</p>
       ) : null}
     </div>
   );

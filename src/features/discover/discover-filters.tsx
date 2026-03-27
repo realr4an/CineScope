@@ -1,9 +1,10 @@
-"use client";
+﻿"use client";
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
+import { useLanguage } from "@/features/i18n/language-provider";
 import type { Genre } from "@/types/media";
 
 export function DiscoverFilters({
@@ -28,6 +29,7 @@ export function DiscoverFilters({
   const [sort, setSort] = useState(initial.sort);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
+  const { dictionary } = useLanguage();
 
   const genres = mediaType === "movie" ? movieGenres : tvGenres;
 
@@ -55,8 +57,8 @@ export function DiscoverFilters({
           }}
           className="h-10 rounded-xl border border-border/50 bg-background px-3 text-sm"
         >
-          <option value="movie">Filme</option>
-          <option value="tv">Serien</option>
+          <option value="movie">{dictionary.discoverFilters.movies}</option>
+          <option value="tv">{dictionary.discoverFilters.series}</option>
         </select>
         <select
           value={genre ?? ""}
@@ -65,7 +67,7 @@ export function DiscoverFilters({
           }
           className="h-10 rounded-xl border border-border/50 bg-background px-3 text-sm"
         >
-          <option value="">Alle Kategorien</option>
+          <option value="">{dictionary.discoverFilters.allCategories}</option>
           {genres.map(item => (
             <option key={item.id} value={item.id}>
               {item.name}
@@ -75,13 +77,13 @@ export function DiscoverFilters({
         <input
           value={year}
           onChange={event => setYear(event.target.value)}
-          placeholder="Jahr"
+          placeholder={dictionary.discoverFilters.year}
           className="h-10 w-28 rounded-xl border border-border/50 bg-background px-3 text-sm"
         />
         <input
           value={rating}
           onChange={event => setRating(event.target.value)}
-          placeholder="Min. Rating"
+          placeholder={dictionary.discoverFilters.minRating}
           className="h-10 w-32 rounded-xl border border-border/50 bg-background px-3 text-sm"
         />
         <select
@@ -89,16 +91,15 @@ export function DiscoverFilters({
           onChange={event => setSort(event.target.value)}
           className="h-10 rounded-xl border border-border/50 bg-background px-3 text-sm"
         >
-          <option value="popularity.desc">Beliebtheit</option>
-          <option value="vote_average.desc">Bewertung</option>
-          <option value="primary_release_date.desc">Neueste Filme</option>
-          <option value="first_air_date.desc">Neueste Serien</option>
+          <option value="popularity.desc">{dictionary.discoverFilters.popularity}</option>
+          <option value="vote_average.desc">{dictionary.discoverFilters.rating}</option>
+          <option value="primary_release_date.desc">{dictionary.discoverFilters.newestMovies}</option>
+          <option value="first_air_date.desc">{dictionary.discoverFilters.newestSeries}</option>
         </select>
         <Button onClick={apply} disabled={isPending}>
-          Filter anwenden
+          {dictionary.discoverFilters.apply}
         </Button>
       </div>
     </div>
   );
 }
-

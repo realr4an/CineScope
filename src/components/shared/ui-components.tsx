@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { ChevronRight, Search, Star, X } from "lucide-react";
 
 import { getRatingTone } from "@/lib/format";
@@ -26,9 +26,7 @@ export function RatingBadge({
         {rating.toFixed(1)}
       </div>
       {voteCount ? (
-        <span className="text-xs text-muted-foreground">
-          {voteCount.toLocaleString("de-DE")} Bewertungen
-        </span>
+        <span className="text-xs text-muted-foreground">{voteCount.toLocaleString("de-DE")}</span>
       ) : null}
     </div>
   );
@@ -99,11 +97,13 @@ export function GenreList({
 export function SectionHeader({
   title,
   subtitle,
-  href
+  href,
+  ctaLabel = "Alle anzeigen"
 }: {
   title: string;
   subtitle?: string;
   href?: string;
+  ctaLabel?: string;
 }) {
   return (
     <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
@@ -116,7 +116,7 @@ export function SectionHeader({
           href={href}
           className="inline-flex items-center gap-1 text-sm font-medium text-primary transition-colors hover:text-primary/80"
         >
-          Alle anzeigen
+          {ctaLabel}
           <ChevronRight className="size-4" />
         </Link>
       ) : null}

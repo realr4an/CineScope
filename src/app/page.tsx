@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { Flame, Sparkles, Star, TrendingUp } from "lucide-react";
 
 import { AppShell } from "@/components/layout/app-shell";
@@ -6,10 +6,13 @@ import { HorizontalMediaRow } from "@/components/sections/media-sections";
 import { Button } from "@/components/ui/button";
 import { ErrorState } from "@/components/states/state-components";
 import { filterMediaForViewerAge } from "@/lib/age-gate/server";
+import { getServerDictionary } from "@/lib/i18n/server";
 import { getPopularMovies, getTrendingMovies } from "@/lib/tmdb/movies";
 import { getPopularTv, getTrendingTv } from "@/lib/tmdb/tv";
 
 export default async function HomePage() {
+  const { dictionary } = await getServerDictionary();
+
   try {
     const [trendingMovies, trendingTv, popularMovies, popularTv] = await Promise.all([
       getTrendingMovies(),
@@ -44,45 +47,43 @@ export default async function HomePage() {
                 <div className="max-w-2xl space-y-6">
                   <div className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/15 px-3 py-1 text-xs font-semibold text-primary">
                     <TrendingUp className="size-3.5" />
-                    Trending diese Woche
+                    {dictionary.home.badge}
                   </div>
                   <div className="space-y-3">
                     <h1 className="max-w-xl text-4xl font-bold leading-tight tracking-tight sm:text-6xl">
-                      Entdecke Filme und Serien mit echtem Daten- und KI-Stack.
+                      {dictionary.home.title}
                     </h1>
                     <p className="max-w-lg text-base leading-7 text-muted-foreground sm:text-lg">
-                      TMDB liefert Live-Daten fÜr Trending, Popular, Detailseiten und Cast.
-                      Supabase speichert deine Watchlist dauerhaft, OpenRouter ergaenzt
-                      intelligente Empfehlungen.
+                      {dictionary.home.description}
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-3">
                     <Button asChild size="lg">
-                      <Link href={`/movie/${featured.tmdbId}`}>Featured ansehen</Link>
+                      <Link href={`/movie/${featured.tmdbId}`}>{dictionary.home.featured}</Link>
                     </Button>
                     <Button asChild size="lg" variant="outline">
-                      <Link href="/search">Suche starten</Link>
+                      <Link href="/search">{dictionary.home.startSearch}</Link>
                     </Button>
                     <Button asChild size="lg" variant="outline">
-                      <Link href="/discover">Kategorien entdecken</Link>
+                      <Link href="/discover">{dictionary.home.exploreCategories}</Link>
                     </Button>
                   </div>
                   <div className="grid gap-3 sm:grid-cols-3">
                     {[
                       {
                         icon: <Flame className="size-4 text-orange-400" />,
-                        title: "Trending",
-                        value: `${safeTrendingMovies.length + safeTrendingTv.length} Live-Titel`
+                        title: dictionary.home.trending,
+                        value: `${safeTrendingMovies.length + safeTrendingTv.length} ${dictionary.home.liveTitles}`
                       },
                       {
                         icon: <Star className="size-4 text-amber-400" />,
-                        title: "Popular",
-                        value: `${safePopularMovies.length + safePopularTv.length} kuratierte Treffer`
+                        title: dictionary.home.popular,
+                        value: `${safePopularMovies.length + safePopularTv.length} ${dictionary.home.curatedMatches}`
                       },
                       {
                         icon: <Sparkles className="size-4 text-primary" />,
-                        title: "AI Assist",
-                        value: "OpenRouter integriert"
+                        title: dictionary.home.aiAssist,
+                        value: `OpenRouter ${dictionary.home.integrated}`
                       }
                     ].map(item => (
                       <div
@@ -105,8 +106,8 @@ export default async function HomePage() {
           <HorizontalMediaRow
             section={{
               id: "trending-movies",
-              title: "Trending Filme",
-              subtitle: "Diese Woche besonders gefragt",
+              title: dictionary.home.trendingMovies,
+              subtitle: dictionary.home.trendingMoviesSubtitle,
               items: safeTrendingMovies,
               href: "/search?type=movie"
             }}
@@ -114,8 +115,8 @@ export default async function HomePage() {
           <HorizontalMediaRow
             section={{
               id: "trending-tv",
-              title: "Trending Serien",
-              subtitle: "Aktuell heiß diskutiert",
+              title: dictionary.home.trendingSeries,
+              subtitle: dictionary.home.trendingSeriesSubtitle,
               items: safeTrendingTv,
               href: "/search?type=tv"
             }}
@@ -123,8 +124,8 @@ export default async function HomePage() {
           <HorizontalMediaRow
             section={{
               id: "popular-movies",
-              title: "Beliebte Filme",
-              subtitle: "Community-Favoriten mit hoher Reichweite",
+              title: dictionary.home.popularMovies,
+              subtitle: dictionary.home.popularMoviesSubtitle,
               items: safePopularMovies,
               href: "/discover?mediaType=movie"
             }}
@@ -132,8 +133,8 @@ export default async function HomePage() {
           <HorizontalMediaRow
             section={{
               id: "popular-tv",
-              title: "Beliebte Serien",
-              subtitle: "Serien mit hoher Sichtbarkeit und Relevanz",
+              title: dictionary.home.popularSeries,
+              subtitle: dictionary.home.popularSeriesSubtitle,
               items: safePopularTv,
               href: "/discover?mediaType=tv"
             }}
@@ -145,11 +146,10 @@ export default async function HomePage() {
     return (
       <AppShell>
         <ErrorState
-          title="Startseite konnte nicht geladen werden"
-          description={error instanceof Error ? error.message : "Unbekannter Fehler"}
+          title={dictionary.home.errorTitle}
+          description={error instanceof Error ? error.message : dictionary.common.unknownError}
         />
       </AppShell>
     );
   }
 }
-

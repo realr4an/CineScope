@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import Link from "next/link";
@@ -7,6 +7,7 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useLanguage } from "@/features/i18n/language-provider";
 import { createSupabaseBrowserClient, isSupabaseConfigured } from "@/lib/supabase/client";
 
 export function LoginForm() {
@@ -15,12 +16,13 @@ export function LoginForm() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { dictionary } = useLanguage();
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
 
     if (!isSupabaseConfigured()) {
-      toast.error("Supabase ist nicht konfiguriert.");
+      toast.error(dictionary.auth.supabaseNotConfigured);
       return;
     }
 
@@ -35,7 +37,7 @@ export function LoginForm() {
       return;
     }
 
-    toast.success("Login erfolgreich.");
+    toast.success(dictionary.auth.loginSuccess);
     const nextPath = searchParams?.get("next") ?? "/watchlist";
     router.push(nextPath);
     router.refresh();
@@ -44,7 +46,7 @@ export function LoginForm() {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="space-y-2">
-        <label className="text-sm font-medium">E-Mail</label>
+        <label className="text-sm font-medium">{dictionary.auth.email}</label>
         <Input
           type="email"
           value={email}
@@ -54,27 +56,27 @@ export function LoginForm() {
         />
       </div>
       <div className="space-y-2">
-        <label className="text-sm font-medium">Passwort</label>
+        <label className="text-sm font-medium">{dictionary.auth.password}</label>
         <Input
           type="password"
           value={password}
           onChange={event => setPassword(event.target.value)}
-          placeholder="Mindestens 8 Zeichen"
+          placeholder={dictionary.auth.minEight}
           required
         />
       </div>
       <Button type="submit" className="w-full" disabled={loading}>
-        Einloggen
+        {dictionary.auth.login}
       </Button>
       <div className="text-right">
         <Link href="/auth/forgot-password" className="text-sm text-primary">
-          Passwort vergessen?
+          {dictionary.auth.forgotPassword}
         </Link>
       </div>
       <p className="text-sm text-muted-foreground">
-        Noch kein Konto?{" "}
+        {dictionary.auth.noAccount}{" "}
         <Link href="/auth/signup" className="text-primary">
-          Jetzt registrieren
+          {dictionary.auth.registerNow}
         </Link>
       </p>
     </form>

@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { ArrowLeft, Calendar, Layers, ShieldAlert, Star, Tv } from "lucide-react";
 
 import { AppShell } from "@/components/layout/app-shell";
@@ -13,6 +13,7 @@ import { WatchlistFeedbackControls } from "@/features/watchlist/watchlist-feedba
 import { WatchlistToggleButton } from "@/features/watchlist/watchlist-toggle-button";
 import { filterMediaForViewerAge, getAgeAccessForMedia } from "@/lib/age-gate/server";
 import { formatDate, formatRuntime } from "@/lib/format";
+import { getServerDictionary } from "@/lib/i18n/server";
 import { getTvDetail } from "@/lib/tmdb/tv";
 
 type TvPageProps = {
@@ -20,6 +21,7 @@ type TvPageProps = {
 };
 
 export default async function TvPage({ params }: TvPageProps) {
+  const { dictionary } = await getServerDictionary();
   const { id } = await params;
   const tmdbId = Number(id);
 
@@ -33,9 +35,9 @@ export default async function TvPage({ params }: TvPageProps) {
       return (
         <AppShell>
           <ErrorState
-            title="Dieser Titel ist fÜr dein Alter gesperrt"
-            description={`${series.title} ist aktuell mit ${access.certification?.label ?? "einer hoeheren Altersfreigabe"} gekennzeichnet und wird deshalb ausgeblendet.`}
-            action={{ label: "Zur Startseite", href: "/" }}
+            title={dictionary.detail.titleBlocked}
+            description={`${series.title} ${dictionary.detail.blockedDescriptionMiddle} ${access.certification?.label ?? dictionary.detail.blockedHigherRating} ${dictionary.detail.blockedDescriptionEnd}`}
+            action={{ label: dictionary.detail.backHome, href: "/" }}
           />
         </AppShell>
       );
@@ -66,7 +68,7 @@ export default async function TvPage({ params }: TvPageProps) {
                 className="mb-8 inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
               >
                 <ArrowLeft className="size-4" />
-                Zur Startseite
+                {dictionary.detail.backHome}
               </Link>
               <div className="grid min-w-0 gap-5 sm:gap-6 lg:grid-cols-[260px_minmax(0,1fr)] lg:items-end lg:gap-8">
                 <div className="hidden overflow-hidden rounded-3xl border border-border/50 shadow-2xl shadow-black/40 lg:block">
@@ -75,7 +77,7 @@ export default async function TvPage({ params }: TvPageProps) {
                 <div className="min-w-0 space-y-5">
                   <div className="space-y-2">
                     <div className="inline-flex rounded-full border border-primary/30 bg-primary/15 px-3 py-1 text-xs font-semibold text-primary">
-                      Serie
+                      {dictionary.common.tv}
                     </div>
                     <h1 className="break-words text-4xl font-bold tracking-tight sm:text-5xl">{series.title}</h1>
                     {series.tagline ? (
@@ -90,7 +92,7 @@ export default async function TvPage({ params }: TvPageProps) {
                     </span>
                     <span className="inline-flex items-center gap-1 text-sm text-muted-foreground">
                       <Layers className="size-4" />
-                      {series.numberOfSeasons} Staffeln
+                      {series.numberOfSeasons} {dictionary.detail.seasons}
                     </span>
                     {series.ageCertification?.label ? (
                       <span className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-card/60 px-3 py-1 text-sm text-muted-foreground">
@@ -124,8 +126,8 @@ export default async function TvPage({ params }: TvPageProps) {
               <HorizontalMediaRow
                 section={{
                   id: "similar-tv",
-                  title: "Ähnliche Serien",
-                  subtitle: "Mehr aus derselben Zielgruppe",
+                  title: dictionary.detail.similarSeries,
+                  subtitle: dictionary.detail.similarSeriesSubtitle,
                   items: safeSimilar
                 }}
               />
@@ -133,37 +135,37 @@ export default async function TvPage({ params }: TvPageProps) {
             <aside className="min-w-0 space-y-4">
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
                 <StatPill
-                  label="Bewertung"
+                  label={dictionary.detail.rating}
                   value={`${series.rating.toFixed(1)} / 10`}
                   icon={<Star className="size-4 text-amber-400" />}
                 />
                 <StatPill
-                  label="Staffeln"
+                  label={dictionary.detail.seasons}
                   value={series.numberOfSeasons}
                   icon={<Layers className="size-4" />}
                 />
                 <StatPill
-                  label="Episoden"
+                  label={dictionary.detail.episodes}
                   value={series.numberOfEpisodes}
                   icon={<Tv className="size-4" />}
                 />
                 <StatPill
-                  label="Durchschnitts-Laufzeit"
+                  label={dictionary.detail.averageRuntime}
                   value={formatRuntime(averageRuntime)}
                   icon={<Calendar className="size-4" />}
                 />
               </div>
               <div className="rounded-[2rem] border border-border/50 bg-card/50 p-5">
-                <h2 className="mb-4 text-lg font-semibold">Details</h2>
+                <h2 className="mb-4 text-lg font-semibold">{dictionary.detail.details}</h2>
                 <InfoPanel
                   items={[
-                    { label: "Status", value: series.status },
-                    { label: "Originaltitel", value: series.originalTitle ?? "-" },
-                    { label: "Erstausstrahlung", value: formatDate(series.firstAirDate) },
-                    { label: "Originalsprache", value: series.originalLanguage ?? "-" },
-                    { label: "Altersfreigabe", value: series.ageCertification?.label ?? "Nicht hinterlegt" },
-                    { label: "Sprachen", value: series.spokenLanguages.join(", ") || series.originalLanguage || "-" },
-                    { label: "Netzwerke", value: series.networks.join(", ") || "-" }
+                    { label: dictionary.detail.status, value: series.status },
+                    { label: dictionary.detail.originalTitle, value: series.originalTitle ?? "-" },
+                    { label: dictionary.detail.firstAirDate, value: formatDate(series.firstAirDate) },
+                    { label: dictionary.detail.originalLanguage, value: series.originalLanguage ?? "-" },
+                    { label: dictionary.detail.ageRating, value: series.ageCertification?.label ?? dictionary.detail.notAvailable },
+                    { label: dictionary.detail.languages, value: series.spokenLanguages.join(", ") || series.originalLanguage || "-" },
+                    { label: dictionary.detail.networks, value: series.networks.join(", ") || "-" }
                   ]}
                 />
               </div>
@@ -176,8 +178,8 @@ export default async function TvPage({ params }: TvPageProps) {
     return (
       <AppShell>
         <ErrorState
-          title="Seriendetails konnten nicht geladen werden"
-          description={error instanceof Error ? error.message : "Unbekannter Fehler"}
+          title={dictionary.common.tv === "TV series" ? "Could not load series details" : "Seriendetails konnten nicht geladen werden"}
+          description={error instanceof Error ? error.message : dictionary.common.unknownError}
         />
       </AppShell>
     );

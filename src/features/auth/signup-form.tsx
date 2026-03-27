@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import Link from "next/link";
@@ -7,6 +7,7 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useLanguage } from "@/features/i18n/language-provider";
 import { createSupabaseBrowserClient, isSupabaseConfigured } from "@/lib/supabase/client";
 
 export function SignupForm() {
@@ -15,12 +16,13 @@ export function SignupForm() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { dictionary } = useLanguage();
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
 
     if (!isSupabaseConfigured()) {
-      toast.error("Supabase ist nicht konfiguriert.");
+      toast.error(dictionary.auth.supabaseNotConfigured);
       return;
     }
 
@@ -53,14 +55,14 @@ export function SignupForm() {
     }
 
     if (session) {
-      toast.success("Account erstellt. Du bist jetzt eingeloggt.");
+      toast.success(dictionary.auth.signupSuccessLoggedIn);
       router.push(nextPath);
       router.refresh();
       setLoading(false);
       return;
     }
 
-    toast.success("Account erstellt. Bitte bestaetige jetzt deine E-Mail und melde dich danach an.");
+    toast.success(dictionary.auth.signupSuccessConfirm);
     router.push(`/auth/login?next=${encodeURIComponent(nextPath)}`);
     router.refresh();
     setLoading(false);
@@ -69,7 +71,7 @@ export function SignupForm() {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="space-y-2">
-        <label className="text-sm font-medium">E-Mail</label>
+        <label className="text-sm font-medium">{dictionary.auth.email}</label>
         <Input
           type="email"
           value={email}
@@ -79,23 +81,23 @@ export function SignupForm() {
         />
       </div>
       <div className="space-y-2">
-        <label className="text-sm font-medium">Passwort</label>
+        <label className="text-sm font-medium">{dictionary.auth.password}</label>
         <Input
           type="password"
           value={password}
           onChange={event => setPassword(event.target.value)}
-          placeholder="Mindestens 8 Zeichen"
+          placeholder={dictionary.auth.minEight}
           minLength={8}
           required
         />
       </div>
       <Button type="submit" className="w-full" disabled={loading}>
-        Registrieren
+        {dictionary.auth.signUp}
       </Button>
       <p className="text-sm text-muted-foreground">
-        Bereits registriert?{" "}
+        {dictionary.auth.alreadyRegistered}{" "}
         <Link href="/auth/login" className="text-primary">
-          Zum Login
+          {dictionary.auth.backToLogin}
         </Link>
       </p>
     </form>
