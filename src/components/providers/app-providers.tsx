@@ -3,7 +3,9 @@
 import { ThemeProvider } from "next-themes";
 import { Toaster } from "sonner";
 
+import { AgeGatePrompt } from "@/features/age-gate/age-gate-prompt";
 import { WatchlistProvider } from "@/features/watchlist/watchlist-provider";
+import type { AgeGateState } from "@/lib/age-gate";
 import type { Viewer } from "@/types/auth";
 import type { WatchlistItem } from "@/types/media";
 
@@ -11,17 +13,20 @@ interface AppProvidersProps {
   children: React.ReactNode;
   initialUser: Viewer | null;
   initialWatchlist: WatchlistItem[];
+  initialAgeGate: AgeGateState;
 }
 
 export function AppProviders({
   children,
   initialUser,
-  initialWatchlist
+  initialWatchlist,
+  initialAgeGate
 }: AppProvidersProps) {
   return (
     <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
       <WatchlistProvider initialUser={initialUser} initialWatchlist={initialWatchlist}>
         {children}
+        <AgeGatePrompt initialState={initialAgeGate} user={initialUser} />
         <Toaster
           theme="dark"
           position="bottom-right"

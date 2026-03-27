@@ -5,6 +5,7 @@ import { ErrorState } from "@/components/states/state-components";
 import { AIWatchlistPriorityPanel } from "@/features/ai/watchlist-priority-panel";
 import { WatchlistPageContent } from "@/features/watchlist/watchlist-page";
 import { getPublicEnv } from "@/lib/env";
+import { filterMediaForViewerAge } from "@/lib/age-gate/server";
 import { getViewer, getWatchlistForViewer } from "@/lib/supabase/queries";
 
 export default async function WatchlistPage() {
@@ -13,7 +14,7 @@ export default async function WatchlistPage() {
       <AppShell>
         <ErrorState
           title="Supabase ist noch nicht konfiguriert"
-          description="Lege die benötigten Umgebungsvariablen an und richte die Tabellen samt RLS ein."
+          description="Lege die benoetigten Umgebungsvariablen an und richte die Tabellen samt RLS ein."
         />
       </AppShell>
     );
@@ -25,16 +26,18 @@ export default async function WatchlistPage() {
     redirect("/auth/login?next=/watchlist");
   }
 
+  const safeWatchlist = await filterMediaForViewerAge(watchlist);
+
   return (
     <AppShell>
       <div className="space-y-6">
         <div className="space-y-2">
           <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">Meine Watchlist</h1>
           <p className="text-muted-foreground">
-            Dauerhaft in Supabase gespeichert und pro Nutzer geschützt.
+            Dauerhaft in Supabase gespeichert, pro Nutzer geschuetzt und altersgerecht gefiltert.
           </p>
         </div>
-        <AIWatchlistPriorityPanel items={watchlist} />
+        <AIWatchlistPriorityPanel items={safeWatchlist} />
         <WatchlistPageContent />
       </div>
     </AppShell>

@@ -5,6 +5,7 @@ import { AppShell } from "@/components/layout/app-shell";
 import { HorizontalMediaRow } from "@/components/sections/media-sections";
 import { Button } from "@/components/ui/button";
 import { ErrorState } from "@/components/states/state-components";
+import { filterMediaForViewerAge } from "@/lib/age-gate/server";
 import { getPopularMovies, getTrendingMovies } from "@/lib/tmdb/movies";
 import { getPopularTv, getTrendingTv } from "@/lib/tmdb/tv";
 
@@ -17,7 +18,15 @@ export default async function HomePage() {
       getPopularTv()
     ]);
 
-    const featured = trendingMovies[0];
+    const [safeTrendingMovies, safeTrendingTv, safePopularMovies, safePopularTv] =
+      await Promise.all([
+        filterMediaForViewerAge(trendingMovies),
+        filterMediaForViewerAge(trendingTv),
+        filterMediaForViewerAge(popularMovies),
+        filterMediaForViewerAge(popularTv)
+      ]);
+
+    const featured = safeTrendingMovies[0];
 
     return (
       <AppShell>
@@ -42,8 +51,8 @@ export default async function HomePage() {
                       Entdecke Filme und Serien mit echtem Daten- und KI-Stack.
                     </h1>
                     <p className="max-w-lg text-base leading-7 text-muted-foreground sm:text-lg">
-                      TMDB liefert Live-Daten für Trending, Popular, Detailseiten und Cast.
-                      Supabase speichert deine Watchlist dauerhaft, OpenRouter ergänzt
+                      TMDB liefert Live-Daten fuer Trending, Popular, Detailseiten und Cast.
+                      Supabase speichert deine Watchlist dauerhaft, OpenRouter ergaenzt
                       intelligente Empfehlungen.
                     </p>
                   </div>
@@ -63,12 +72,12 @@ export default async function HomePage() {
                       {
                         icon: <Flame className="size-4 text-orange-400" />,
                         title: "Trending",
-                        value: `${trendingMovies.length + trendingTv.length} Live-Titel`
+                        value: `${safeTrendingMovies.length + safeTrendingTv.length} Live-Titel`
                       },
                       {
                         icon: <Star className="size-4 text-amber-400" />,
                         title: "Popular",
-                        value: `${popularMovies.length + popularTv.length} kuratierte Treffer`
+                        value: `${safePopularMovies.length + safePopularTv.length} kuratierte Treffer`
                       },
                       {
                         icon: <Sparkles className="size-4 text-primary" />,
@@ -98,7 +107,7 @@ export default async function HomePage() {
               id: "trending-movies",
               title: "Trending Filme",
               subtitle: "Diese Woche besonders gefragt",
-              items: trendingMovies,
+              items: safeTrendingMovies,
               href: "/search?type=movie"
             }}
           />
@@ -106,8 +115,8 @@ export default async function HomePage() {
             section={{
               id: "trending-tv",
               title: "Trending Serien",
-              subtitle: "Aktuell heiß diskutiert",
-              items: trendingTv,
+              subtitle: "Aktuell heiss diskutiert",
+              items: safeTrendingTv,
               href: "/search?type=tv"
             }}
           />
@@ -116,7 +125,7 @@ export default async function HomePage() {
               id: "popular-movies",
               title: "Beliebte Filme",
               subtitle: "Community-Favoriten mit hoher Reichweite",
-              items: popularMovies,
+              items: safePopularMovies,
               href: "/discover?mediaType=movie"
             }}
           />
@@ -125,7 +134,7 @@ export default async function HomePage() {
               id: "popular-tv",
               title: "Beliebte Serien",
               subtitle: "Serien mit hoher Sichtbarkeit und Relevanz",
-              items: popularTv,
+              items: safePopularTv,
               href: "/discover?mediaType=tv"
             }}
           />

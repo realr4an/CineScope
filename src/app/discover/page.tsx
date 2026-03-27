@@ -3,6 +3,7 @@ import { MediaGrid } from "@/components/sections/media-sections";
 import { SectionHeader } from "@/components/shared/ui-components";
 import { ErrorState } from "@/components/states/state-components";
 import { DiscoverFilters } from "@/features/discover/discover-filters";
+import { filterMediaForViewerAge } from "@/lib/age-gate/server";
 import { getDiscoverResults, getGenreMaps } from "@/lib/tmdb/discover";
 import { discoverParamsSchema } from "@/lib/validators/media";
 
@@ -25,6 +26,7 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
       getGenreMaps(),
       getDiscoverResults(parsed)
     ]);
+    const safeItems = await filterMediaForViewerAge(items);
 
     return (
       <AppShell>
@@ -45,9 +47,9 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
           <div className="space-y-4">
             <SectionHeader
               title={parsed.mediaType === "movie" ? "Filme entdecken" : "Serien entdecken"}
-              subtitle={`${items.length} Treffer aus TMDB Discover`}
+              subtitle={`${safeItems.length} Treffer aus TMDB Discover`}
             />
-            <MediaGrid items={items} />
+            <MediaGrid items={safeItems} />
           </div>
         </div>
       </AppShell>

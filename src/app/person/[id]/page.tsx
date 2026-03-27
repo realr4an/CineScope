@@ -2,6 +2,7 @@ import { AppShell } from "@/components/layout/app-shell";
 import { MediaGrid } from "@/components/sections/media-sections";
 import { ErrorState } from "@/components/states/state-components";
 import { AIPersonInsightsPanel } from "@/features/ai/person-insights-panel";
+import { filterMediaForViewerAge } from "@/lib/age-gate/server";
 import { formatDate } from "@/lib/format";
 import { getPersonDetail } from "@/lib/tmdb/people";
 
@@ -14,6 +15,7 @@ export default async function PersonPage({ params }: PersonPageProps) {
 
   try {
     const person = await getPersonDetail(Number(id));
+    const safeCredits = await filterMediaForViewerAge(person.credits);
 
     return (
       <AppShell>
@@ -48,7 +50,7 @@ export default async function PersonPage({ params }: PersonPageProps) {
                 </div>
               </div>
               <p className="max-w-3xl whitespace-pre-line text-sm leading-7 text-muted-foreground">
-                {person.biography || "Für diese Person liegt in TMDB aktuell keine Biografie vor."}
+                {person.biography || "Fuer diese Person liegt in TMDB aktuell keine Biografie vor."}
               </p>
             </div>
           </section>
@@ -59,7 +61,7 @@ export default async function PersonPage({ params }: PersonPageProps) {
 
           <section className="space-y-4">
             <h2 className="text-2xl font-semibold">Filmografie</h2>
-            <MediaGrid items={person.credits} />
+            <MediaGrid items={safeCredits} />
           </section>
         </div>
       </AppShell>

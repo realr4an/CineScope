@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
 
-import { getManyMediaAIContexts, getPersonAIContext, resolveMediaAIContext } from "@/lib/ai/context";
-import { resolveAIPicks } from "@/lib/ai/formatters";
+import { getAgeAccessForMedia } from "@/lib/age-gate/server";
+import {
+  getManyMediaAIContexts,
+  getPersonAIContext,
+  resolveMediaAIContext
+} from "@/lib/ai/context";
+import { resolveAIPicks, resolveAllowedAIPicks } from "@/lib/ai/formatters";
 import { askOpenRouterJson } from "@/lib/ai/openrouter";
 import {
   assistantPrompt,
@@ -21,6 +26,37 @@ import {
   aiTitleInsightsResponseSchema
 } from "@/lib/ai/schemas";
 
+async function ensureResolvedMediaAllowed(input: {
+  query: string;
+  mediaType?: "all" | "movie" | "tv";
+}) {
+  const resolved = await resolveMediaAIContext(input);
+
+  if (!resolved) {
+    return {
+      resolved: null,
+      error: "Der Titel konnte nicht sicher aufgeloest werden.",
+      status: 404
+    };
+  }
+
+  const access = await getAgeAccessForMedia(resolved.context.mediaType, resolved.context.tmdbId);
+
+  if (!access.allowed) {
+    return {
+      resolved: null,
+      error: "Dieser Titel ist fuer das hinterlegte Alter nicht verfuegbar.",
+      status: 403
+    };
+  }
+
+  return {
+    resolved,
+    error: null,
+    status: 200
+  };
+}
+
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
   const parsed = aiActionSchema.safeParse(body);
@@ -32,17 +68,25 @@ export async function POST(request: Request) {
   try {
     switch (parsed.data.mode) {
       case "compare": {
-        const [left, right] = await Promise.all([
-          resolveMediaAIContext(parsed.data.left),
-          resolveMediaAIContext(parsed.data.right)
+        const [leftResult, rightResult] = await Promise.all([
+          ensureResolvedMediaAllowed(parsed.data.left),
+          ensureResolvedMediaAllowed(parsed.data.right)
         ]);
 
-        if (!left || !right) {
+        if (!leftResult.resolved || !rightResult.resolved) {
           return NextResponse.json(
-            { error: "Mindestens einer der Titel konnte nicht sicher aufgelöst werden." },
-            { status: 404 }
+            {
+              error:
+                leftResult.error ??
+                rightResult.error ??
+                "Mindestens einer der Titel konnte nicht sicher aufgeloest werden."
+            },
+            { status: leftResult.status !== 200 ? leftResult.status : rightResult.status }
           );
         }
+
+        const left = leftResult.resolved;
+        const right = rightResult.resolved;
 
         const data = await askOpenRouterJson(
           comparePrompt(left.context, right.context),
@@ -60,14 +104,16 @@ export async function POST(request: Request) {
       }
 
       case "fit": {
-        const resolved = await resolveMediaAIContext(parsed.data.title);
+        const result = await ensureResolvedMediaAllowed(parsed.data.title);
 
-        if (!resolved) {
+        if (!result.resolved) {
           return NextResponse.json(
-            { error: "Der Titel konnte nicht sicher aufgelöst werden." },
-            { status: 404 }
+            { error: result.error ?? "Der Titel konnte nicht sicher aufgeloest werden." },
+            { status: result.status }
           );
         }
+
+        const resolved = result.resolved;
 
         const data = await askOpenRouterJson(
           fitPrompt({
@@ -110,10 +156,12 @@ export async function POST(request: Request) {
 
       case "assistant": {
         const references = (
-          await Promise.all(parsed.data.referenceTitles.map(reference => resolveMediaAIContext(reference)))
+          await Promise.all(
+            parsed.data.referenceTitles.map(reference => ensureResolvedMediaAllowed(reference))
+          )
         )
-          .filter(Boolean)
-          .map(result => result!.context);
+          .filter(result => result.resolved)
+          .map(result => result.resolved!.context);
 
         const data = await askOpenRouterJson(
           assistantPrompt({
@@ -128,7 +176,7 @@ export async function POST(request: Request) {
           }),
           aiAssistantResponseSchema
         );
-        const picks = await resolveAIPicks(data.picks);
+        const picks = await resolveAllowedAIPicks(data.picks);
 
         return NextResponse.json({
           mode: "assistant",
@@ -140,14 +188,16 @@ export async function POST(request: Request) {
       }
 
       case "title_insights": {
-        const resolved = await resolveMediaAIContext(parsed.data.title);
+        const result = await ensureResolvedMediaAllowed(parsed.data.title);
 
-        if (!resolved) {
+        if (!result.resolved) {
           return NextResponse.json(
-            { error: "Der Titel konnte nicht sicher aufgelöst werden." },
-            { status: 404 }
+            { error: result.error ?? "Der Titel konnte nicht sicher aufgeloest werden." },
+            { status: result.status }
           );
         }
+
+        const resolved = result.resolved;
 
         const data = await askOpenRouterJson(
           titleInsightsPrompt(resolved.context),

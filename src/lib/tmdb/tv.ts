@@ -1,3 +1,4 @@
+import { getMediaAgeCertification } from "@/lib/age-gate/server";
 import { fetchTmdb } from "@/lib/tmdb/client";
 import { getGenreMaps } from "@/lib/tmdb/discover";
 import { mapMediaListItem, mapTvDetail } from "@/lib/tmdb/mappers";
@@ -22,12 +23,16 @@ export async function getPopularTv() {
 
 export async function getTvDetail(id: number) {
   const { tvGenres } = await getGenreMaps();
-  const [details, credits, videos, similar] = await Promise.all([
+  const [details, credits, videos, similar, ageCertification] = await Promise.all([
     fetchTmdb<TmdbTvDetails>(`/tv/${id}`),
     fetchTmdb<TmdbCreditsResponse>(`/tv/${id}/credits`),
     fetchTmdb<TmdbVideosResponse>(`/tv/${id}/videos`),
-    fetchTmdb<TmdbPaginatedResponse<any>>(`/tv/${id}/similar`)
+    fetchTmdb<TmdbPaginatedResponse<any>>(`/tv/${id}/similar`),
+    getMediaAgeCertification("tv", id)
   ]);
 
-  return mapTvDetail(details, credits, videos, similar.results, tvGenres);
+  return {
+    ...mapTvDetail(details, credits, videos, similar.results, tvGenres),
+    ageCertification
+  };
 }

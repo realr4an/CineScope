@@ -3,6 +3,7 @@ import { MediaGrid } from "@/components/sections/media-sections";
 import { SectionHeader } from "@/components/shared/ui-components";
 import { ErrorState, NoResultsState } from "@/components/states/state-components";
 import { SearchForm } from "@/features/search/search-form";
+import { filterMediaForViewerAge } from "@/lib/age-gate/server";
 import { getPopularMovies } from "@/lib/tmdb/movies";
 import { searchMedia } from "@/lib/tmdb/search";
 import { getPopularTv } from "@/lib/tmdb/tv";
@@ -25,7 +26,9 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
       ? await searchMedia({ query: parsed.q, mediaType: parsed.type })
       : [];
 
-    const sortedResults = [...results].sort((left, right) => {
+    const safeResults = await filterMediaForViewerAge(results);
+
+    const sortedResults = [...safeResults].sort((left, right) => {
       if (parsed.sort === "rating") {
         return right.rating - left.rating;
       }
@@ -39,7 +42,10 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
 
     const discoveryItems =
       parsed.q.trim().length === 0
-        ? [...(await getPopularMovies()).slice(0, 6), ...(await getPopularTv()).slice(0, 6)]
+        ? await filterMediaForViewerAge([
+            ...(await getPopularMovies()).slice(0, 6),
+            ...(await getPopularTv()).slice(0, 6)
+          ])
         : [];
 
     return (
@@ -48,7 +54,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
           <div className="space-y-2">
             <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">Suche</h1>
             <p className="text-muted-foreground">
-              Suche über TMDB nach Filmen und Serien mit produktionsnahen Zuständen.
+              Suche ueber TMDB nach Filmen und Serien mit produktionsnahen Zustaenden.
             </p>
           </div>
 
@@ -63,7 +69,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
               <div className="space-y-4">
                 <SectionHeader
                   title={`${sortedResults.length} Ergebnisse`}
-                  subtitle={`Treffer für "${parsed.q}"`}
+                  subtitle={`Treffer fuer "${parsed.q}"`}
                 />
                 <MediaGrid items={sortedResults} />
               </div>
@@ -74,7 +80,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
             <div className="space-y-4">
               <SectionHeader
                 title="Beliebte Einstiege"
-                subtitle="Suche gezielt oder starte mit populären Titeln."
+                subtitle="Suche gezielt oder starte mit populaeren Titeln."
               />
               <MediaGrid items={discoveryItems} />
             </div>

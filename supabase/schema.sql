@@ -15,7 +15,8 @@ create table if not exists public.profiles (
   created_at timestamptz not null default timezone('utc', now()),
   updated_at timestamptz not null default timezone('utc', now()),
   display_name text,
-  avatar_url text
+  avatar_url text,
+  birth_date date
 );
 
 create trigger profiles_set_updated_at
@@ -44,6 +45,9 @@ alter table public.watchlist_items
 
 alter table public.watchlist_items
   add column if not exists liked boolean;
+
+alter table public.profiles
+  add column if not exists birth_date date;
 
 create table if not exists public.user_preferences (
   id uuid primary key default gen_random_uuid(),

@@ -15,7 +15,7 @@ export function RatingBadge({
   className?: string;
 }) {
   return (
-    <div className={cn("flex items-center gap-3", className)}>
+    <div className={cn("flex flex-wrap items-center gap-2 sm:gap-3", className)}>
       <div
         className={cn(
           "inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-sm font-bold",
@@ -106,8 +106,8 @@ export function SectionHeader({
   href?: string;
 }) {
   return (
-    <div className="mb-5 flex items-end justify-between gap-4">
-      <div>
+    <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
+      <div className="min-w-0">
         <h2 className="text-xl font-bold tracking-tight sm:text-2xl">{title}</h2>
         {subtitle ? <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p> : null}
       </div>
@@ -201,11 +201,11 @@ export function StatPill({
   icon?: React.ReactNode;
 }) {
   return (
-    <div className="flex items-center gap-3 rounded-xl border border-border/50 bg-card/70 p-3">
-      {icon ? <div className="text-muted-foreground">{icon}</div> : null}
-      <div>
+    <div className="flex min-w-0 items-center gap-3 rounded-xl border border-border/50 bg-card/70 p-3">
+      {icon ? <div className="shrink-0 text-muted-foreground">{icon}</div> : null}
+      <div className="min-w-0">
         <div className="text-xs text-muted-foreground">{label}</div>
-        <div className="text-sm font-semibold">{value}</div>
+        <div className="break-words text-sm font-semibold">{value}</div>
       </div>
     </div>
   );

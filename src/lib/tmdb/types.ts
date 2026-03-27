@@ -90,6 +90,23 @@ export interface TmdbPaginatedResponse<T> {
   total_results: number;
 }
 
+export interface TmdbMovieReleaseDatesResponse {
+  results: Array<{
+    iso_3166_1: string;
+    release_dates: Array<{
+      certification: string;
+      type: number;
+    }>;
+  }>;
+}
+
+export interface TmdbTvContentRatingsResponse {
+  results: Array<{
+    iso_3166_1: string;
+    rating: string;
+  }>;
+}
+
 export interface TmdbWatchProvider {
   provider_id: number;
   provider_name: string;

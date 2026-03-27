@@ -27,8 +27,8 @@ type AssistantResponse = {
 
 const QUICK_PROMPTS = [
   "Ich habe heute Abend nur etwa 2 Stunden und will etwas starkes, aber nicht zu schweres.",
-  "Ich suche etwas für Date Night, eher stimmungsvoll und zugänglich.",
-  "Ich will eine Miniserie fürs Wochenende.",
+  "Ich suche etwas fuer Date Night, eher stimmungsvoll und zugaenglich.",
+  "Ich will eine Miniserie fuers Wochenende.",
   "Schlage mir etwas vor wie die Titel, die mir gefallen haben, aber etwas leichter."
 ];
 
@@ -108,11 +108,11 @@ export function AIAssistantPanel() {
   return (
     <AIPanelShell
       title="Assistenzmodus"
-      description="Ein fokussierter KI-Layer für Stimmung, Zeit, soziale Situation und persönliche Präferenzen."
+      description="Ein fokussierter KI-Layer fuer Stimmung, Zeit, soziale Situation und persoenliche Praeferenzen."
       actions={
         <Button onClick={submit} disabled={loading}>
           {loading ? <RefreshCw className="size-4 animate-spin" /> : null}
-          Vorschläge holen
+          Vorschlaege holen
         </Button>
       }
     >
@@ -156,7 +156,7 @@ export function AIAssistantPanel() {
           <input
             value={mood}
             onChange={event => setMood(event.target.value)}
-            placeholder="Mood, z. B. düster aber zugänglich"
+            placeholder="Mood, z. B. duester aber zugaenglich"
             className="h-11 rounded-xl border border-border/60 bg-background px-3 text-sm"
           />
           <select
@@ -201,15 +201,21 @@ export function AIAssistantPanel() {
         ) : null}
 
         {result ? (
-          <div className="space-y-4">
-            <div className="rounded-2xl border border-border/50 bg-background/50 p-4 text-sm text-muted-foreground">
-              {result.framing}
+          result.picks.length ? (
+            <div className="space-y-4">
+              <div className="rounded-2xl border border-border/50 bg-background/50 p-4 text-sm text-muted-foreground">
+                {result.framing}
+              </div>
+              <AIPicksGrid picks={result.picks} />
+              {result.nextStep ? (
+                <p className="text-sm text-muted-foreground">{result.nextStep}</p>
+              ) : null}
             </div>
-            <AIPicksGrid picks={result.picks} />
-            {result.nextStep ? (
-              <p className="text-sm text-muted-foreground">{result.nextStep}</p>
-            ) : null}
-          </div>
+          ) : (
+            <div className="rounded-2xl border border-border/50 bg-background/50 p-4 text-sm text-muted-foreground">
+              Fuer das hinterlegte Alter konnten aktuell keine passenden Titel sicher aufgeloest werden.
+            </div>
+          )
         ) : null}
       </div>
     </AIPanelShell>

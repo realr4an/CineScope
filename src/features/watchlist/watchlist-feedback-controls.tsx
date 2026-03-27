@@ -23,20 +23,24 @@ export function WatchlistFeedbackControls({
   if (!resolvedItem) {
     return (
       <p className="text-sm text-muted-foreground">
-        Füge den Titel zuerst zur Watchlist hinzu, um ihn als gesehen zu markieren oder zu
+        Fuege den Titel zuerst zur Watchlist hinzu, um ihn als gesehen zu markieren oder zu
         bewerten.
       </p>
     );
   }
 
   const buttonSize = compact ? "sm" : "default";
+  const buttonClassName = compact
+    ? "h-auto w-full justify-start whitespace-normal py-2 text-left sm:w-auto"
+    : "h-auto w-full justify-start whitespace-normal py-2 text-left sm:w-auto sm:justify-center";
 
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
         <Button
           variant={resolvedItem.watched ? "default" : "outline"}
           size={buttonSize}
+          className={buttonClassName}
           disabled={loading}
           onClick={() =>
             updateFeedback(resolvedItem.id, {
@@ -52,6 +56,7 @@ export function WatchlistFeedbackControls({
         <Button
           variant={resolvedItem.liked === true ? "default" : "outline"}
           size={buttonSize}
+          className={buttonClassName}
           disabled={loading || !resolvedItem.watched}
           onClick={() =>
             updateFeedback(resolvedItem.id, {
@@ -60,12 +65,13 @@ export function WatchlistFeedbackControls({
           }
         >
           <ThumbsUp className="size-4" />
-          Gefällt mir
+          Gefaellt mir
         </Button>
 
         <Button
           variant={resolvedItem.liked === false ? "destructive" : "outline"}
           size={buttonSize}
+          className={buttonClassName}
           disabled={loading || !resolvedItem.watched}
           onClick={() =>
             updateFeedback(resolvedItem.id, {
@@ -74,7 +80,7 @@ export function WatchlistFeedbackControls({
           }
         >
           <ThumbsDown className="size-4" />
-          Gefällt mir nicht
+          Gefaellt mir nicht
         </Button>
       </div>
 

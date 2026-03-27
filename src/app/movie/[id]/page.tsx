@@ -1,17 +1,17 @@
 import Link from "next/link";
-import { ArrowLeft, Calendar, Clock, DollarSign, Star } from "lucide-react";
+import { ArrowLeft, Calendar, Clock, DollarSign, ShieldAlert, Star } from "lucide-react";
 
 import { AppShell } from "@/components/layout/app-shell";
 import { CastSection, InfoPanel, TrailerSection } from "@/components/sections/detail-components";
 import { HorizontalMediaRow } from "@/components/sections/media-sections";
 import { GenreList, RatingBadge, StatPill } from "@/components/shared/ui-components";
-import { DetailSkeleton } from "@/components/states/skeletons";
 import { ErrorState } from "@/components/states/state-components";
 import { SummaryPanel } from "@/features/ai-chat/ai-panel";
 import { AITitlePanel } from "@/features/ai/title-ai-panel";
 import { WhereToWatchSection } from "@/features/watch-providers/where-to-watch-section";
 import { WatchlistFeedbackControls } from "@/features/watchlist/watchlist-feedback-controls";
 import { WatchlistToggleButton } from "@/features/watchlist/watchlist-toggle-button";
+import { filterMediaForViewerAge, getAgeAccessForMedia } from "@/lib/age-gate/server";
 import { formatCurrency, formatDate, formatRuntime } from "@/lib/format";
 import { getMovieDetail } from "@/lib/tmdb/movies";
 
@@ -21,9 +21,27 @@ type MoviePageProps = {
 
 export default async function MoviePage({ params }: MoviePageProps) {
   const { id } = await params;
+  const tmdbId = Number(id);
 
   try {
-    const movie = await getMovieDetail(Number(id));
+    const [movie, access] = await Promise.all([
+      getMovieDetail(tmdbId),
+      getAgeAccessForMedia("movie", tmdbId)
+    ]);
+
+    if (!access.allowed) {
+      return (
+        <AppShell>
+          <ErrorState
+            title="Dieser Titel ist fuer dein Alter gesperrt"
+            description={`${movie.title} ist aktuell mit ${access.certification?.label ?? "einer hoeheren Altersfreigabe"} gekennzeichnet und wird deshalb ausgeblendet.`}
+            action={{ label: "Zur Startseite", href: "/" }}
+          />
+        </AppShell>
+      );
+    }
+
+    const safeSimilar = await filterMediaForViewerAge(movie.similar);
 
     return (
       <AppShell>
@@ -44,21 +62,21 @@ export default async function MoviePage({ params }: MoviePageProps) {
                 <ArrowLeft className="size-4" />
                 Zur Startseite
               </Link>
-              <div className="grid gap-8 lg:grid-cols-[260px_minmax(0,1fr)] lg:items-end">
+              <div className="grid gap-6 lg:grid-cols-[260px_minmax(0,1fr)] lg:items-end lg:gap-8">
                 <div className="hidden overflow-hidden rounded-3xl border border-border/50 shadow-2xl shadow-black/40 lg:block">
                   <img src={movie.posterUrl ?? ""} alt={movie.title} className="w-full" />
                 </div>
-                <div className="space-y-5">
+                <div className="min-w-0 space-y-5">
                   <div className="space-y-2">
                     <div className="inline-flex rounded-full border border-primary/30 bg-primary/15 px-3 py-1 text-xs font-semibold text-primary">
                       Film
                     </div>
-                    <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">{movie.title}</h1>
+                    <h1 className="break-words text-4xl font-bold tracking-tight sm:text-5xl">{movie.title}</h1>
                     {movie.tagline ? (
                       <p className="text-lg italic text-muted-foreground">"{movie.tagline}"</p>
                     ) : null}
                   </div>
-                  <div className="flex flex-wrap items-center gap-4">
+                  <div className="flex flex-wrap items-center gap-3 sm:gap-4">
                     <RatingBadge rating={movie.rating} voteCount={movie.voteCount} />
                     <span className="inline-flex items-center gap-1 text-sm text-muted-foreground">
                       <Calendar className="size-4" />
@@ -68,6 +86,12 @@ export default async function MoviePage({ params }: MoviePageProps) {
                       <Clock className="size-4" />
                       {formatRuntime(movie.runtime)}
                     </span>
+                    {movie.ageCertification?.label ? (
+                      <span className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-card/60 px-3 py-1 text-sm text-muted-foreground">
+                        <ShieldAlert className="size-4" />
+                        {movie.ageCertification.label}
+                      </span>
+                    ) : null}
                   </div>
                   <GenreList genres={movie.genres} />
                   <div className="space-y-3">
@@ -94,9 +118,9 @@ export default async function MoviePage({ params }: MoviePageProps) {
               <HorizontalMediaRow
                 section={{
                   id: "similar-movies",
-                  title: "Ähnliche Filme",
+                  title: "Aehnliche Filme",
                   subtitle: "Passende Anschlusskandidaten",
-                  items: movie.similar
+                  items: safeSimilar
                 }}
               />
             </div>
@@ -128,9 +152,10 @@ export default async function MoviePage({ params }: MoviePageProps) {
                 <InfoPanel
                   items={[
                     { label: "Status", value: movie.status },
-                    { label: "Originaltitel", value: movie.originalTitle ?? "—" },
-                    { label: "Veröffentlichung", value: formatDate(movie.releaseDate) },
-                    { label: "Sprachen", value: movie.spokenLanguages.join(", ") || "—" }
+                    { label: "Originaltitel", value: movie.originalTitle ?? "-" },
+                    { label: "Veroeffentlichung", value: formatDate(movie.releaseDate) },
+                    { label: "Altersfreigabe", value: movie.ageCertification?.label ?? "Nicht hinterlegt" },
+                    { label: "Sprachen", value: movie.spokenLanguages.join(", ") || "-" }
                   ]}
                 />
               </div>
@@ -150,3 +175,4 @@ export default async function MoviePage({ params }: MoviePageProps) {
     );
   }
 }
+

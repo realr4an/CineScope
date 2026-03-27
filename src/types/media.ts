@@ -1,3 +1,5 @@
+import type { AgeCertification } from "@/lib/age-gate";
+
 export type MediaType = "movie" | "tv";
 
 export interface Genre {
@@ -17,6 +19,7 @@ export interface MediaListItem {
   rating: number;
   voteCount: number;
   genres: Genre[];
+  ageCertification?: AgeCertification | null;
 }
 
 export interface CastMember {

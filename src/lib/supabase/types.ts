@@ -8,15 +8,18 @@ export interface Database {
           updated_at: string;
           display_name: string | null;
           avatar_url: string | null;
+          birth_date: string | null;
         };
         Insert: {
           id: string;
           display_name?: string | null;
           avatar_url?: string | null;
+          birth_date?: string | null;
         };
         Update: {
           display_name?: string | null;
           avatar_url?: string | null;
+          birth_date?: string | null;
         };
         Relationships: [];
       };

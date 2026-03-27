@@ -73,8 +73,17 @@ export function RecommendationPanel() {
       return;
     }
 
-    const data = (await response.json()) as { recommendations: AIRecommendation[] };
+    const data = (await response.json()) as {
+      recommendations: AIRecommendation[];
+      message?: string;
+    };
+
     setRecommendations(data.recommendations);
+
+    if (!data.recommendations.length && data.message) {
+      setError(data.message);
+    }
+
     setLoading(false);
   };
 
@@ -104,14 +113,14 @@ export function RecommendationPanel() {
       </div>
 
       <p className="text-sm text-muted-foreground">
-        Bereits gesehene sowie positiv oder negativ bewertete Watchlist-Titel fließen automatisch
+        Bereits gesehene sowie positiv oder negativ bewertete Watchlist-Titel fliessen automatisch
         in die Empfehlungen ein.
       </p>
 
       <Textarea
         value={prompt}
         onChange={event => setPrompt(event.target.value)}
-        placeholder='Zum Beispiel: "Schlage mir Filme vor wie die, die mir gefallen haben, aber etwas düsterer."'
+        placeholder='Zum Beispiel: "Schlage mir Filme vor wie die, die mir gefallen haben, aber etwas duesterer."'
       />
 
       <div className="flex gap-3">
@@ -127,7 +136,7 @@ export function RecommendationPanel() {
             setError(null);
           }}
         >
-          Zurücksetzen
+          Zuruecksetzen
         </Button>
       </div>
 

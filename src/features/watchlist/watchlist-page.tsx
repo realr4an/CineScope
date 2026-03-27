@@ -68,20 +68,20 @@ function WatchlistCard({ item }: { item: WatchlistItem }) {
             />
           </div>
 
-          <div className="space-y-4">
+          <div className="min-w-0 space-y-4">
             <div className="space-y-2">
               <div className="text-xs uppercase tracking-[0.18em] text-primary">
                 {item.mediaType === "movie" ? "Film" : "Serie"}
               </div>
-              <h2 className="text-xl font-semibold leading-tight">{item.title}</h2>
+              <h2 className="break-words text-xl font-semibold leading-tight">{item.title}</h2>
               <p className="text-sm text-muted-foreground">{formatYear(item.releaseDate)}</p>
             </div>
 
             <div className="flex flex-wrap gap-2">
               <StatusBadge label="Gesehen" active={item.watched} tone="primary" />
-              <StatusBadge label="Gefällt mir" active={item.liked === true} tone="positive" />
+              <StatusBadge label="Gefaellt mir" active={item.liked === true} tone="positive" />
               <StatusBadge
-                label="Gefällt mir nicht"
+                label="Gefaellt mir nicht"
                 active={item.liked === false}
                 tone="negative"
               />
@@ -97,6 +97,7 @@ function WatchlistCard({ item }: { item: WatchlistItem }) {
           <Button
             variant="ghost"
             size="sm"
+            className="h-auto w-full justify-start whitespace-normal py-2 text-left sm:w-auto"
             disabled={loading}
             onClick={() => toggleItem(item)}
           >
@@ -150,8 +151,8 @@ export function WatchlistPageContent() {
         </div>
       ) : (
         <EmptyState
-          title="Keine passenden Watchlist-Einträge"
-          description="Für den aktuell gewählten Filter gibt es noch keine Titel."
+          title="Keine passenden Watchlist-Eintraege"
+          description="Fuer den aktuell gewaehlten Filter gibt es noch keine Titel."
           action={{ label: "Alle anzeigen", onClick: () => setFilter("all") }}
         />
       )}

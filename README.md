@@ -23,6 +23,7 @@ Nutzer:innen koennen Trending- und Popular-Inhalte entdecken, Filme und Serien s
 - Watchlist-Feedback mit `gesehen`, `gefaellt mir`, `gefaellt mir nicht`
 - Klickbare KI-Empfehlungen mit TMDB-Aufloesung auf Detailseiten oder Suche
 - Dark Mode, Loading-, Empty- und Error-States
+- Altersabfrage fuer Gaeste und Profilspeicherung fuer Jugendschutzfilter mit altersgerechter Inhaltsauswahl
 
 ## AI Layer
 
@@ -232,7 +233,7 @@ Mindestens umgesetzt:
 - `ai_chat_sessions`
 - `ai_chat_messages`
 
-Die aktuell produktiv genutzte Persistenz konzentriert sich auf `watchlist_items`. Dort liegen auch `watched` und `liked` fuer persoenliches Medien-Feedback.
+Die aktuell produktiv genutzte Persistenz konzentriert sich auf `watchlist_items` und `profiles`. Dort liegen persoenliches Medien-Feedback sowie das fuer den Jugendschutzfilter genutzte `birth_date`.
 
 ### Zusätzliche SQL-Migration fuer Watchlist-Feedback
 
@@ -325,5 +326,16 @@ Wichtige manuelle Entscheidungen:
 - AI-Historie oder gespeicherte Sessions in Supabase persistieren
 - responsive QA auf echten Geraetegroessen vertiefen
 - Tests fuer Mappers, Query-Validatoren und KI-Routen ergaenzen
+
+
+
+
+## Jugendschutz
+
+- Besucher:innen ohne Konto werden beim ersten Besuch nach Geburtsdatum oder Alter gefragt.
+- Die Angabe wird als Cookie gespeichert, damit serverseitige Filter fuer Listen und Detailseiten greifen koennen.
+- Bei eingeloggten Nutzer:innen wird das Geburtsdatum zusaetzlich im Supabase-Profil gespeichert.
+- Inhalte mit hoeherer Altersfreigabe werden auf Listen verborgen und auf Detailseiten blockiert.
+- Fuer Filmfreigaben wird bevorzugt die TMDB-Kennzeichnung fuer DE genutzt, mit Fallback auf US, falls keine deutsche Freigabe vorhanden ist.
 
 

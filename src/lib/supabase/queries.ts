@@ -1,10 +1,13 @@
 import "server-only";
 
+import { cache } from "react";
+
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { normalizeBirthDate } from "@/lib/age-gate";
 import type { Viewer } from "@/types/auth";
 import type { WatchlistItem } from "@/types/media";
 
-export async function getViewer() {
+export const getViewer = cache(async () => {
   const supabase = await createSupabaseServerClient();
 
   if (!supabase) {
@@ -19,15 +22,21 @@ export async function getViewer() {
     return null;
   }
 
+  const { data: profile } = await (supabase.from("profiles") as any)
+    .select("birth_date")
+    .eq("id", user.id)
+    .maybeSingle();
+
   const viewer: Viewer = {
     id: user.id,
-    email: user.email ?? null
+    email: user.email ?? null,
+    birthDate: normalizeBirthDate(profile?.birth_date ?? null)
   };
 
   return viewer;
-}
+});
 
-export async function getWatchlistForViewer(): Promise<WatchlistItem[]> {
+export const getWatchlistForViewer = cache(async (): Promise<WatchlistItem[]> => {
   const supabase = await createSupabaseServerClient();
 
   if (!supabase) {
@@ -64,4 +73,4 @@ export async function getWatchlistForViewer(): Promise<WatchlistItem[]> {
     liked: item.liked,
     createdAt: item.created_at
   }));
-}
+});
