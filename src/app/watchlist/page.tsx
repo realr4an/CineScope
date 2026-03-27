@@ -2,12 +2,10 @@
 
 import { AppShell } from "@/components/layout/app-shell";
 import { ErrorState } from "@/components/states/state-components";
-import { AIWatchlistPriorityPanel } from "@/features/ai/watchlist-priority-panel";
 import { WatchlistPageContent } from "@/features/watchlist/watchlist-page";
 import { getPublicEnv } from "@/lib/env";
-import { filterMediaForViewerAge } from "@/lib/age-gate/server";
 import { getServerDictionary } from "@/lib/i18n/server";
-import { getViewer, getWatchlistForViewer } from "@/lib/supabase/queries";
+import { getViewer } from "@/lib/supabase/queries";
 
 export default async function WatchlistPage() {
   const { dictionary } = await getServerDictionary();
@@ -23,13 +21,11 @@ export default async function WatchlistPage() {
     );
   }
 
-  const [viewer, watchlist] = await Promise.all([getViewer(), getWatchlistForViewer()]);
+  const viewer = await getViewer();
 
   if (!viewer) {
     redirect("/auth/login?next=/watchlist");
   }
-
-  const safeWatchlist = await filterMediaForViewerAge(watchlist);
 
   return (
     <AppShell>
@@ -40,7 +36,6 @@ export default async function WatchlistPage() {
           </h1>
           <p className="text-muted-foreground">{dictionary.watchlistPage.description}</p>
         </div>
-        <AIWatchlistPriorityPanel items={safeWatchlist} />
         <WatchlistPageContent />
       </div>
     </AppShell>

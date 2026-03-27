@@ -2,8 +2,9 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Heart, Trash2 } from "lucide-react";
+import { CheckSquare, Heart, Square, Trash2 } from "lucide-react";
 
+import { AIWatchlistPriorityPanel, MAX_PRIORITY_SELECTIONS } from "@/features/ai/watchlist-priority-panel";
 import { EmptyState } from "@/components/states/state-components";
 import { FilterChips } from "@/components/shared/ui-components";
 import { Button } from "@/components/ui/button";
@@ -46,9 +47,33 @@ function StatusBadge({
   );
 }
 
-function WatchlistCard({ item }: { item: WatchlistItem }) {
+function WatchlistCard({
+  item,
+  selected,
+  canSelectMore,
+  onToggleSelect
+}: {
+  item: WatchlistItem;
+  selected: boolean;
+  canSelectMore: boolean;
+  onToggleSelect: () => void;
+}) {
   const { toggleItem, loading } = useWatchlist();
-  const { dictionary } = useLanguage();
+  const { dictionary, locale } = useLanguage();
+  const selectionText =
+    locale === "en"
+      ? {
+          select: "Select for watch order",
+          selected: "Selected for watch order",
+          limitReached: "Selection limit reached"
+        }
+      : {
+          select: "Für Reihenfolge auswählen",
+          selected: "Für Reihenfolge ausgewählt",
+          limitReached: "Auswahl-Limit erreicht"
+        };
+
+  const selectionDisabled = !selected && !canSelectMore;
 
   return (
     <div className="overflow-hidden rounded-[1.75rem] border border-border/50 bg-card/60">
@@ -85,6 +110,19 @@ function WatchlistCard({ item }: { item: WatchlistItem }) {
       </Link>
 
       <div className="space-y-4 border-t border-border/40 px-4 py-4 sm:px-5">
+        <div className="flex flex-wrap gap-3">
+          <Button
+            variant={selected ? "default" : "outline"}
+            size="sm"
+            className="h-auto w-full justify-start whitespace-normal py-2 text-left sm:w-auto"
+            disabled={selectionDisabled}
+            onClick={onToggleSelect}
+          >
+            {selected ? <CheckSquare className="size-4" /> : <Square className="size-4" />}
+            {selected ? selectionText.selected : selectionDisabled ? selectionText.limitReached : selectionText.select}
+          </Button>
+        </div>
+
         <WatchlistFeedbackControls item={item} />
 
         <div className="flex flex-wrap gap-3">
@@ -108,6 +146,7 @@ export function WatchlistPageContent() {
   const { items } = useWatchlist();
   const { dictionary } = useLanguage();
   const [filter, setFilter] = useState<WatchlistFilter>("all");
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   const filterOptions = [
     { label: dictionary.watchlist.all, value: "all" as const },
@@ -129,6 +168,27 @@ export function WatchlistPageContent() {
     }
   }, [filter, items]);
 
+  const selectedItems = useMemo(
+    () => items.filter(item => selectedIds.includes(item.id)),
+    [items, selectedIds]
+  );
+
+  const toggleSelection = (itemId: string) => {
+    setSelectedIds(current => {
+      if (current.includes(itemId)) {
+        return current.filter(id => id !== itemId);
+      }
+
+      if (current.length >= MAX_PRIORITY_SELECTIONS) {
+        return current;
+      }
+
+      return [...current, itemId];
+    });
+  };
+
+  const clearSelection = () => setSelectedIds([]);
+
   if (!items.length) {
     return (
       <EmptyState
@@ -141,6 +201,8 @@ export function WatchlistPageContent() {
 
   return (
     <div className="space-y-5">
+      <AIWatchlistPriorityPanel selectedItems={selectedItems} onClearSelection={clearSelection} />
+
       <div className="rounded-[1.5rem] border border-border/50 bg-card/50 p-4">
         <div className="mb-3 flex items-center gap-2">
           <Heart className="size-4 text-primary" />
@@ -154,7 +216,13 @@ export function WatchlistPageContent() {
       {filteredItems.length ? (
         <div className="space-y-4">
           {filteredItems.map(item => (
-            <WatchlistCard key={item.id} item={item} />
+            <WatchlistCard
+              key={item.id}
+              item={item}
+              selected={selectedIds.includes(item.id)}
+              canSelectMore={selectedIds.length < MAX_PRIORITY_SELECTIONS}
+              onToggleSelect={() => toggleSelection(item.id)}
+            />
           ))}
         </div>
       ) : (
