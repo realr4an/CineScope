@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
 
 import { getAgeAccessForMedia } from "@/lib/age-gate/server";
 import {
@@ -35,7 +35,7 @@ async function ensureResolvedMediaAllowed(input: {
   if (!resolved) {
     return {
       resolved: null,
-      error: "Der Titel konnte nicht sicher aufgelÖst werden.",
+      error: "Der Titel konnte nicht sicher aufgelöst werden.",
       status: 404
     };
   }
@@ -45,7 +45,7 @@ async function ensureResolvedMediaAllowed(input: {
   if (!access.allowed) {
     return {
       resolved: null,
-      error: "Dieser Titel ist fÜr das hinterlegte Alter nicht verfÜgbar.",
+      error: "Dieser Titel ist für das hinterlegte Alter nicht verfügbar.",
       status: 403
     };
   }
@@ -79,7 +79,7 @@ export async function POST(request: Request) {
               error:
                 leftResult.error ??
                 rightResult.error ??
-                "Mindestens einer der Titel konnte nicht sicher aufgelÖst werden."
+                "Mindestens einer der Titel konnte nicht sicher aufgelöst werden."
             },
             { status: leftResult.status !== 200 ? leftResult.status : rightResult.status }
           );
@@ -108,7 +108,7 @@ export async function POST(request: Request) {
 
         if (!result.resolved) {
           return NextResponse.json(
-            { error: result.error ?? "Der Titel konnte nicht sicher aufgelÖst werden." },
+            { error: result.error ?? "Der Titel konnte nicht sicher aufgelöst werden." },
             { status: result.status }
           );
         }
@@ -192,7 +192,7 @@ export async function POST(request: Request) {
 
         if (!result.resolved) {
           return NextResponse.json(
-            { error: result.error ?? "Der Titel konnte nicht sicher aufgelÖst werden." },
+            { error: result.error ?? "Der Titel konnte nicht sicher aufgelöst werden." },
             { status: result.status }
           );
         }
@@ -236,3 +236,4 @@ export async function POST(request: Request) {
     );
   }
 }
+

@@ -1,4 +1,4 @@
-import type { NextApiRequest, NextApiResponse } from "next";
+﻿import type { NextApiRequest, NextApiResponse } from "next";
 
 import { resolveAllowedAIPicks } from "@/lib/ai/formatters";
 import { askOpenRouter } from "@/lib/ai/openrouter";
@@ -53,7 +53,7 @@ export default async function handler(
       recommendations: resolvedRecommendations,
       message: resolvedRecommendations.length
         ? undefined
-        : "Es konnten aktuell keine altersgerechten Empfehlungen sicher aufgelÃ–st werden."
+        : "Es konnten aktuell keine altersgerechten Empfehlungen sicher aufgelÃƒâ€“st werden."
     });
   } catch (error) {
     return response.status(500).json({
@@ -61,3 +61,4 @@ export default async function handler(
     });
   }
 }
+
