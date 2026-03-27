@@ -1,4 +1,4 @@
-@import "tailwindcss";
+﻿@import "tailwindcss";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -144,11 +144,15 @@
 
   .scroll-row {
     display: flex;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
     gap: 1rem;
     overflow-x: auto;
     padding-bottom: 0.75rem;
     scrollbar-width: none;
     -ms-overflow-style: none;
+    overscroll-behavior-inline: contain;
   }
 
   .scroll-row::-webkit-scrollbar {
@@ -176,4 +180,3 @@
     background-position: -200% 0;
   }
 }
-

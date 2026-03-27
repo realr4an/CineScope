@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useMemo, useState } from "react";
 import { Play, X } from "lucide-react";
@@ -15,9 +15,9 @@ export function CastSection({ cast }: { cast: CastMember[] }) {
   }
 
   return (
-    <section className="space-y-4">
+    <section className="min-w-0 space-y-4">
       <SectionHeader title="Besetzung" subtitle="Die wichtigsten Rollen und Mitwirkenden" />
-      <div className="scroll-row">
+      <div className="scroll-row w-full max-w-full">
         {cast.map(member => (
           <PersonCard
             key={member.id}
@@ -129,4 +129,3 @@ export function InfoPanel({
     </div>
   );
 }
-

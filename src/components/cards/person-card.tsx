@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { User } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -23,8 +23,8 @@ export function PersonCard({
     <Link
       href={`/person/${id}`}
       className={cn(
-        "group flex gap-3 rounded-2xl border border-border/50 bg-card/70 p-3 transition-colors hover:border-primary/30",
-        compact ? "min-w-56" : "flex-col"
+        "group flex min-w-0 gap-3 rounded-2xl border border-border/50 bg-card/70 p-3 transition-colors hover:border-primary/30",
+        compact ? "w-[15rem] shrink-0 sm:w-56" : "flex-col"
       )}
     >
       <div
