@@ -57,7 +57,7 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
       getDiscoverResults(parsed)
     ]);
     const safeItems = await filterMediaForViewerAge(result.items);
-    const totalPages = Math.max(1, Math.min(result.totalPages, 500));
+    const totalPages = Math.max(1, Math.min(result.totalPages, 167));
     const visiblePages = getVisiblePages(result.page, totalPages);
     const paginationText =
       locale === "en"
@@ -66,7 +66,7 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
             of: "of",
             previous: "Previous",
             next: "Next",
-            tmdbPageInfo: `TMDB returns 20 titles per page.`,
+            tmdbPageInfo: "This view combines up to 60 titles per page.",
             resultsLabel: `${result.totalResults.toLocaleString("en-US")} results`
           }
         : {
@@ -74,7 +74,7 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
             of: "von",
             previous: "Zurück",
             next: "Weiter",
-            tmdbPageInfo: "TMDB liefert 20 Titel pro Seite.",
+            tmdbPageInfo: "Diese Ansicht bündelt bis zu 60 Titel pro Seite.",
             resultsLabel: `${result.totalResults.toLocaleString("de-DE")} Treffer`
           };
 

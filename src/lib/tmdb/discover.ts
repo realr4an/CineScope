@@ -2,6 +2,11 @@
 import { mapMediaListItem } from "@/lib/tmdb/mappers";
 import type { TmdbGenre, TmdbPaginatedResponse } from "@/lib/tmdb/types";
 
+const TMDB_PAGE_SIZE = 20;
+const DISCOVER_PAGE_SIZE = 60;
+const TMDB_MAX_PAGES = 500;
+const TMDB_PAGES_PER_DISCOVER_PAGE = DISCOVER_PAGE_SIZE / TMDB_PAGE_SIZE;
+
 export async function getGenres(mediaType: "movie" | "tv") {
   const response = await fetchTmdb<{ genres: TmdbGenre[] }>(`/genre/${mediaType}/list`);
   return response.genres;
@@ -32,23 +37,33 @@ export async function getDiscoverResults(input: {
   const releaseField =
     input.mediaType === "movie" ? "primary_release_year" : "first_air_date_year";
 
-  const response = await fetchTmdb<TmdbPaginatedResponse<any>>(
-    `/discover/${input.mediaType}`,
-    {
-      with_genres: input.genre,
-      sort_by: input.sort,
-      page: input.page,
-      "vote_average.gte": input.rating,
-      [releaseField]: input.year
-    }
+  const requestedPage = Math.max(1, input.page);
+  const tmdbStartPage = (requestedPage - 1) * TMDB_PAGES_PER_DISCOVER_PAGE + 1;
+  const tmdbPages = Array.from({ length: TMDB_PAGES_PER_DISCOVER_PAGE }, (_, index) => tmdbStartPage + index)
+    .filter(page => page <= TMDB_MAX_PAGES);
+
+  const responses = await Promise.all(
+    tmdbPages.map(page =>
+      fetchTmdb<TmdbPaginatedResponse<any>>(`/discover/${input.mediaType}`, {
+        with_genres: input.genre,
+        sort_by: input.sort,
+        page,
+        "vote_average.gte": input.rating,
+        [releaseField]: input.year
+      })
+    )
   );
 
+  const firstResponse = responses[0];
+  const totalTmdbResults = Math.min(firstResponse.total_results, TMDB_MAX_PAGES * TMDB_PAGE_SIZE);
+
   return {
-    page: response.page,
-    totalPages: response.total_pages,
-    totalResults: response.total_results,
-    items: response.results.map((item: any) =>
-      mapMediaListItem(item, input.mediaType, genresById)
-    )
+    page: requestedPage,
+    totalPages: Math.max(1, Math.ceil(totalTmdbResults / DISCOVER_PAGE_SIZE)),
+    totalResults: totalTmdbResults,
+    items: responses
+      .flatMap(response => response.results)
+      .slice(0, DISCOVER_PAGE_SIZE)
+      .map((item: any) => mapMediaListItem(item, input.mediaType, genresById))
   };
 }
