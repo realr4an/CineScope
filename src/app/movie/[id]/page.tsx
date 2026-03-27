@@ -73,7 +73,7 @@ export default async function MoviePage({ params }: MoviePageProps) {
                     </div>
                     <h1 className="break-words text-4xl font-bold tracking-tight sm:text-5xl">{movie.title}</h1>
                     {movie.tagline ? (
-                      <p className="text-lg italic text-muted-foreground">"{movie.tagline}"</p>
+                      <p className="text-lg italic text-muted-foreground">&quot;{movie.tagline}&quot;</p>
                     ) : null}
                   </div>
                   <div className="flex flex-wrap items-center gap-3 sm:gap-4">
@@ -154,8 +154,9 @@ export default async function MoviePage({ params }: MoviePageProps) {
                     { label: "Status", value: movie.status },
                     { label: "Originaltitel", value: movie.originalTitle ?? "-" },
                     { label: "Veroeffentlichung", value: formatDate(movie.releaseDate) },
+                    { label: "Originalsprache", value: movie.originalLanguage ?? "-" },
                     { label: "Altersfreigabe", value: movie.ageCertification?.label ?? "Nicht hinterlegt" },
-                    { label: "Sprachen", value: movie.spokenLanguages.join(", ") || "-" }
+                    { label: "Sprachen", value: movie.spokenLanguages.join(", ") || movie.originalLanguage || "-" }
                   ]}
                 />
               </div>
@@ -175,5 +176,3 @@ export default async function MoviePage({ params }: MoviePageProps) {
     );
   }
 }
-
-

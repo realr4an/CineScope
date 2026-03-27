@@ -12,6 +12,7 @@ export interface MediaListItem {
   mediaType: MediaType;
   title: string;
   originalTitle?: string;
+  originalLanguage?: string | null;
   overview: string;
   posterUrl: string | null;
   backdropUrl: string | null;
@@ -63,6 +64,7 @@ export interface TvDetail extends MediaListItem {
   numberOfEpisodes: number;
   episodeRuntime: number[];
   networks: string[];
+  spokenLanguages: string[];
   cast: CastMember[];
   videos: VideoItem[];
   similar: MediaListItem[];

@@ -20,6 +20,10 @@ import type {
   VideoItem
 } from "@/types/media";
 
+const LANGUAGE_NAMES = new Intl.DisplayNames(["de"], {
+  type: "language"
+});
+
 export function mapGenres(
   genreIds: number[] | undefined,
   genresById: Map<number, TmdbGenre>
@@ -37,6 +41,35 @@ function mapResolvedGenres(genres: TmdbGenre[] | undefined) {
   }));
 }
 
+function normalizeLanguageName(name: string | null | undefined) {
+  return name?.trim() || null;
+}
+
+function getLanguageNameFromCode(code: string | null | undefined) {
+  if (!code) {
+    return null;
+  }
+
+  return normalizeLanguageName(LANGUAGE_NAMES.of(code)) ?? code.toUpperCase();
+}
+
+function uniqueLanguages(languages: Array<string | null | undefined>) {
+  return Array.from(new Set(languages.map(normalizeLanguageName).filter(Boolean))) as string[];
+}
+
+function mapOriginalLanguageName(
+  originalLanguageCode: string | null | undefined,
+  fallbackLanguages: Array<{ iso_639_1?: string; english_name?: string; name?: string }> = []
+) {
+  const fallback = fallbackLanguages.find(language => language.iso_639_1 === originalLanguageCode);
+
+  return (
+    normalizeLanguageName(fallback?.name) ??
+    normalizeLanguageName(fallback?.english_name) ??
+    getLanguageNameFromCode(originalLanguageCode)
+  );
+}
+
 export function mapMediaListItem(
   item: TmdbListResult,
   mediaType: "movie" | "tv",
@@ -47,6 +80,7 @@ export function mapMediaListItem(
     mediaType,
     title: item.title ?? item.name ?? "Unbekannt",
     originalTitle: item.original_title ?? item.original_name ?? undefined,
+    originalLanguage: getLanguageNameFromCode(item.original_language),
     overview: item.overview ?? "",
     posterUrl: tmdbImageUrl(item.poster_path, "w500"),
     backdropUrl: tmdbImageUrl(item.backdrop_path, "w1280"),
@@ -92,6 +126,11 @@ export function mapMovieDetail(
   similar: TmdbListResult[],
   genresById: Map<number, TmdbGenre>
 ): MovieDetail {
+  const originalLanguage = mapOriginalLanguageName(
+    details.original_language,
+    details.spoken_languages
+  );
+
   return {
     ...mapMediaListItem(details, "movie", genresById),
     mediaType: "movie",
@@ -100,7 +139,13 @@ export function mapMovieDetail(
     status: details.status,
     budget: details.budget || null,
     revenue: details.revenue || null,
-    spokenLanguages: details.spoken_languages.map(language => language.english_name),
+    originalLanguage,
+    spokenLanguages: uniqueLanguages([
+      ...details.spoken_languages.map(
+        language => language.name ?? language.english_name ?? getLanguageNameFromCode(language.iso_639_1)
+      ),
+      originalLanguage
+    ]),
     cast: mapCast(credits.cast),
     videos: mapVideos(videos.results),
     similar: similar.map(item => mapMediaListItem(item, "movie", genresById))
@@ -114,6 +159,8 @@ export function mapTvDetail(
   similar: TmdbListResult[],
   genresById: Map<number, TmdbGenre>
 ): TvDetail {
+  const originalLanguage = getLanguageNameFromCode(details.original_language);
+
   return {
     ...mapMediaListItem(details, "tv", genresById),
     mediaType: "tv",
@@ -124,7 +171,12 @@ export function mapTvDetail(
     numberOfSeasons: details.number_of_seasons,
     numberOfEpisodes: details.number_of_episodes,
     episodeRuntime: details.episode_run_time ?? [],
+    originalLanguage,
     networks: details.networks.map(network => network.name),
+    spokenLanguages: uniqueLanguages([
+      ...(details.languages ?? []).map(language => getLanguageNameFromCode(language)),
+      originalLanguage
+    ]),
     cast: mapCast(credits.cast),
     videos: mapVideos(videos.results),
     similar: similar.map(item => mapMediaListItem(item, "tv", genresById))

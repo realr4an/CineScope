@@ -9,6 +9,7 @@ export interface TmdbListResult {
   name?: string;
   original_title?: string;
   original_name?: string;
+  original_language?: string;
   overview: string;
   poster_path: string | null;
   backdrop_path: string | null;
@@ -49,7 +50,7 @@ export interface TmdbMovieDetails extends TmdbListResult {
   tagline: string | null;
   budget: number;
   revenue: number;
-  spoken_languages: Array<{ english_name: string }>;
+  spoken_languages: Array<{ iso_639_1?: string; english_name?: string; name?: string }>;
 }
 
 export interface TmdbTvDetails extends TmdbListResult {
@@ -61,6 +62,7 @@ export interface TmdbTvDetails extends TmdbListResult {
   number_of_episodes: number;
   episode_run_time: number[];
   networks: Array<{ id: number; name: string }>;
+  languages?: string[];
 }
 
 export interface TmdbPersonDetails {

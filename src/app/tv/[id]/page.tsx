@@ -79,7 +79,7 @@ export default async function TvPage({ params }: TvPageProps) {
                     </div>
                     <h1 className="break-words text-4xl font-bold tracking-tight sm:text-5xl">{series.title}</h1>
                     {series.tagline ? (
-                      <p className="text-lg italic text-muted-foreground">"{series.tagline}"</p>
+                      <p className="text-lg italic text-muted-foreground">&quot;{series.tagline}&quot;</p>
                     ) : null}
                   </div>
                   <div className="flex flex-wrap items-center gap-3 sm:gap-4">
@@ -160,7 +160,9 @@ export default async function TvPage({ params }: TvPageProps) {
                     { label: "Status", value: series.status },
                     { label: "Originaltitel", value: series.originalTitle ?? "-" },
                     { label: "Erstausstrahlung", value: formatDate(series.firstAirDate) },
+                    { label: "Originalsprache", value: series.originalLanguage ?? "-" },
                     { label: "Altersfreigabe", value: series.ageCertification?.label ?? "Nicht hinterlegt" },
+                    { label: "Sprachen", value: series.spokenLanguages.join(", ") || series.originalLanguage || "-" },
                     { label: "Netzwerke", value: series.networks.join(", ") || "-" }
                   ]}
                 />
@@ -181,5 +183,3 @@ export default async function TvPage({ params }: TvPageProps) {
     );
   }
 }
-
-
