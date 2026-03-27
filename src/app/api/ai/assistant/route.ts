@@ -34,14 +34,30 @@ function getText(locale: Locale) {
         unresolved: "The title could not be resolved reliably.",
         blocked: "This title is not available for the stored age.",
         unresolvedOne: "At least one of the titles could not be resolved reliably.",
+        invalidInput: "The AI request is invalid.",
         aiActionFailed: "AI action failed"
       }
     : {
         unresolved: "Der Titel konnte nicht sicher aufgelöst werden.",
         blocked: "Dieser Titel ist für das hinterlegte Alter nicht verfügbar.",
         unresolvedOne: "Mindestens einer der Titel konnte nicht sicher aufgelöst werden.",
+        invalidInput: "Die KI-Anfrage ist ungültig.",
         aiActionFailed: "KI-Aktion fehlgeschlagen"
       };
+}
+
+function formatValidationError(
+  fieldErrors: Record<string, string[] | undefined>,
+  formErrors: string[],
+  fallback: string
+) {
+  const firstFormError = formErrors.find(Boolean);
+  if (firstFormError) {
+    return firstFormError;
+  }
+
+  const firstFieldError = Object.values(fieldErrors).flat().find(Boolean);
+  return firstFieldError ?? fallback;
 }
 
 async function ensureResolvedMediaAllowed(
@@ -86,7 +102,11 @@ export async function POST(request: Request) {
   const parsed = aiActionSchema.safeParse(body);
 
   if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
+    const flattened = parsed.error.flatten();
+    return NextResponse.json(
+      { error: formatValidationError(flattened.fieldErrors, flattened.formErrors, text.invalidInput) },
+      { status: 400 }
+    );
   }
 
   try {
