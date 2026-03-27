@@ -1,10 +1,10 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { Heart, Star } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
-import { formatYear, getRatingTone } from "@/lib/format";
+import { formatRating, formatYear, getRatingTone } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { MediaListItem } from "@/types/media";
 
@@ -65,11 +65,11 @@ export function MediaCard({
               <div
                 className={cn(
                   "inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs font-semibold backdrop-blur",
-                  getRatingTone(item.rating)
+                  getRatingTone(item.rating, item.voteCount)
                 )}
               >
                 <Star className="size-3 fill-current" />
-                {item.rating.toFixed(1)}
+                {formatRating(item.rating, item.voteCount)}
               </div>
             </div>
           </div>

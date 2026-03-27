@@ -1,7 +1,7 @@
 ﻿import Link from "next/link";
 import { ChevronRight, Search, Star, X } from "lucide-react";
 
-import { getRatingTone } from "@/lib/format";
+import { formatRating, getRatingTone } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { Genre } from "@/types/media";
 
@@ -19,14 +19,14 @@ export function RatingBadge({
       <div
         className={cn(
           "inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-sm font-bold",
-          getRatingTone(rating)
+          getRatingTone(rating, voteCount)
         )}
       >
         <Star className="size-3.5 fill-current" />
-        {rating.toFixed(1)}
+        {formatRating(rating, voteCount)}
       </div>
-      {voteCount ? (
-        <span className="text-xs text-muted-foreground">{voteCount.toLocaleString("de-DE")}</span>
+      {(voteCount ?? 0) > 0 ? (
+        <span className="text-xs text-muted-foreground">{voteCount?.toLocaleString("de-DE")}</span>
       ) : null}
     </div>
   );

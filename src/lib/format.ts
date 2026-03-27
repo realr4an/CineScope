@@ -1,5 +1,29 @@
-export function formatRating(rating: number) {
-  return rating.toFixed(1);
+﻿export function hasVisibleRating(rating: number | null | undefined, voteCount?: number | null) {
+  return (voteCount ?? 0) > 0 && (rating ?? 0) > 0;
+}
+
+export function formatRating(
+  rating: number | null | undefined,
+  voteCount?: number | null,
+  emptyLabel = "Unbewertet"
+) {
+  if (!hasVisibleRating(rating, voteCount)) {
+    return emptyLabel;
+  }
+
+  return (rating ?? 0).toFixed(1);
+}
+
+export function formatDetailedRating(
+  rating: number | null | undefined,
+  voteCount?: number | null,
+  emptyLabel = "Unbewertet"
+) {
+  if (!hasVisibleRating(rating, voteCount)) {
+    return emptyLabel;
+  }
+
+  return `${(rating ?? 0).toFixed(1)} / 10`;
 }
 
 export function formatYear(date: string | null | undefined) {
@@ -63,16 +87,20 @@ export function formatCurrency(value: number | null | undefined) {
   }).format(value);
 }
 
-export function getRatingTone(rating: number) {
-  if (rating >= 8) {
+export function getRatingTone(rating: number | null | undefined, voteCount?: number | null) {
+  if (!hasVisibleRating(rating, voteCount)) {
+    return "bg-muted/40 text-muted-foreground border-border/50";
+  }
+
+  if ((rating ?? 0) >= 8) {
     return "bg-green-400/15 text-green-400 border-green-400/30";
   }
 
-  if (rating >= 6.5) {
+  if ((rating ?? 0) >= 6.5) {
     return "bg-amber-400/15 text-amber-400 border-amber-400/30";
   }
 
-  if (rating >= 5) {
+  if ((rating ?? 0) >= 5) {
     return "bg-orange-400/15 text-orange-400 border-orange-400/30";
   }
 

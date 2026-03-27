@@ -13,7 +13,7 @@ import { WatchlistFeedbackControls } from "@/features/watchlist/watchlist-feedba
 import { WatchlistToggleButton } from "@/features/watchlist/watchlist-toggle-button";
 import { filterMediaForViewerAge, getAgeAccessForMedia } from "@/lib/age-gate/server";
 import { getInitialDetailAI } from "@/lib/ai/detail-content";
-import { formatDate, formatRuntime } from "@/lib/format";
+import { formatDate, formatDetailedRating, formatRuntime } from "@/lib/format";
 import { getServerDictionary } from "@/lib/i18n/server";
 import { getTvDetail } from "@/lib/tmdb/tv";
 
@@ -146,7 +146,7 @@ export default async function TvPage({ params }: TvPageProps) {
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
                 <StatPill
                   label={dictionary.detail.rating}
-                  value={`${series.rating.toFixed(1)} / 10`}
+                  value={formatDetailedRating(series.rating, series.voteCount)}
                   icon={<Star className="size-4 text-amber-400" />}
                 />
                 <StatPill
@@ -195,3 +195,4 @@ export default async function TvPage({ params }: TvPageProps) {
     );
   }
 }
+

@@ -13,7 +13,7 @@ import { WatchlistFeedbackControls } from "@/features/watchlist/watchlist-feedba
 import { WatchlistToggleButton } from "@/features/watchlist/watchlist-toggle-button";
 import { filterMediaForViewerAge, getAgeAccessForMedia } from "@/lib/age-gate/server";
 import { getInitialDetailAI } from "@/lib/ai/detail-content";
-import { formatCurrency, formatDate, formatRuntime } from "@/lib/format";
+import { formatCurrency, formatDate, formatDetailedRating, formatRuntime } from "@/lib/format";
 import { getServerDictionary } from "@/lib/i18n/server";
 import { getMovieDetail } from "@/lib/tmdb/movies";
 
@@ -139,7 +139,7 @@ export default async function MoviePage({ params }: MoviePageProps) {
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
                 <StatPill
                   label={dictionary.detail.rating}
-                  value={`${movie.rating.toFixed(1)} / 10`}
+                  value={formatDetailedRating(movie.rating, movie.voteCount)}
                   icon={<Star className="size-4 text-amber-400" />}
                 />
                 <StatPill
@@ -187,3 +187,4 @@ export default async function MoviePage({ params }: MoviePageProps) {
     );
   }
 }
+
