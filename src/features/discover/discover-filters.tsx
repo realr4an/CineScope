@@ -19,6 +19,7 @@ export function DiscoverFilters({
     genre?: number;
     year?: number;
     rating?: number;
+    page: number;
     sort: string;
   };
 }) {
@@ -37,6 +38,7 @@ export function DiscoverFilters({
     const params = new URLSearchParams();
     params.set("mediaType", mediaType);
     params.set("sort", sort);
+    params.set("page", "1");
     if (genre) params.set("genre", String(genre));
     if (year) params.set("year", year);
     if (rating) params.set("rating", rating);
@@ -47,7 +49,13 @@ export function DiscoverFilters({
   };
 
   return (
-    <div className="space-y-4 rounded-[2rem] border border-border/50 bg-card/50 p-5">
+    <form
+      onSubmit={event => {
+        event.preventDefault();
+        apply();
+      }}
+      className="space-y-4 rounded-[2rem] border border-border/50 bg-card/50 p-5"
+    >
       <div className="flex flex-wrap gap-3">
         <select
           value={mediaType}
@@ -96,10 +104,10 @@ export function DiscoverFilters({
           <option value="primary_release_date.desc">{dictionary.discoverFilters.newestMovies}</option>
           <option value="first_air_date.desc">{dictionary.discoverFilters.newestSeries}</option>
         </select>
-        <Button onClick={apply} disabled={isPending}>
+        <Button type="submit" disabled={isPending}>
           {dictionary.discoverFilters.apply}
         </Button>
       </div>
-    </div>
+    </form>
   );
 }

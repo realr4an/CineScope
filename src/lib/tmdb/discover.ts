@@ -1,4 +1,4 @@
-import { fetchTmdb } from "@/lib/tmdb/client";
+﻿import { fetchTmdb } from "@/lib/tmdb/client";
 import { mapMediaListItem } from "@/lib/tmdb/mappers";
 import type { TmdbGenre, TmdbPaginatedResponse } from "@/lib/tmdb/types";
 
@@ -23,6 +23,7 @@ export async function getDiscoverResults(input: {
   genre?: number;
   year?: number;
   rating?: number;
+  page: number;
   sort: string;
 }) {
   const { movieGenres, tvGenres } = await getGenreMaps();
@@ -36,12 +37,18 @@ export async function getDiscoverResults(input: {
     {
       with_genres: input.genre,
       sort_by: input.sort,
+      page: input.page,
       "vote_average.gte": input.rating,
       [releaseField]: input.year
     }
   );
 
-  return response.results.map((item: any) =>
-    mapMediaListItem(item, input.mediaType, genresById)
-  );
+  return {
+    page: response.page,
+    totalPages: response.total_pages,
+    totalResults: response.total_results,
+    items: response.results.map((item: any) =>
+      mapMediaListItem(item, input.mediaType, genresById)
+    )
+  };
 }

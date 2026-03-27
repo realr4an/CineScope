@@ -1,4 +1,4 @@
-import { z } from "zod";
+﻿import { z } from "zod";
 
 export const searchParamsSchema = z.object({
   q: z.string().trim().default(""),
@@ -11,6 +11,7 @@ export const discoverParamsSchema = z.object({
   genre: z.coerce.number().optional(),
   year: z.coerce.number().optional(),
   rating: z.coerce.number().min(0).max(10).optional(),
+  page: z.coerce.number().int().min(1).default(1),
   sort: z
     .enum([
       "popularity.desc",
