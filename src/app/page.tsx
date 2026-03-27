@@ -64,7 +64,7 @@ export default async function HomePage() {
                       <Link href="/search">Suche starten</Link>
                     </Button>
                     <Button asChild size="lg" variant="outline">
-                      <Link href="/discover">Genres entdecken</Link>
+                      <Link href="/discover">Kategorien entdecken</Link>
                     </Button>
                   </div>
                   <div className="grid gap-3 sm:grid-cols-3">
@@ -152,3 +152,4 @@ export default async function HomePage() {
     );
   }
 }
+

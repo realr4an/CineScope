@@ -14,7 +14,7 @@ import { cn } from "@/lib/utils";
 const NAV_ITEMS = [
   { href: "/", label: "Entdecken", icon: Tv2 },
   { href: "/search", label: "Suche", icon: Search },
-  { href: "/discover", label: "Genres", icon: Search },
+  { href: "/discover", label: "Kategorien", icon: Search },
   { href: "/ai", label: "KI", icon: Sparkles },
   { href: "/watchlist", label: "Watchlist", icon: Heart }
 ];
@@ -112,3 +112,4 @@ export function Header() {
     </header>
   );
 }
+

@@ -96,7 +96,7 @@ export function RecommendationPanel() {
         <div className="min-w-0">
           <h2 className="text-lg font-bold">KI-Empfehlungs-Chat</h2>
           <p className="text-sm text-muted-foreground">
-            Beschreibe Stimmung, Genre, Dauer oder Vergleichstitel.
+            Beschreibe Stimmung, Thema, Art, Dauer oder Vergleichstitel.
           </p>
         </div>
       </div>
@@ -241,4 +241,5 @@ export function SummaryPanel({ media }: { media: MediaDetail }) {
     </div>
   );
 }
+
 

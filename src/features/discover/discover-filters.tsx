@@ -65,7 +65,7 @@ export function DiscoverFilters({
           }
           className="h-10 rounded-xl border border-border/50 bg-background px-3 text-sm"
         >
-          <option value="">Alle Genres</option>
+          <option value="">Alle Kategorien</option>
           {genres.map(item => (
             <option key={item.id} value={item.id}>
               {item.name}
@@ -101,3 +101,4 @@ export function DiscoverFilters({
     </div>
   );
 }
+

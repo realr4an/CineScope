@@ -32,9 +32,9 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
       <AppShell>
         <div className="space-y-8">
           <div className="space-y-2">
-            <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">Discover</h1>
+            <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">Kategorien</h1>
             <p className="text-muted-foreground">
-              Genre-basierte Discovery mit Rating-, Jahr- und Sortierungsfiltern.
+              Finde Filme und Serien nach Kategorien mit Rating-, Jahr- und Sortierungsfiltern.
             </p>
           </div>
 
@@ -65,3 +65,4 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
     );
   }
 }
+
