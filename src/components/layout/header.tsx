@@ -73,7 +73,7 @@ export function Header() {
           </nav>
 
           <div className="flex items-center gap-2">
-            <div className="hidden items-center rounded-xl border border-border/50 bg-card/60 p-1 sm:flex">
+            <div className="flex items-center rounded-xl border border-border/50 bg-card/60 p-1">
               <button
                 type="button"
                 className={cn(
@@ -142,3 +142,4 @@ export function Header() {
     </header>
   );
 }
+
