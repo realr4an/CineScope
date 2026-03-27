@@ -22,14 +22,14 @@ export function AIPanelShell({
 }) {
   return (
     <div className={cn("rounded-[2rem] border border-border/50 bg-card/50 p-6", className)}>
-      <div className="mb-4 flex items-start justify-between gap-4">
-        <div className="flex items-start gap-3">
+      <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex min-w-0 items-start gap-3">
           <div className="flex size-10 items-center justify-center rounded-xl bg-primary/20 text-primary">
             <Sparkles className="size-5" />
           </div>
-          <div>
+          <div className="min-w-0">
             <h2 className="text-lg font-bold">{title}</h2>
-            <p className="text-sm text-muted-foreground">{description}</p>
+            <p className="break-words text-sm text-muted-foreground">{description}</p>
           </div>
         </div>
         {actions}
@@ -110,3 +110,4 @@ export function AIRetry({
     </Button>
   );
 }
+

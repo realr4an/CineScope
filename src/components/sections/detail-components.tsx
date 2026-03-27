@@ -121,11 +121,12 @@ export function InfoPanel({
   return (
     <div className={cn("space-y-3", className)}>
       {items.map(item => (
-        <div key={item.label} className="flex gap-3 border-b border-border/30 pb-3 last:border-0 last:pb-0">
-          <div className="w-28 shrink-0 text-sm text-muted-foreground">{item.label}</div>
-          <div className="text-sm font-medium">{item.value}</div>
+        <div key={item.label} className="flex flex-col gap-1 border-b border-border/30 pb-3 last:border-0 last:pb-0 sm:flex-row sm:gap-3">
+          <div className="shrink-0 text-sm text-muted-foreground sm:w-28">{item.label}</div>
+          <div className="min-w-0 break-words text-sm font-medium">{item.value}</div>
         </div>
       ))}
     </div>
   );
 }
+

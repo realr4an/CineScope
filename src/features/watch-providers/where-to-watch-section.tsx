@@ -244,12 +244,12 @@ export function WhereToWatchSection({
           </div>
 
           {regions.length ? (
-            <label className="block space-y-2">
+            <label className="block w-full max-w-sm space-y-2 lg:w-auto">
               <span className="text-sm font-medium">Land auswählen</span>
               <select
                 value={regionCode}
                 onChange={event => setRegionCode(event.target.value)}
-                className="h-11 min-w-[16rem] rounded-xl border border-border/60 bg-background px-3 text-sm text-foreground shadow-sm outline-none transition-colors focus:border-primary/40 focus:ring-2 focus:ring-primary/30"
+                className="h-11 w-full rounded-xl border border-border/60 bg-background px-3 text-sm text-foreground shadow-sm outline-none transition-colors focus:border-primary/40 focus:ring-2 focus:ring-primary/30 sm:min-w-[16rem] lg:w-auto"
               >
                 {regions.map(region => (
                   <option key={region.regionCode} value={region.regionCode}>
@@ -355,3 +355,4 @@ export function WhereToWatchSection({
     </section>
   );
 }
+

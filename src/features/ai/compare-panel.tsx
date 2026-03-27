@@ -79,7 +79,7 @@ export function AIComparePanel({
   return (
     <AIPanelShell
       title="Titel vergleichen"
-      description="Vergleiche Stimmung, Tempo, Komplexität und Zielgruppe zweier Titel."
+      description="Vergleiche Stimmung, Tempo, Komplexitaet und Zielgruppe zweier Titel."
       actions={
         <Button onClick={submit} disabled={loading}>
           {loading ? <RefreshCw className="size-4 animate-spin" /> : null}
@@ -145,25 +145,29 @@ export function AIComparePanel({
               {result.data.shortVerdict}
             </div>
             <div className="overflow-hidden rounded-2xl border border-border/50">
-              <div className="grid grid-cols-[140px_minmax(0,1fr)_minmax(0,1fr)] bg-background/70 px-4 py-3 text-xs uppercase tracking-[0.16em] text-muted-foreground">
-                <div>Aspekt</div>
-                <Link href={result.resolved.left.href} className="hover:text-primary">
-                  {result.resolved.left.title}
-                </Link>
-                <Link href={result.resolved.right.href} className="hover:text-primary">
-                  {result.resolved.right.title}
-                </Link>
-              </div>
-              {result.data.comparison.map(row => (
-                <div
-                  key={row.label}
-                  className="grid grid-cols-[140px_minmax(0,1fr)_minmax(0,1fr)] gap-3 border-t border-border/40 px-4 py-3 text-sm"
-                >
-                  <div className="font-medium text-muted-foreground">{row.label}</div>
-                  <div>{row.left}</div>
-                  <div>{row.right}</div>
+              <div className="overflow-x-auto">
+                <div className="min-w-[40rem]">
+                  <div className="grid grid-cols-[140px_minmax(0,1fr)_minmax(0,1fr)] bg-background/70 px-4 py-3 text-xs uppercase tracking-[0.16em] text-muted-foreground">
+                    <div>Aspekt</div>
+                    <Link href={result.resolved.left.href} className="truncate hover:text-primary">
+                      {result.resolved.left.title}
+                    </Link>
+                    <Link href={result.resolved.right.href} className="truncate hover:text-primary">
+                      {result.resolved.right.title}
+                    </Link>
+                  </div>
+                  {result.data.comparison.map(row => (
+                    <div
+                      key={row.label}
+                      className="grid grid-cols-[140px_minmax(0,1fr)_minmax(0,1fr)] gap-3 border-t border-border/40 px-4 py-3 text-sm"
+                    >
+                      <div className="font-medium text-muted-foreground">{row.label}</div>
+                      <div className="break-words">{row.left}</div>
+                      <div className="break-words">{row.right}</div>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              </div>
             </div>
             <p className="text-sm text-muted-foreground">{result.data.guidance}</p>
           </div>
