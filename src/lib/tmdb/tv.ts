@@ -15,10 +15,15 @@ export async function getTrendingTv() {
   return response.results.map(item => mapMediaListItem(item, "tv", tvGenres));
 }
 
-export async function getPopularTv() {
+export async function getPopularTv(page = 1) {
   const { tvGenres } = await getGenreMaps();
-  const response = await fetchTmdb<TmdbPaginatedResponse<any>>("/tv/popular");
-  return response.results.map(item => mapMediaListItem(item, "tv", tvGenres));
+  const response = await fetchTmdb<TmdbPaginatedResponse<any>>("/tv/popular", { page });
+  return {
+    items: response.results.map(item => mapMediaListItem(item, "tv", tvGenres)),
+    page: response.page,
+    totalPages: response.total_pages,
+    totalResults: response.total_results
+  };
 }
 
 export async function getTvDetail(id: number) {

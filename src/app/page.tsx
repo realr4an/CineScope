@@ -14,7 +14,7 @@ export default async function HomePage() {
   const { dictionary } = await getServerDictionary();
 
   try {
-    const [trendingMovies, trendingTv, popularMovies, popularTv] = await Promise.all([
+    const [trendingMovies, trendingTv, popularMoviesResponse, popularTvResponse] = await Promise.all([
       getTrendingMovies(),
       getTrendingTv(),
       getPopularMovies(),
@@ -25,8 +25,8 @@ export default async function HomePage() {
       await Promise.all([
         filterMediaForViewerAge(trendingMovies),
         filterMediaForViewerAge(trendingTv),
-        filterMediaForViewerAge(popularMovies),
-        filterMediaForViewerAge(popularTv)
+        filterMediaForViewerAge(popularMoviesResponse.items),
+        filterMediaForViewerAge(popularTvResponse.items)
       ]);
 
     const featured = safeTrendingMovies[0];

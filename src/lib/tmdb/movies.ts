@@ -15,10 +15,15 @@ export async function getTrendingMovies() {
   return response.results.map(item => mapMediaListItem(item, "movie", movieGenres));
 }
 
-export async function getPopularMovies() {
+export async function getPopularMovies(page = 1) {
   const { movieGenres } = await getGenreMaps();
-  const response = await fetchTmdb<TmdbPaginatedResponse<any>>("/movie/popular");
-  return response.results.map(item => mapMediaListItem(item, "movie", movieGenres));
+  const response = await fetchTmdb<TmdbPaginatedResponse<any>>("/movie/popular", { page });
+  return {
+    items: response.results.map(item => mapMediaListItem(item, "movie", movieGenres)),
+    page: response.page,
+    totalPages: response.total_pages,
+    totalResults: response.total_results
+  };
 }
 
 export async function getMovieDetail(id: number) {

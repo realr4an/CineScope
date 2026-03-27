@@ -12,10 +12,16 @@ import { getPopularMovies } from "@/lib/tmdb/movies";
 import { searchMediaWithFallback } from "@/lib/tmdb/search";
 import { getPopularTv } from "@/lib/tmdb/tv";
 import { searchParamsSchema } from "@/lib/validators/media";
+import type { MediaListItem } from "@/types/media";
 
 type SearchPageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
+
+const POPULAR_PAGE_SIZE = 60;
+const TMDB_PAGE_SIZE = 20;
+const FEED_PAGE_COUNT = POPULAR_PAGE_SIZE / TMDB_PAGE_SIZE;
+const FEED_SPLIT_SIZE = POPULAR_PAGE_SIZE / 2;
 
 function buildSearchHref(input: {
   q: string;
@@ -37,6 +43,46 @@ function getVisiblePages(currentPage: number, totalPages: number) {
   const start = Math.max(1, currentPage - 2);
   const end = Math.min(totalPages, currentPage + 2);
   return Array.from({ length: end - start + 1 }, (_, index) => start + index);
+}
+
+function interleavePopularItems(movieItems: MediaListItem[], tvItems: MediaListItem[]) {
+  const items: MediaListItem[] = [];
+  const maxLength = Math.max(movieItems.length, tvItems.length);
+
+  for (let index = 0; index < maxLength; index += 1) {
+    if (movieItems[index]) {
+      items.push(movieItems[index]);
+    }
+    if (tvItems[index]) {
+      items.push(tvItems[index]);
+    }
+  }
+
+  return items.slice(0, POPULAR_PAGE_SIZE);
+}
+
+async function getPopularStartingPoints(page: number) {
+  const requestedPage = Math.max(1, page);
+  const movieStartPage = (requestedPage - 1) * FEED_PAGE_COUNT + 1;
+  const tvStartPage = (requestedPage - 1) * FEED_PAGE_COUNT + 1;
+  const moviePages = Array.from({ length: FEED_PAGE_COUNT }, (_, index) => movieStartPage + index);
+  const tvPages = Array.from({ length: FEED_PAGE_COUNT }, (_, index) => tvStartPage + index);
+
+  const [movieResponses, tvResponses] = await Promise.all([
+    Promise.all(moviePages.map(currentPage => getPopularMovies(currentPage))),
+    Promise.all(tvPages.map(currentPage => getPopularTv(currentPage)))
+  ]);
+
+  const movieItems = movieResponses.flatMap(response => response.items).slice(0, FEED_SPLIT_SIZE);
+  const tvItems = tvResponses.flatMap(response => response.items).slice(0, FEED_SPLIT_SIZE);
+  const totalMoviePages = Math.ceil(Math.min(movieResponses[0]?.totalResults ?? 0, 500 * TMDB_PAGE_SIZE) / FEED_SPLIT_SIZE);
+  const totalTvPages = Math.ceil(Math.min(tvResponses[0]?.totalResults ?? 0, 500 * TMDB_PAGE_SIZE) / FEED_SPLIT_SIZE);
+
+  return {
+    items: interleavePopularItems(movieItems, tvItems),
+    page: requestedPage,
+    totalPages: Math.max(1, Math.min(totalMoviePages, totalTvPages, 334))
+  };
 }
 
 export default async function SearchPage({ searchParams }: SearchPageProps) {
@@ -68,12 +114,13 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
       return right.voteCount - left.voteCount;
     });
 
+    const popularStartingPoints =
+      parsed.q.trim().length === 0
+        ? await getPopularStartingPoints(parsed.page)
+        : { items: [], page: 1, totalPages: 1 };
     const discoveryItems =
       parsed.q.trim().length === 0
-        ? await filterMediaForViewerAge([
-            ...(await getPopularMovies()).slice(0, 6),
-            ...(await getPopularTv()).slice(0, 6)
-          ])
+        ? await filterMediaForViewerAge(popularStartingPoints.items)
         : [];
 
     const isEnglish = dictionary.searchPage.title === "Search";
@@ -88,15 +135,18 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
           of: "of",
           previous: "Previous",
           next: "Next",
-          pageInfo: "This view combines up to 60 titles per page."
+          pageInfo: "This view combines up to 60 titles per page.",
+          popularInfo: "Popular starting points, 60 titles per page."
         }
       : {
           page: "Seite",
           of: "von",
           previous: "Zurück",
           next: "Weiter",
-          pageInfo: "Diese Ansicht bündelt bis zu 60 Titel pro Seite."
+          pageInfo: "Diese Ansicht bündelt bis zu 60 Titel pro Seite.",
+          popularInfo: "Beliebte Einstiege, 60 Titel pro Seite."
         };
+    const popularVisiblePages = getVisiblePages(popularStartingPoints.page, popularStartingPoints.totalPages);
 
     return (
       <AppShell>
@@ -174,9 +224,39 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
             <div className="space-y-4">
               <SectionHeader
                 title={dictionary.searchPage.discoverTitle}
-                subtitle={dictionary.searchPage.discoverSubtitle}
+                subtitle={`${dictionary.searchPage.discoverSubtitle} · ${pageText.page} ${popularStartingPoints.page} ${pageText.of} ${popularStartingPoints.totalPages} · ${pageText.popularInfo}`}
               />
               <MediaGrid items={discoveryItems} />
+              {popularStartingPoints.totalPages > 1 ? (
+                <div className="flex flex-col gap-3 rounded-[1.5rem] border border-border/50 bg-card/50 p-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="text-sm text-muted-foreground">
+                    {pageText.page} {popularStartingPoints.page} {pageText.of} {popularStartingPoints.totalPages}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button asChild variant="outline" size="sm" disabled={popularStartingPoints.page <= 1}>
+                      <Link
+                        aria-disabled={popularStartingPoints.page <= 1}
+                        href={buildSearchHref({ ...parsed, page: Math.max(1, popularStartingPoints.page - 1) })}
+                      >
+                        {pageText.previous}
+                      </Link>
+                    </Button>
+                    {popularVisiblePages.map(page => (
+                      <Button key={page} asChild variant={page === popularStartingPoints.page ? "default" : "outline"} size="sm">
+                        <Link href={buildSearchHref({ ...parsed, page })}>{page}</Link>
+                      </Button>
+                    ))}
+                    <Button asChild variant="outline" size="sm" disabled={popularStartingPoints.page >= popularStartingPoints.totalPages}>
+                      <Link
+                        aria-disabled={popularStartingPoints.page >= popularStartingPoints.totalPages}
+                        href={buildSearchHref({ ...parsed, page: Math.min(popularStartingPoints.totalPages, popularStartingPoints.page + 1) })}
+                      >
+                        {pageText.next}
+                      </Link>
+                    </Button>
+                  </div>
+                </div>
+              ) : null}
             </div>
           )}
         </div>
