@@ -10,7 +10,7 @@ import { createSupabaseBrowserClient, isSupabaseConfigured } from "@/lib/supabas
 
 export function SignOutButton() {
   const router = useRouter();
-  const { dictionary } = useLanguage();
+  const { locale, dictionary } = useLanguage();
 
   return (
     <Button
@@ -29,9 +29,7 @@ export function SignOutButton() {
           return;
         }
 
-        toast.success(
-          dictionary.common.language === "Language" ? "You have been signed out." : "Du wurdest abgemeldet."
-        );
+        toast.success(locale === "en" ? "You have been signed out." : "Du wurdest abgemeldet.");
         router.push("/");
         router.refresh();
       }}

@@ -4,14 +4,18 @@ import Link from "next/link";
 import { ExternalLink, Sparkles } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { useLanguage } from "@/features/i18n/language-provider";
 import { cn } from "@/lib/utils";
 import type { AIAssistantPick } from "@/lib/ai/types";
 
-export function AIGeneratedBadge({ label = "AI-generiert" }: { label?: string }) {
+export function AIGeneratedBadge({ label }: { label?: string }) {
+  const { locale } = useLanguage();
+  const resolvedLabel = label ?? (locale === "en" ? "AI-generated" : "AI-generiert");
+
   return (
     <span className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-primary">
       <Sparkles className="size-3.5" />
-      {label}
+      {resolvedLabel}
     </span>
   );
 }
@@ -22,7 +26,7 @@ export function AIPanelShell({
   actions,
   children,
   className,
-  badgeLabel = "AI-generiert"
+  badgeLabel
 }: {
   title: string;
   description: string;
@@ -70,15 +74,18 @@ export function AITagList({ tags }: { tags: string[] }) {
 
 export function AIPicksGrid({
   picks,
-  emptyText = "Noch keine Vorschläge.",
+  emptyText,
   ordered = false
 }: {
   picks: AIAssistantPick[];
   emptyText?: string;
   ordered?: boolean;
 }) {
+  const { locale } = useLanguage();
+  const resolvedEmptyText = emptyText ?? (locale === "en" ? "No suggestions yet." : "Noch keine Vorschläge.");
+
   if (!picks.length) {
-    return <p className="text-sm text-muted-foreground">{emptyText}</p>;
+    return <p className="text-sm text-muted-foreground">{resolvedEmptyText}</p>;
   }
 
   return (
@@ -97,7 +104,7 @@ export function AIPicksGrid({
                 </div>
               ) : null}
               <div className="text-xs uppercase tracking-[0.18em] text-primary">
-                {pick.mediaType === "movie" ? "Film" : "Serie"}
+                {pick.mediaType === "movie" ? (locale === "en" ? "Movie" : "Film") : locale === "en" ? "Series" : "Serie"}
               </div>
             </div>
             <ExternalLink className="size-4 text-muted-foreground transition-colors group-hover:text-primary" />
@@ -107,7 +114,7 @@ export function AIPicksGrid({
           </h3>
           <p className="mt-2 text-sm text-muted-foreground">{pick.reason}</p>
           {pick.comparableTitle ? (
-            <p className="mt-3 text-xs text-muted-foreground">Referenz: {pick.comparableTitle}</p>
+            <p className="mt-3 text-xs text-muted-foreground">{locale === "en" ? "Reference" : "Referenz"}: {pick.comparableTitle}</p>
           ) : null}
         </Link>
       ))}
@@ -117,14 +124,16 @@ export function AIPicksGrid({
 
 export function AIRetry({
   onRetry,
-  label = "Erneut versuchen"
+  label
 }: {
   onRetry: () => void;
   label?: string;
 }) {
+  const { locale } = useLanguage();
+
   return (
     <Button variant="outline" size="sm" onClick={onRetry}>
-      {label}
+      {label ?? (locale === "en" ? "Try again" : "Erneut versuchen")}
     </Button>
   );
 }

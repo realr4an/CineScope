@@ -1,6 +1,9 @@
+﻿"use client";
+
 import { AlertTriangle, Film, Heart, SearchX } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { useLanguage } from "@/features/i18n/language-provider";
 import { cn } from "@/lib/utils";
 
 type StateAction = {
@@ -64,11 +67,15 @@ export function EmptyFavoritesState(props: {
   action?: StateAction;
   className?: string;
 }) {
+  const { locale } = useLanguage();
+
   return (
     <StateBase
       icon={<Heart className="size-8" />}
-      title="Noch keine Watchlist-Einträge"
-      description="Speichere Filme und Serien in deiner persönlichen Watchlist, damit du später gezielt weitersehen kannst."
+      title={locale === "en" ? "No watchlist entries yet" : "Noch keine Watchlist-Einträge"}
+      description={locale === "en"
+        ? "Save movies and series to your personal watchlist so you can continue with them later."
+        : "Speichere Filme und Serien in deiner persönlichen Watchlist, damit du später gezielt weitersehen kannst."}
       {...props}
     />
   );
@@ -85,11 +92,13 @@ export function ErrorState({
   action?: StateAction;
   className?: string;
 }) {
+  const { locale } = useLanguage();
+
   return (
     <StateBase
       icon={<AlertTriangle className="size-8 text-destructive" />}
       title={title}
-      description={description ?? "Bitte versuche es später erneut."}
+      description={description ?? (locale === "en" ? "Please try again later." : "Bitte versuche es später erneut.")}
       action={action}
       className={className}
     />
@@ -97,11 +106,15 @@ export function ErrorState({
 }
 
 export function NoResultsState({ query }: { query: string }) {
+  const { locale } = useLanguage();
+
   return (
     <StateBase
       icon={<SearchX className="size-8" />}
-      title="Keine Treffer gefunden"
-      description={`Für "${query}" wurden keine passenden Filme oder Serien gefunden.`}
+      title={locale === "en" ? "No matches found" : "Keine Treffer gefunden"}
+      description={locale === "en"
+        ? `No matching movies or series were found for "${query}".`
+        : `Für "${query}" wurden keine passenden Filme oder Serien gefunden.`}
     />
   );
 }

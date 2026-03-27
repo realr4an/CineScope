@@ -1,6 +1,9 @@
-﻿import Link from "next/link";
+﻿"use client";
+
+import Link from "next/link";
 import { ChevronRight, Search, Star, X } from "lucide-react";
 
+import { useLanguage } from "@/features/i18n/language-provider";
 import { formatRating, getRatingTone } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { Genre } from "@/types/media";
@@ -14,6 +17,9 @@ export function RatingBadge({
   voteCount?: number;
   className?: string;
 }) {
+  const { locale } = useLanguage();
+  const numberLocale = locale === "en" ? "en-US" : "de-DE";
+
   return (
     <div className={cn("flex flex-wrap items-center gap-2 sm:gap-3", className)}>
       <div
@@ -26,7 +32,7 @@ export function RatingBadge({
         {formatRating(rating, voteCount)}
       </div>
       {(voteCount ?? 0) > 0 ? (
-        <span className="text-xs text-muted-foreground">{voteCount?.toLocaleString("de-DE")}</span>
+        <span className="text-xs text-muted-foreground">{voteCount?.toLocaleString(numberLocale)}</span>
       ) : null}
     </div>
   );
@@ -98,13 +104,16 @@ export function SectionHeader({
   title,
   subtitle,
   href,
-  ctaLabel = "Alle anzeigen"
+  ctaLabel
 }: {
   title: string;
   subtitle?: string;
   href?: string;
   ctaLabel?: string;
 }) {
+  const { locale } = useLanguage();
+  const resolvedCtaLabel = ctaLabel ?? (locale === "en" ? "Show all" : "Alle anzeigen");
+
   return (
     <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
       <div className="min-w-0">
@@ -116,7 +125,7 @@ export function SectionHeader({
           href={href}
           className="inline-flex items-center gap-1 text-sm font-medium text-primary transition-colors hover:text-primary/80"
         >
-          {ctaLabel}
+          {resolvedCtaLabel}
           <ChevronRight className="size-4" />
         </Link>
       ) : null}
@@ -128,7 +137,7 @@ export function SearchField({
   value,
   onChange,
   onClear,
-  placeholder = "Filme, Serien oder Personen suchen...",
+  placeholder,
   className
 }: {
   value: string;
@@ -137,13 +146,20 @@ export function SearchField({
   placeholder?: string;
   className?: string;
 }) {
+  const { locale } = useLanguage();
+  const resolvedPlaceholder =
+    placeholder ??
+    (locale === "en"
+      ? "Search movies, series or people..."
+      : "Filme, Serien oder Personen suchen...");
+
   return (
     <div className={cn("relative", className)}>
       <Search className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
       <input
         value={value}
         onChange={event => onChange(event.target.value)}
-        placeholder={placeholder}
+        placeholder={resolvedPlaceholder}
         className="h-12 w-full rounded-2xl border border-border/60 bg-card/80 pl-11 pr-12 text-sm text-foreground shadow-sm transition-colors focus:border-primary/40 focus:outline-none focus:ring-2 focus:ring-primary/30"
       />
       {value ? (

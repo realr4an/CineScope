@@ -6,17 +6,23 @@ import { motion } from "framer-motion";
 
 import { PersonCard } from "@/components/cards/person-card";
 import { SectionHeader } from "@/components/shared/ui-components";
+import { useLanguage } from "@/features/i18n/language-provider";
 import { cn } from "@/lib/utils";
 import type { CastMember, VideoItem } from "@/types/media";
 
 export function CastSection({ cast }: { cast: CastMember[] }) {
+  const { locale } = useLanguage();
+
   if (!cast.length) {
     return null;
   }
 
   return (
     <section className="min-w-0 space-y-4">
-      <SectionHeader title="Besetzung" subtitle="Die wichtigsten Rollen und Mitwirkenden" />
+      <SectionHeader
+        title={locale === "en" ? "Cast" : "Besetzung"}
+        subtitle={locale === "en" ? "Key cast and characters" : "Die wichtigsten Rollen und Mitwirkenden"}
+      />
       <div className="scroll-row w-full max-w-full">
         {cast.map(member => (
           <PersonCard
@@ -34,6 +40,7 @@ export function CastSection({ cast }: { cast: CastMember[] }) {
 }
 
 export function TrailerSection({ videos }: { videos: VideoItem[] }) {
+  const { locale } = useLanguage();
   const trailers = useMemo(
     () => videos.filter(video => video.site === "YouTube" && video.key),
     [videos]
@@ -46,7 +53,10 @@ export function TrailerSection({ videos }: { videos: VideoItem[] }) {
 
   return (
     <section className="space-y-4">
-      <SectionHeader title="Trailer & Videos" subtitle="Offizielle Clips und Trailer" />
+      <SectionHeader
+        title={locale === "en" ? "Trailers & videos" : "Trailer & Videos"}
+        subtitle={locale === "en" ? "Official clips and trailers" : "Offizielle Clips und Trailer"}
+      />
       <div className="scroll-row">
         {trailers.map(video => (
           <button
@@ -101,6 +111,7 @@ export function TrailerSection({ videos }: { videos: VideoItem[] }) {
               type="button"
               onClick={() => setActiveVideo(null)}
               className="absolute right-4 top-4 flex size-10 items-center justify-center rounded-full bg-black/60 text-white"
+              aria-label={locale === "en" ? "Close video" : "Video schließen"}
             >
               <X className="size-4" />
             </button>

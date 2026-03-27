@@ -14,6 +14,7 @@ import {
 } from "@/lib/age-gate";
 import { createSupabaseBrowserClient, isSupabaseConfigured } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
+import { useLanguage } from "@/features/i18n/language-provider";
 import type { Viewer } from "@/types/auth";
 
 interface AgeGatePromptProps {
@@ -21,20 +22,10 @@ interface AgeGatePromptProps {
   user: Viewer | null;
 }
 
-const MONTH_LABELS = [
-  "Januar",
-  "Februar",
-  "März",
-  "April",
-  "Mai",
-  "Juni",
-  "Juli",
-  "August",
-  "September",
-  "Oktober",
-  "November",
-  "Dezember"
-] as const;
+const MONTH_LABELS = {
+  de: ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember"],
+  en: ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
+} as const;
 
 const selectClassName =
   "h-11 w-full rounded-xl border border-border/60 bg-card/60 px-3 text-sm shadow-sm transition-colors focus:border-primary/50 focus:outline-none focus:ring-2 focus:ring-primary/40";
@@ -49,11 +40,7 @@ function parseBirthDateParts(birthDate: string | null) {
   }
 
   const [year, month, day] = birthDate.split("-");
-  return {
-    year: year ?? "",
-    month: month ?? "",
-    day: day ?? ""
-  };
+  return { year: year ?? "", month: month ?? "", day: day ?? "" };
 }
 
 function pad(value: string) {
@@ -74,15 +61,49 @@ function buildBirthDate(year: string, month: string, day: string) {
 
 export function AgeGatePrompt({ initialState, user }: AgeGatePromptProps) {
   const router = useRouter();
-  const initialParts = useMemo(
-    () => parseBirthDateParts(initialState.birthDate),
-    [initialState.birthDate]
-  );
+  const { locale } = useLanguage();
+  const initialParts = useMemo(() => parseBirthDateParts(initialState.birthDate), [initialState.birthDate]);
   const [year, setYear] = useState(initialParts.year);
   const [month, setMonth] = useState(initialParts.month ? String(Number(initialParts.month)) : "");
   const [day, setDay] = useState(initialParts.day ? String(Number(initialParts.day)) : "");
   const [saving, setSaving] = useState(false);
   const syncedProfile = useRef(false);
+
+  const text = locale === "en"
+    ? {
+        title: "Age gate",
+        description: "Please select your date of birth. We use this information to hide titles with higher age ratings for minors.",
+        birthDate: "Date of birth",
+        day: "Day",
+        month: "Month",
+        year: "Year",
+        invalid: "Please select a valid date of birth.",
+        saveError: "Date of birth could not be saved to your profile.",
+        savedAdult: "Date of birth saved. All titles are now available.",
+        savedMinor: "Date of birth saved. Titles will now be filtered by age rating.",
+        cookieInfo: "This information is stored in a cookie. If you are signed in, it is also saved to your profile.",
+        selected: "Selected",
+        chooseAll: "Please choose day, month and year.",
+        submit: "Save date of birth and continue",
+        saving: "Saving..."
+      }
+    : {
+        title: "Jugendschutz",
+        description: "Bitte wähle dein Geburtsdatum aus. Wir nutzen diese Angabe, um Inhalte mit höherer Altersfreigabe für Minderjährige auszublenden.",
+        birthDate: "Geburtsdatum",
+        day: "Tag",
+        month: "Monat",
+        year: "Jahr",
+        invalid: "Bitte wähle ein gültiges Geburtsdatum aus.",
+        saveError: "Geburtsdatum konnte nicht im Profil gespeichert werden.",
+        savedAdult: "Geburtsdatum gespeichert. Alle Inhalte sind freigeschaltet.",
+        savedMinor: "Geburtsdatum gespeichert. Inhalte werden altersgerecht gefiltert.",
+        cookieInfo: "Die Angabe wird als Cookie gespeichert. Wenn du eingeloggt bist, wird sie zusätzlich in deinem Profil hinterlegt.",
+        selected: "Ausgewählt",
+        chooseAll: "Bitte wähle Tag, Monat und Jahr aus.",
+        submit: "Geburtsdatum speichern und fortfahren",
+        saving: "Speichere..."
+      };
 
   const today = useMemo(() => new Date(), []);
   const currentYear = today.getUTCFullYear();
@@ -102,20 +123,11 @@ export function AgeGatePrompt({ initialState, user }: AgeGatePromptProps) {
 
     void (async () => {
       const supabase = createSupabaseBrowserClient();
-      await (supabase.from("profiles") as any).upsert(
-        {
-          id: user.id,
-          birth_date: initialState.birthDate
-        },
-        { onConflict: "id" }
-      );
+      await (supabase.from("profiles") as any).upsert({ id: user.id, birth_date: initialState.birthDate }, { onConflict: "id" });
     })();
   }, [initialState.birthDate, user]);
 
-  const years = useMemo(
-    () => Array.from({ length: 131 }, (_, index) => String(currentYear - index)),
-    [currentYear]
-  );
+  const years = useMemo(() => Array.from({ length: 131 }, (_, index) => String(currentYear - index)), [currentYear]);
 
   const months = useMemo(() => {
     const maxMonth = Number(year) === currentYear ? currentMonth : 12;
@@ -135,10 +147,7 @@ export function AgeGatePrompt({ initialState, user }: AgeGatePromptProps) {
     }
 
     const naturalDays = getDaysInMonth(numericYear, numericMonth);
-    const maxDay =
-      numericYear === currentYear && numericMonth === currentMonth
-        ? Math.min(naturalDays, currentDay)
-        : naturalDays;
+    const maxDay = numericYear === currentYear && numericMonth === currentMonth ? Math.min(naturalDays, currentDay) : naturalDays;
 
     return Array.from({ length: maxDay }, (_, index) => index + 1);
   }, [currentDay, currentMonth, currentYear, month, year]);
@@ -166,7 +175,7 @@ export function AgeGatePrompt({ initialState, user }: AgeGatePromptProps) {
     event.preventDefault();
 
     if (!selectedBirthDate || derivedAge === null) {
-      toast.error("Bitte wähle ein gültiges Geburtsdatum aus.");
+      toast.error(text.invalid);
       return;
     }
 
@@ -175,27 +184,16 @@ export function AgeGatePrompt({ initialState, user }: AgeGatePromptProps) {
 
     if (user && isSupabaseConfigured()) {
       const supabase = createSupabaseBrowserClient();
-      const { error } = await (supabase.from("profiles") as any).upsert(
-        {
-          id: user.id,
-          birth_date: selectedBirthDate
-        },
-        { onConflict: "id" }
-      );
+      const { error } = await (supabase.from("profiles") as any).upsert({ id: user.id, birth_date: selectedBirthDate }, { onConflict: "id" });
 
       if (error) {
-        toast.error("Geburtsdatum konnte nicht im Profil gespeichert werden.");
+        toast.error(text.saveError);
         setSaving(false);
         return;
       }
     }
 
-    toast.success(
-      derivedAge >= 18
-        ? "Geburtsdatum gespeichert. Alle Inhalte sind freigeschaltet."
-        : "Geburtsdatum gespeichert. Inhalte werden altersgerecht gefiltert."
-    );
-
+    toast.success(derivedAge >= 18 ? text.savedAdult : text.savedMinor);
     router.refresh();
   };
 
@@ -207,41 +205,26 @@ export function AgeGatePrompt({ initialState, user }: AgeGatePromptProps) {
             <ShieldAlert className="size-6" />
           </div>
           <div className="space-y-2">
-            <h2 className="text-2xl font-semibold tracking-tight">Jugendschutz</h2>
-            <p className="text-sm leading-6 text-muted-foreground">
-              Bitte wähle dein Geburtsdatum aus. Wir nutzen diese Angabe, um Inhalte mit höherer
-              Altersfreigabe für Minderjährige auszublenden.
-            </p>
+            <h2 className="text-2xl font-semibold tracking-tight">{text.title}</h2>
+            <p className="text-sm leading-6 text-muted-foreground">{text.description}</p>
           </div>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5">
           <div className="space-y-3">
-            <label className="text-sm font-medium">Geburtsdatum</label>
+            <label className="text-sm font-medium">{text.birthDate}</label>
             <div className="grid gap-3 sm:grid-cols-[1fr_1.1fr_1fr]">
               <select value={day} onChange={event => setDay(event.target.value)} className={selectClassName}>
-                <option value="">Tag</option>
-                {days.map(option => (
-                  <option key={option} value={String(option)}>
-                    {option}
-                  </option>
-                ))}
+                <option value="">{text.day}</option>
+                {days.map(option => <option key={option} value={String(option)}>{option}</option>)}
               </select>
               <select value={month} onChange={event => setMonth(event.target.value)} className={selectClassName}>
-                <option value="">Monat</option>
-                {months.map(option => (
-                  <option key={option} value={String(option)}>
-                    {MONTH_LABELS[option - 1]}
-                  </option>
-                ))}
+                <option value="">{text.month}</option>
+                {months.map(option => <option key={option} value={String(option)}>{MONTH_LABELS[locale][option - 1]}</option>)}
               </select>
               <select value={year} onChange={event => setYear(event.target.value)} className={selectClassName}>
-                <option value="">Jahr</option>
-                {years.map(option => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
+                <option value="">{text.year}</option>
+                {years.map(option => <option key={option} value={option}>{option}</option>)}
               </select>
             </div>
           </div>
@@ -250,23 +233,18 @@ export function AgeGatePrompt({ initialState, user }: AgeGatePromptProps) {
             <div className="flex items-start gap-3">
               <CalendarDays className="mt-0.5 size-4 shrink-0 text-primary" />
               <div className="space-y-1">
-                <p>
-                  Die Angabe wird als Cookie gespeichert. Wenn du eingeloggt bist, wird sie
-                  zusätzlich in deinem Profil hinterlegt.
-                </p>
+                <p>{text.cookieInfo}</p>
                 {selectedBirthDate && derivedAge !== null ? (
-                  <p className="text-foreground/90">
-                    Ausgewählt: {selectedBirthDate} ({derivedAge} Jahre)
-                  </p>
+                  <p className="text-foreground/90">{text.selected}: {selectedBirthDate} ({derivedAge})</p>
                 ) : (
-                  <p>Bitte wähle Tag, Monat und Jahr aus.</p>
+                  <p>{text.chooseAll}</p>
                 )}
               </div>
             </div>
           </div>
 
           <Button type="submit" className="w-full" disabled={saving || !selectedBirthDate}>
-            {saving ? "Speichere..." : "Geburtsdatum speichern und fortfahren"}
+            {saving ? text.saving : text.submit}
           </Button>
         </form>
       </div>

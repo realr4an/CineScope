@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Heart, Star } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
+import { useLanguage } from "@/features/i18n/language-provider";
 import { formatRating, formatYear, getRatingTone } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { MediaListItem } from "@/types/media";
@@ -26,6 +27,24 @@ export function MediaCard({
   onFavoriteToggle?: (item: MediaListItem) => void;
   className?: string;
 }) {
+  const { locale } = useLanguage();
+  const text =
+    locale === "en"
+      ? {
+          poster: "poster",
+          movie: "Movie",
+          series: "Series",
+          remove: "Remove from watchlist",
+          add: "Add to watchlist"
+        }
+      : {
+          poster: "Poster",
+          movie: "Film",
+          series: "Serie",
+          remove: "Aus Watchlist entfernen",
+          add: "Zur Watchlist hinzufügen"
+        };
+
   return (
     <div className={cn("group w-full", className)}>
       <Link href={getMediaHref(item)} className="block">
@@ -33,19 +52,19 @@ export function MediaCard({
           <div className="poster-aspect relative overflow-hidden bg-muted">
             <img
               src={item.posterUrl ?? FALLBACK_POSTER}
-              alt={`${item.title} Poster`}
+              alt={`${item.title} ${text.poster}`}
               className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-transparent to-transparent opacity-90" />
             <div className="absolute left-3 top-3">
               <Badge variant="secondary">
-                {item.mediaType === "movie" ? "Film" : "Serie"}
+                {item.mediaType === "movie" ? text.movie : text.series}
               </Badge>
             </div>
             {onFavoriteToggle ? (
               <button
                 type="button"
-                aria-label={isFavorite ? "Aus Watchlist entfernen" : "Zur Watchlist hinzufügen"}
+                aria-label={isFavorite ? text.remove : text.add}
                 onClick={event => {
                   event.preventDefault();
                   event.stopPropagation();

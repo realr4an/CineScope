@@ -17,11 +17,17 @@ const outfit = Outfit({
   variable: "--font-outfit"
 });
 
-export const metadata: Metadata = {
-  title: "CineScope",
-  description:
-    "Film- und Serien-Explorer mit TMDB, Supabase Watchlist und OpenRouter-gestützten Empfehlungen."
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const locale = await getPreferredLocale();
+
+  return {
+    title: "CineScope",
+    description:
+      locale === "en"
+        ? "Movie and series explorer with TMDB, a Supabase watchlist, and OpenRouter-powered recommendations."
+        : "Film- und Serien-Explorer mit TMDB, Supabase Watchlist und OpenRouter-gestützten Empfehlungen."
+  };
+}
 
 export default async function RootLayout({
   children
