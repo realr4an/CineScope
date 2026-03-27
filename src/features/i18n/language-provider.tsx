@@ -1,7 +1,8 @@
-﻿"use client";
+"use client";
 
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { RefreshCw } from "lucide-react";
 
 import { getDictionary } from "@/lib/i18n/dictionaries";
 import { LANGUAGE_COOKIE, type Locale } from "@/lib/i18n/types";
@@ -11,6 +12,7 @@ type LanguageContextValue = {
   locale: Locale;
   setLocale: (locale: Locale) => void;
   dictionary: ReturnType<typeof getDictionary>;
+  isSwitchingLocale: boolean;
 };
 
 const STORAGE_KEY = "cine_locale";
@@ -34,6 +36,7 @@ export function LanguageProvider({
   initialLocale: Locale;
 }) {
   const [locale, setLocaleState] = useState<Locale>(initialLocale);
+  const [isPending, startTransition] = useTransition();
   const router = useRouter();
 
   useEffect(() => {
@@ -42,9 +45,11 @@ export function LanguageProvider({
       storedLocale === "en" ? "en" : storedLocale === "de" ? "de" : null;
 
     if (normalizedStoredLocale && normalizedStoredLocale !== locale) {
-      persistLocale(normalizedStoredLocale);
-      setLocaleState(normalizedStoredLocale);
-      router.refresh();
+      startTransition(() => {
+        persistLocale(normalizedStoredLocale);
+        setLocaleState(normalizedStoredLocale);
+        router.refresh();
+      });
       return;
     }
 
@@ -55,20 +60,37 @@ export function LanguageProvider({
     () => ({
       locale,
       setLocale: nextLocale => {
-        if (nextLocale === locale) {
+        if (nextLocale === locale || isPending) {
           return;
         }
 
-        persistLocale(nextLocale);
-        setLocaleState(nextLocale);
-        router.refresh();
+        startTransition(() => {
+          persistLocale(nextLocale);
+          setLocaleState(nextLocale);
+          router.refresh();
+        });
       },
-      dictionary: getDictionary(locale)
+      dictionary: getDictionary(locale),
+      isSwitchingLocale: isPending
     }),
-    [locale, router]
+    [isPending, locale, router]
   );
 
-  return <LanguageContext.Provider value={value}>{children}</LanguageContext.Provider>;
+  return (
+    <LanguageContext.Provider value={value}>
+      {children}
+      {isPending ? (
+        <div className="fixed inset-0 z-[140] flex items-center justify-center bg-background/70 backdrop-blur-sm">
+          <div className="flex items-center gap-3 rounded-2xl border border-border/50 bg-card/90 px-5 py-4 shadow-2xl">
+            <RefreshCw className="size-5 animate-spin text-primary" />
+            <span className="text-sm font-medium text-foreground">
+              {locale === "en" ? "Applying language..." : "Sprache wird angewendet..."}
+            </span>
+          </div>
+        </div>
+      ) : null}
+    </LanguageContext.Provider>
+  );
 }
 
 export function useLanguage() {
@@ -80,4 +102,3 @@ export function useLanguage() {
 
   return context;
 }
-

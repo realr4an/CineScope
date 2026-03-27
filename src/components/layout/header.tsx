@@ -1,9 +1,9 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Heart, LogIn, Moon, Search, Sparkles, Sun, Tv2, User2 } from "lucide-react";
+import { Heart, LogIn, Moon, RefreshCw, Search, Sparkles, Sun, Tv2, User2 } from "lucide-react";
 import { useTheme } from "next-themes";
 
 import { Button } from "@/components/ui/button";
@@ -15,7 +15,7 @@ import { cn } from "@/lib/utils";
 export function Header() {
   const pathname = usePathname();
   const { resolvedTheme, setTheme } = useTheme();
-  const { locale, setLocale, dictionary } = useLanguage();
+  const { locale, setLocale, dictionary, isSwitchingLocale } = useLanguage();
   const { items, user } = useWatchlist();
   const [mounted, setMounted] = useState(false);
 
@@ -77,27 +77,31 @@ export function Header() {
               <button
                 type="button"
                 className={cn(
-                  "rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors",
+                  "inline-flex min-w-[3rem] items-center justify-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors disabled:pointer-events-none disabled:opacity-80",
                   locale === "de"
                     ? "bg-primary text-primary-foreground"
                     : "text-muted-foreground hover:text-foreground"
                 )}
                 onClick={() => setLocale("de")}
                 aria-label={dictionary.common.german}
+                disabled={isSwitchingLocale}
               >
+                {isSwitchingLocale && locale === "de" ? <RefreshCw className="size-3.5 animate-spin" /> : null}
                 DE
               </button>
               <button
                 type="button"
                 className={cn(
-                  "rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors",
+                  "inline-flex min-w-[3rem] items-center justify-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors disabled:pointer-events-none disabled:opacity-80",
                   locale === "en"
                     ? "bg-primary text-primary-foreground"
                     : "text-muted-foreground hover:text-foreground"
                 )}
                 onClick={() => setLocale("en")}
                 aria-label={dictionary.common.english}
+                disabled={isSwitchingLocale}
               >
+                {isSwitchingLocale && locale === "en" ? <RefreshCw className="size-3.5 animate-spin" /> : null}
                 EN
               </button>
             </div>
@@ -142,4 +146,3 @@ export function Header() {
     </header>
   );
 }
-
