@@ -101,6 +101,29 @@ Overview: ${input.overview}
 `.trim();
 }
 
+export function searchQueryInterpretationPrompt(input: {
+  query: string;
+  mediaType: "all" | "movie" | "tv";
+}) {
+  return `
+Du hilfst bei der Korrektur von Suchanfragen für Film- und Serientitel.
+${baseGuardrails()}
+Antworte ausschließlich als JSON im Format:
+{"normalizedQuery":"string","alternatives":["string","string"]}
+
+Regeln:
+- korrigiere nur offensichtliche Tippfehler, Vertipper oder Buchstabendreher
+- keine langen Umschreibungen, keine Sätze, nur kurze suchbare Titel oder Suchphrasen
+- wenn die Eingabe schon sinnvoll ist, gib sie unverändert als normalizedQuery zurück
+- gib höchstens 3 Alternativen zurück
+- keine erfundenen Titel
+- keine Erklärungen
+
+Medientyp: ${input.mediaType}
+Eingabe: ${input.query}
+`.trim();
+}
+
 export function comparePrompt(left: AITitleContext, right: AITitleContext) {
   return `
 Du vergleichst zwei Titel für Medienfans.

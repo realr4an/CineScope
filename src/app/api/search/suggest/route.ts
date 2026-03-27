@@ -1,7 +1,7 @@
 ﻿import { NextResponse } from "next/server";
 
 import { filterMediaForViewerAge } from "@/lib/age-gate/server";
-import { searchMedia } from "@/lib/tmdb/search";
+import { searchMediaWithFallback } from "@/lib/tmdb/search";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -14,10 +14,14 @@ export async function GET(request: Request) {
   }
 
   try {
-    const items = await searchMedia({ query, mediaType: type });
-    const safeItems = await filterMediaForViewerAge(items);
+    const searchResult = await searchMediaWithFallback({ query, mediaType: type });
+    const safeItems = await filterMediaForViewerAge(searchResult.items);
 
-    return NextResponse.json({ items: safeItems.slice(0, 8) });
+    return NextResponse.json({
+      items: safeItems.slice(0, 8),
+      appliedQuery: searchResult.appliedQuery,
+      fallbackUsed: searchResult.fallbackUsed
+    });
   } catch (error) {
     return NextResponse.json(
       {

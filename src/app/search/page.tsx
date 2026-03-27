@@ -6,7 +6,7 @@ import { SearchForm } from "@/features/search/search-form";
 import { filterMediaForViewerAge } from "@/lib/age-gate/server";
 import { getServerDictionary } from "@/lib/i18n/server";
 import { getPopularMovies } from "@/lib/tmdb/movies";
-import { searchMedia } from "@/lib/tmdb/search";
+import { searchMediaWithFallback } from "@/lib/tmdb/search";
 import { getPopularTv } from "@/lib/tmdb/tv";
 import { searchParamsSchema } from "@/lib/validators/media";
 
@@ -24,11 +24,11 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
   });
 
   try {
-    const results = parsed.q
-      ? await searchMedia({ query: parsed.q, mediaType: parsed.type })
-      : [];
+    const searchResult = parsed.q
+      ? await searchMediaWithFallback({ query: parsed.q, mediaType: parsed.type })
+      : { items: [], appliedQuery: parsed.q, fallbackUsed: false };
 
-    const safeResults = await filterMediaForViewerAge(results);
+    const safeResults = await filterMediaForViewerAge(searchResult.items);
 
     const sortedResults = [...safeResults].sort((left, right) => {
       if (parsed.sort === "rating") {
@@ -49,6 +49,8 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
             ...(await getPopularTv()).slice(0, 6)
           ])
         : [];
+
+    const isEnglish = dictionary.searchPage.title === "Search";
 
     return (
       <AppShell>
@@ -71,8 +73,15 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
               <div className="space-y-4">
                 <SectionHeader
                   title={`${sortedResults.length} ${dictionary.searchPage.results}`}
-                  subtitle={`${dictionary.searchPage.matchesFor} "${parsed.q}"`}
+                  subtitle={`${dictionary.searchPage.matchesFor} "${searchResult.appliedQuery}"`}
                 />
+                {searchResult.fallbackUsed ? (
+                  <p className="text-sm text-muted-foreground">
+                    {isEnglish
+                      ? `Showing corrected results for "${searchResult.appliedQuery}" based on your input "${parsed.q}".`
+                      : `Zeige korrigierte Ergebnisse für "${searchResult.appliedQuery}" auf Basis deiner Eingabe "${parsed.q}".`}
+                  </p>
+                ) : null}
                 <MediaGrid items={sortedResults} />
               </div>
             ) : (

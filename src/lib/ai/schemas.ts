@@ -30,6 +30,11 @@ export const summarySchema = z.object({
   releaseDate: z.string().nullable().optional()
 });
 
+export const aiSearchInterpretationSchema = z.object({
+  normalizedQuery: z.string().min(1).max(200),
+  alternatives: z.array(z.string().min(1).max(200)).max(3).default([])
+});
+
 export const aiRecommendationResponseSchema = z.object({
   recommendations: z.array(
     z.object({
