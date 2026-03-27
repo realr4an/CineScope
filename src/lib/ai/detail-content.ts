@@ -16,6 +16,7 @@ import type {
   AIRecommendationFeedback,
   AITitleInsightsResponse
 } from "@/lib/ai/types";
+import type { Locale } from "@/lib/i18n/types";
 import type { MediaDetail, WatchlistItem } from "@/types/media";
 
 const AI_CACHE_SECONDS = 60 * 60 * 24 * 7;
@@ -31,59 +32,69 @@ function mapWatchlistToFeedback(items: WatchlistItem[]): AIRecommendationFeedbac
     }));
 }
 
-function getCachedSummary(media: MediaDetail) {
+function getCachedSummary(media: MediaDetail, locale: Locale) {
   return unstable_cache(
     async () =>
-      generateSpoilerFreeSummary({
-        title: media.title,
-        mediaType: media.mediaType,
-        overview: media.overview,
-        genres: media.genres.map(genre => genre.name),
-        releaseDate: media.mediaType === "movie" ? media.releaseDate : media.firstAirDate
-      }),
-    [`ai-summary-${media.mediaType}-${media.tmdbId}`],
+      generateSpoilerFreeSummary(
+        {
+          title: media.title,
+          mediaType: media.mediaType,
+          overview: media.overview,
+          genres: media.genres.map(genre => genre.name),
+          releaseDate: media.mediaType === "movie" ? media.releaseDate : media.firstAirDate
+        },
+        locale
+      ),
+    [`ai-summary-${locale}-${media.mediaType}-${media.tmdbId}`],
     { revalidate: AI_CACHE_SECONDS }
   )();
 }
 
-function getCachedTitleInsights(media: MediaDetail) {
+function getCachedTitleInsights(media: MediaDetail, locale: Locale) {
   return unstable_cache(
     async () =>
       askOpenRouterJson(
-        titleInsightsPrompt(mapMediaDetailToAIContext(media)),
+        titleInsightsPrompt(mapMediaDetailToAIContext(media), locale),
         aiTitleInsightsResponseSchema
       ),
-    [`ai-title-insights-${media.mediaType}-${media.tmdbId}`],
+    [`ai-title-insights-${locale}-${media.mediaType}-${media.tmdbId}`],
     { revalidate: AI_CACHE_SECONDS }
   )();
 }
 
 async function getPersonalFit(
   media: MediaDetail,
-  feedback: AIRecommendationFeedback[]
+  feedback: AIRecommendationFeedback[],
+  locale: Locale
 ): Promise<AIFitResponse | null> {
   if (!feedback.length) {
     return null;
   }
 
   return askOpenRouterJson(
-    fitPrompt({
-      title: mapMediaDetailToAIContext(media),
-      feedback
-    }),
+    fitPrompt(
+      {
+        title: mapMediaDetailToAIContext(media),
+        feedback
+      },
+      locale
+    ),
     aiFitResponseSchema
   );
 }
 
-export async function getInitialDetailAI(media: MediaDetail): Promise<{
+export async function getInitialDetailAI(
+  media: MediaDetail,
+  locale: Locale = "de"
+): Promise<{
   summary: string | null;
   insights: AITitleInsightsResponse | null;
   fit: AIFitResponse | null;
   hasFeedbackSignals: boolean;
 }> {
   const [summaryResult, insightsResult, watchlistResult] = await Promise.allSettled([
-    getCachedSummary(media),
-    getCachedTitleInsights(media),
+    getCachedSummary(media, locale),
+    getCachedTitleInsights(media, locale),
     getWatchlistForViewer()
   ]);
 
@@ -92,7 +103,7 @@ export async function getInitialDetailAI(media: MediaDetail): Promise<{
 
   const fitResult = await (async () => {
     try {
-      return await getPersonalFit(media, feedback);
+      return await getPersonalFit(media, feedback, locale);
     } catch {
       return null;
     }

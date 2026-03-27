@@ -22,7 +22,7 @@ type TvPageProps = {
 };
 
 export default async function TvPage({ params }: TvPageProps) {
-  const { dictionary } = await getServerDictionary();
+  const { dictionary, locale } = await getServerDictionary();
   const { id } = await params;
   const tmdbId = Number(id);
 
@@ -53,7 +53,7 @@ export default async function TvPage({ params }: TvPageProps) {
 
     const [safeSimilar, initialAI] = await Promise.all([
       filterMediaForViewerAge(series.similar),
-      getInitialDetailAI(series)
+      getInitialDetailAI(series, locale)
     ]);
 
     return (
@@ -195,4 +195,5 @@ export default async function TvPage({ params }: TvPageProps) {
     );
   }
 }
+
 

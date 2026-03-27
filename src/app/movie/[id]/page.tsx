@@ -22,7 +22,7 @@ type MoviePageProps = {
 };
 
 export default async function MoviePage({ params }: MoviePageProps) {
-  const { dictionary } = await getServerDictionary();
+  const { dictionary, locale } = await getServerDictionary();
   const { id } = await params;
   const tmdbId = Number(id);
 
@@ -46,7 +46,7 @@ export default async function MoviePage({ params }: MoviePageProps) {
 
     const [safeSimilar, initialAI] = await Promise.all([
       filterMediaForViewerAge(movie.similar),
-      getInitialDetailAI(movie)
+      getInitialDetailAI(movie, locale)
     ]);
 
     return (
@@ -187,4 +187,5 @@ export default async function MoviePage({ params }: MoviePageProps) {
     );
   }
 }
+
 

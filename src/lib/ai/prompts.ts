@@ -1,4 +1,5 @@
-﻿import type { AIPersonContext, AITitleContext } from "@/lib/ai/types";
+﻿import type { Locale } from "@/lib/i18n/types";
+import type { AIPersonContext, AITitleContext } from "@/lib/ai/types";
 
 type RecommendationFeedbackItem = {
   title: string;
@@ -7,40 +8,192 @@ type RecommendationFeedbackItem = {
   liked: boolean | null;
 };
 
-function formatTitleContext(title: AITitleContext) {
+const COPY = {
+  de: {
+    titleLabel: "Titel",
+    typeLabel: "Typ",
+    movie: "Film",
+    series: "Serie",
+    genres: "Genres",
+    unknown: "unbekannt",
+    release: "Veröffentlichung",
+    tagline: "Tagline",
+    none: "keine",
+    overview: "Overview",
+    cast: "Cast",
+    runtime: "Laufzeit",
+    seasons: "Staffeln",
+    episodes: "Episoden",
+    liked: "Titel, die dem Nutzer gefallen haben",
+    disliked: "Titel, die dem Nutzer nicht gefallen haben",
+    watched: "Bereits gesehen, aber nicht bewertet",
+    concise: "Antworte knapp, nützlich und UI-tauglich.",
+    noIntro: "Keine Einleitung, kein Markdown, keine langen Essays.",
+    factsOnly: "Nutze nur die bereitgestellten Daten und formuliere Unsicherheit vorsichtig.",
+    cautious: "Wenn du etwas nicht sicher aus den Daten ableiten kannst, formuliere konservativ.",
+    curatorIntro: "Du bist ein präziser Film- und Serienkurator.",
+    compareIntro: "Du vergleichst zwei Titel für Medienfans.",
+    fitIntro: "Du erklärst kurz, warum ein Titel zu einem Nutzer passen könnte.",
+    priorityIntro: "Du hilfst bei der Reihenfolge mehrerer Titel.",
+    assistantIntro: "Du bist ein fokussierter Auswahl-Assistent für Filme und Serien.",
+    titleInsightsIntro: "Du erzeugst kurze KI-Insights für eine Titel-Detailseite.",
+    personInsightsIntro: "Du ordnest eine Schauspiel- oder Kreativperson für Medienfans kurz ein.",
+    outputJson: "Antworte ausschließlich als JSON im Format:",
+    rules: "Regeln:",
+    userContext: "Nutzerkontext:",
+    userPrompt: "User Prompt:",
+    summaryInstruction: "Erstelle eine kurze spoilerfreie Zusammenfassung auf Deutsch.",
+    maxFour: "Antworte mit maximal 4 Sätzen.",
+    providedFacts: "Nutze ausschließlich die bereitgestellten Fakten.",
+    searchHelp: "Du hilfst bei der Korrektur von Suchanfragen für Film- und Serientitel.",
+    mediaType: "Medientyp",
+    input: "Eingabe",
+    compareInstruction: "Vergleiche präzise in 5 bis 7 Punkten. Geeignete Dimensionen sind Ton, Tempo, Komplexität, Emotionalität, Worldbuilding, Zugänglichkeit und Zielgruppe.",
+    titleA: "Titel A",
+    titleB: "Titel B",
+    fitInstruction: "Nutze vor allem Atmosphäre, Themen, Erzähltempo, Charakterfokus und Ähnlichkeiten zu positiv bewerteten Titeln.",
+    extraQuestion: "Zusätzliche Nutzerfrage:",
+    targetTitle: "Zieltitel:",
+    priorityInstruction1: "gib eine vollständige Reihenfolge für alle bereitgestellten Titel zurück",
+    priorityInstruction2: "halte die Reihenfolge explizit und nummerierbar",
+    priorityInstruction3: "wenn die Titel erkennbar zu einer Reihe oder Franchise gehören, liefere eine klare Watch Order",
+    priorityInstruction4: "erkläre je Titel kurz, warum er genau an dieser Position steht",
+    priorityInstruction5: "wenn es unterschiedliche sinnvolle Wege gäbe, entscheide dich für einen klaren Hauptpfad und erwähne die Logik kurz in der summary",
+    candidates: "Kandidaten:",
+    notSpecified: "nicht angegeben",
+    mood: "Stimmung",
+    intensity: "Intensität",
+    socialContext: "Sozialer Kontext",
+    referenceTitles: "Referenztitel:",
+    request: "Nutzeranfrage:",
+    titleInsightsRules1: "3 bis 6 prägnante Vibe-Tags",
+    titleInsightsRules2: "Content-Warning light, spoilerfrei und vorsichtig formuliert",
+    titleInsightsRules3: "kein klinischer Ton",
+    focus: "Fokus:",
+    focus1: "wofür ist die Person bekannt?",
+    focus2: "welche Rollen oder Werke definieren sie?",
+    focus3: "welche Art von Projekten verbindet man mit ihr?",
+    person: "Person:",
+    name: "Name",
+    department: "Department",
+    biography: "Biografie",
+    topCredits: "Top Credits",
+    languageInstruction: "Alle erklärenden Texte und Begründungen müssen auf Deutsch formuliert sein."
+  },
+  en: {
+    titleLabel: "Title",
+    typeLabel: "Type",
+    movie: "Movie",
+    series: "Series",
+    genres: "Genres",
+    unknown: "unknown",
+    release: "Release",
+    tagline: "Tagline",
+    none: "none",
+    overview: "Overview",
+    cast: "Cast",
+    runtime: "Runtime",
+    seasons: "Seasons",
+    episodes: "Episodes",
+    liked: "Titles the user liked",
+    disliked: "Titles the user disliked",
+    watched: "Already watched but not rated",
+    concise: "Answer briefly, usefully, and in a UI-friendly way.",
+    noIntro: "No intro, no Markdown, no long essays.",
+    factsOnly: "Use only the provided data and express uncertainty carefully.",
+    cautious: "If you cannot infer something reliably from the data, phrase it conservatively.",
+    curatorIntro: "You are a precise movie and series curator.",
+    compareIntro: "You compare two titles for media fans.",
+    fitIntro: "You briefly explain why a title might fit a user.",
+    priorityIntro: "You help decide the order of several titles.",
+    assistantIntro: "You are a focused movie and series decision assistant.",
+    titleInsightsIntro: "You generate short AI insights for a title detail page.",
+    personInsightsIntro: "You briefly frame an actor or creative person for media fans.",
+    outputJson: "Respond only as JSON in the format:",
+    rules: "Rules:",
+    userContext: "User context:",
+    userPrompt: "User prompt:",
+    summaryInstruction: "Write a short spoiler-free summary in English.",
+    maxFour: "Use at most 4 sentences.",
+    providedFacts: "Use only the provided facts.",
+    searchHelp: "You help correct search queries for movie and series titles.",
+    mediaType: "Media type",
+    input: "Input",
+    compareInstruction: "Compare precisely in 5 to 7 points. Suitable dimensions are tone, pace, complexity, emotionality, worldbuilding, accessibility, and audience fit.",
+    titleA: "Title A",
+    titleB: "Title B",
+    fitInstruction: "Focus on atmosphere, themes, pacing, character focus, and similarities to positively rated titles.",
+    extraQuestion: "Additional user question:",
+    targetTitle: "Target title:",
+    priorityInstruction1: "return a complete order for all provided titles",
+    priorityInstruction2: "make the order explicit and easy to number",
+    priorityInstruction3: "if the titles clearly belong to a series or franchise, provide a clear watch order",
+    priorityInstruction4: "briefly explain for each title why it belongs in that position",
+    priorityInstruction5: "if multiple sensible approaches exist, choose one clear main path and mention the logic briefly in the summary",
+    candidates: "Candidates:",
+    notSpecified: "not specified",
+    mood: "Mood",
+    intensity: "Intensity",
+    socialContext: "Social context",
+    referenceTitles: "Reference titles:",
+    request: "User request:",
+    titleInsightsRules1: "3 to 6 concise vibe tags",
+    titleInsightsRules2: "content warning light, spoiler-free, and cautiously phrased",
+    titleInsightsRules3: "no clinical tone",
+    focus: "Focus:",
+    focus1: "what is this person known for?",
+    focus2: "which roles or works define them?",
+    focus3: "what type of projects are they associated with?",
+    person: "Person:",
+    name: "Name",
+    department: "Department",
+    biography: "Biography",
+    topCredits: "Top credits",
+    languageInstruction: "All explanatory text and reasoning must be written in English."
+  }
+} as const;
+
+function copyFor(locale: Locale) {
+  return COPY[locale];
+}
+
+function formatTitleContext(title: AITitleContext, locale: Locale) {
+  const text = copyFor(locale);
+
   return [
-    `Titel: ${title.title}`,
-    `Typ: ${title.mediaType === "movie" ? "Film" : "Serie"}`,
-    `Genres: ${title.genres.join(", ") || "unbekannt"}`,
-    `Veröffentlichung: ${title.releaseDate ?? "unbekannt"}`,
-    `Tagline: ${title.tagline ?? "keine"}`,
-    `Overview: ${title.overview || "keine"}`,
-    `Cast: ${title.cast?.join(", ") || "unbekannt"}`,
-    `Laufzeit: ${title.runtime ?? "unbekannt"}`,
-    `Staffeln: ${title.numberOfSeasons ?? "n/a"}`,
-    `Episoden: ${title.numberOfEpisodes ?? "n/a"}`
+    `${text.titleLabel}: ${title.title}`,
+    `${text.typeLabel}: ${title.mediaType === "movie" ? text.movie : text.series}`,
+    `${text.genres}: ${title.genres.join(", ") || text.unknown}`,
+    `${text.release}: ${title.releaseDate ?? text.unknown}`,
+    `${text.tagline}: ${title.tagline ?? text.none}`,
+    `${text.overview}: ${title.overview || text.none}`,
+    `${text.cast}: ${title.cast?.join(", ") || text.unknown}`,
+    `${text.runtime}: ${title.runtime ?? text.unknown}`,
+    `${text.seasons}: ${title.numberOfSeasons ?? "n/a"}`,
+    `${text.episodes}: ${title.numberOfEpisodes ?? "n/a"}`
   ].join("\n");
 }
 
-function formatFeedback(feedback: RecommendationFeedbackItem[]) {
+function formatFeedback(feedback: RecommendationFeedbackItem[], locale: Locale) {
+  const text = copyFor(locale);
   const likedTitles = feedback.filter(item => item.liked === true);
   const dislikedTitles = feedback.filter(item => item.liked === false);
   const watchedOnlyTitles = feedback.filter(item => item.watched && item.liked === null);
 
   return [
     likedTitles.length
-      ? `Titel, die dem Nutzer gefallen haben:\n${likedTitles
-          .map(item => `- ${item.title} (${item.mediaType === "movie" ? "Film" : "Serie"})`)
+      ? `${text.liked}:\n${likedTitles
+          .map(item => `- ${item.title} (${item.mediaType === "movie" ? text.movie : text.series})`)
           .join("\n")}`
       : null,
     dislikedTitles.length
-      ? `Titel, die dem Nutzer nicht gefallen haben:\n${dislikedTitles
-          .map(item => `- ${item.title} (${item.mediaType === "movie" ? "Film" : "Serie"})`)
+      ? `${text.disliked}:\n${dislikedTitles
+          .map(item => `- ${item.title} (${item.mediaType === "movie" ? text.movie : text.series})`)
           .join("\n")}`
       : null,
     watchedOnlyTitles.length
-      ? `Bereits gesehen, aber nicht bewertet:\n${watchedOnlyTitles
-          .map(item => `- ${item.title} (${item.mediaType === "movie" ? "Film" : "Serie"})`)
+      ? `${text.watched}:\n${watchedOnlyTitles
+          .map(item => `- ${item.title} (${item.mediaType === "movie" ? text.movie : text.series})`)
           .join("\n")}`
       : null
   ]
@@ -48,34 +201,32 @@ function formatFeedback(feedback: RecommendationFeedbackItem[]) {
     .join("\n\n");
 }
 
-function baseGuardrails() {
-  return [
-    "Antworte knapp, nützlich und UI-tauglich.",
-    "Keine Einleitung, kein Markdown, keine langen Essays.",
-    "Nutze nur die bereitgestellten Daten und formuliere Unsicherheit vorsichtig.",
-    "Wenn du etwas nicht sicher aus den Daten ableiten kannst, formuliere konservativ."
-  ].join("\n");
+function baseGuardrails(locale: Locale) {
+  const text = copyFor(locale);
+  return [text.concise, text.noIntro, text.factsOnly, text.cautious, text.languageInstruction].join("\n");
 }
 
 export function recommendationPrompt(
   prompt: string,
-  feedback: RecommendationFeedbackItem[] = []
+  feedback: RecommendationFeedbackItem[] = [],
+  locale: Locale = "de"
 ) {
+  const text = copyFor(locale);
   return `
-Du bist ein präziser Film- und Serienkurator.
-${baseGuardrails()}
-Antworte ausschließlich als JSON im Format:
+${text.curatorIntro}
+${baseGuardrails(locale)}
+${text.outputJson}
 {"recommendations":[{"title":"string","mediaType":"movie|tv","shortReason":"string","mood":"string optional","comparableTitle":"string optional"}]}
 
-Regeln:
-- max. 5 Empfehlungen
-- nur reale, bekannte Titel
-- kurze, konkrete Gründe
-- positives und negatives Nutzerfeedback berücksichtigen
-- bereits negativ bewertete Titel vermeiden
+${text.rules}
+- max. 5 recommendations
+- only real, well-known titles
+- short, concrete reasons
+- account for positive and negative user feedback
+- avoid titles the user rated negatively
 
-${formatFeedback(feedback) ? `Nutzerkontext:\n${formatFeedback(feedback)}\n` : ""}
-User Prompt:
+${formatFeedback(feedback, locale) ? `${text.userContext}\n${formatFeedback(feedback, locale)}\n` : ""}
+${text.userPrompt}
 ${prompt}
 `.trim();
 }
@@ -86,58 +237,61 @@ export function spoilerFreeSummaryPrompt(input: {
   overview: string;
   genres: string[];
   releaseDate?: string | null;
-}) {
+}, locale: Locale = "de") {
+  const text = copyFor(locale);
   return `
-${baseGuardrails()}
-Erstelle eine kurze spoilerfreie Zusammenfassung auf Deutsch.
-Antworte mit maximal 4 Sätzen.
-Nutze ausschließlich die bereitgestellten Fakten.
+${baseGuardrails(locale)}
+${text.summaryInstruction}
+${text.maxFour}
+${text.providedFacts}
 
-Titel: ${input.title}
-Typ: ${input.mediaType === "movie" ? "Film" : "Serie"}
-Genres: ${input.genres.join(", ") || "unbekannt"}
-Veröffentlichung: ${input.releaseDate ?? "unbekannt"}
-Overview: ${input.overview}
+${text.titleLabel}: ${input.title}
+${text.typeLabel}: ${input.mediaType === "movie" ? text.movie : text.series}
+${text.genres}: ${input.genres.join(", ") || text.unknown}
+${text.release}: ${input.releaseDate ?? text.unknown}
+${text.overview}: ${input.overview}
 `.trim();
 }
 
 export function searchQueryInterpretationPrompt(input: {
   query: string;
   mediaType: "all" | "movie" | "tv";
-}) {
+}, locale: Locale = "de") {
+  const text = copyFor(locale);
   return `
-Du hilfst bei der Korrektur von Suchanfragen für Film- und Serientitel.
-${baseGuardrails()}
-Antworte ausschließlich als JSON im Format:
+${text.searchHelp}
+${baseGuardrails(locale)}
+${text.outputJson}
 {"normalizedQuery":"string","alternatives":["string","string"]}
 
-Regeln:
-- korrigiere nur offensichtliche Tippfehler, Vertipper oder Buchstabendreher
-- keine langen Umschreibungen, keine Sätze, nur kurze suchbare Titel oder Suchphrasen
-- wenn die Eingabe schon sinnvoll ist, gib sie unverändert als normalizedQuery zurück
-- gib höchstens 3 Alternativen zurück
-- keine erfundenen Titel
-- keine Erklärungen
+${text.rules}
+- correct only obvious typos, transposed letters, or misspellings
+- no long rephrasings, no full sentences, only short searchable titles or search phrases
+- if the input is already sensible, return it unchanged as normalizedQuery
+- return at most 3 alternatives
+- do not invent titles
+- no explanations
 
-Medientyp: ${input.mediaType}
-Eingabe: ${input.query}
+${text.mediaType}: ${input.mediaType}
+${text.input}: ${input.query}
 `.trim();
 }
 
-export function comparePrompt(left: AITitleContext, right: AITitleContext) {
+export function comparePrompt(left: AITitleContext, right: AITitleContext, locale: Locale = "de") {
+  const text = copyFor(locale);
   return `
-Du vergleichst zwei Titel für Medienfans.
-${baseGuardrails()}
-Antworte ausschließlich als JSON im Format:
+${text.compareIntro}
+${baseGuardrails(locale)}
+${text.outputJson}
 {"shortVerdict":"string","comparison":[{"label":"string","left":"string","right":"string"}],"guidance":"string"}
 
-Vergleiche präzise in 5 bis 7 Punkten. Geeignete Dimensionen sind Ton, Tempo, Komplexität, Emotionalität, Worldbuilding, Zugänglichkeit und Zielgruppe.
+${text.compareInstruction}
 
-Titel A:
-${formatTitleContext(left)}
+${text.titleA}:
+${formatTitleContext(left, locale)}
 
-Titel B:
-${formatTitleContext(right)}
+${text.titleB}:
+${formatTitleContext(right, locale)}
 `.trim();
 }
 
@@ -145,41 +299,43 @@ export function fitPrompt(input: {
   title: AITitleContext;
   feedback: RecommendationFeedbackItem[];
   userPrompt?: string;
-}) {
+}, locale: Locale = "de") {
+  const text = copyFor(locale);
   return `
-Du erklärst kurz, warum ein Titel zu einem Nutzer passen könnte.
-${baseGuardrails()}
-Antworte ausschließlich als JSON im Format:
+${text.fitIntro}
+${baseGuardrails(locale)}
+${text.outputJson}
 {"summary":"string","reasons":["string","string"],"caveat":"string optional"}
 
-Nutze vor allem Atmosphäre, Themen, Erzähltempo, Charakterfokus und Ähnlichkeiten zu positiv bewerteten Titeln.
+${text.fitInstruction}
 
-${formatFeedback(input.feedback) ? `Nutzerkontext:\n${formatFeedback(input.feedback)}\n` : ""}
-${input.userPrompt ? `Zusätzliche Nutzerfrage:\n${input.userPrompt}\n` : ""}
-Zieltitel:
-${formatTitleContext(input.title)}
+${formatFeedback(input.feedback, locale) ? `${text.userContext}\n${formatFeedback(input.feedback, locale)}\n` : ""}
+${input.userPrompt ? `${text.extraQuestion}\n${input.userPrompt}\n` : ""}
+${text.targetTitle}
+${formatTitleContext(input.title, locale)}
 `.trim();
 }
 
 export function priorityPrompt(input: {
   titles: AITitleContext[];
   context?: string;
-}) {
+}, locale: Locale = "de") {
+  const text = copyFor(locale);
   return `
-Du hilfst bei der Reihenfolge mehrerer Titel.
-${baseGuardrails()}
-Antworte ausschließlich als JSON im Format:
+${text.priorityIntro}
+${baseGuardrails(locale)}
+${text.outputJson}
 {"summary":"string","order":[{"title":"string","mediaType":"movie|tv","reason":"string"}]}
 
-Regeln:
-- gib eine vollständige Reihenfolge für alle bereitgestellten Titel zurück
-- halte die Reihenfolge explizit und nummerierbar
-- wenn die Titel erkennbar zu einer Reihe oder Franchise gehören, liefere eine klare Watch Order
-- erkläre je Titel kurz, warum er genau an dieser Position steht
-- wenn es unterschiedliche sinnvolle Wege gäbe, entscheide dich für einen klaren Hauptpfad und erwähne die Logik kurz in der summary
+${text.rules}
+- ${text.priorityInstruction1}
+- ${text.priorityInstruction2}
+- ${text.priorityInstruction3}
+- ${text.priorityInstruction4}
+- ${text.priorityInstruction5}
 
-${input.context ? `Nutzerkontext:\n${input.context}\n` : ""}
-Kandidaten:
+${input.context ? `${text.userContext}\n${input.context}\n` : ""}
+${text.candidates}
 ${input.titles.map(title => `- ${title.title} (${title.mediaType})`).join("\n")}
 `.trim();
 }
@@ -193,67 +349,70 @@ export function assistantPrompt(input: {
   socialContext?: string;
   references: AITitleContext[];
   feedback: RecommendationFeedbackItem[];
-}) {
+}, locale: Locale = "de") {
+  const text = copyFor(locale);
   return `
-Du bist ein fokussierter Auswahl-Assistent für Filme und Serien.
-${baseGuardrails()}
-Antworte ausschließlich als JSON im Format:
+${text.assistantIntro}
+${baseGuardrails(locale)}
+${text.outputJson}
 {"framing":"string","picks":[{"title":"string","mediaType":"movie|tv","reason":"string","comparableTitle":"string optional"}],"nextStep":"string optional"}
 
-Regeln:
-- 3 bis 5 Vorschläge
-- begründe jeden Vorschlag kurz
-- respektiere Zeitbudget, Stimmung, Intensität und sozialen Kontext
-- wenn Vergleichstitel gegeben sind, nutze sie gezielt
-- wenn Nutzerfeedback gegeben ist, vermeide negativ bewertete Titel
+${text.rules}
+- 3 to 5 suggestions
+- justify each suggestion briefly
+- respect time budget, mood, intensity, and social context
+- use reference titles deliberately when provided
+- avoid titles the user rated negatively
 
-Medientyp: ${input.mediaType}
-Zeitbudget: ${input.timeBudget ?? "nicht angegeben"}
-Stimmung: ${input.mood ?? "nicht angegeben"}
-Intensität: ${input.intensity ?? "nicht angegeben"}
-Sozialer Kontext: ${input.socialContext ?? "nicht angegeben"}
+${text.mediaType}: ${input.mediaType}
+${text.runtime}: ${input.timeBudget ?? text.notSpecified}
+${text.mood}: ${input.mood ?? text.notSpecified}
+${text.intensity}: ${input.intensity ?? text.notSpecified}
+${text.socialContext}: ${input.socialContext ?? text.notSpecified}
 
-${formatFeedback(input.feedback) ? `Nutzerkontext:\n${formatFeedback(input.feedback)}\n` : ""}
-${input.references.length ? `Referenztitel:\n${input.references.map(formatTitleContext).join("\n\n")}\n` : ""}
-Nutzeranfrage:
+${formatFeedback(input.feedback, locale) ? `${text.userContext}\n${formatFeedback(input.feedback, locale)}\n` : ""}
+${input.references.length ? `${text.referenceTitles}\n${input.references.map(reference => formatTitleContext(reference, locale)).join("\n\n")}\n` : ""}
+${text.request}
 ${input.prompt}
 `.trim();
 }
 
-export function titleInsightsPrompt(title: AITitleContext) {
+export function titleInsightsPrompt(title: AITitleContext, locale: Locale = "de") {
+  const text = copyFor(locale);
   return `
-Du erzeugst kurze KI-Insights für eine Titel-Detailseite.
-${baseGuardrails()}
-Antworte ausschließlich als JSON im Format:
+${text.titleInsightsIntro}
+${baseGuardrails(locale)}
+${text.outputJson}
 {"vibeTags":["string","string","string"],"contentWarning":"string"}
 
-Regeln:
-- 3 bis 6 prägnante Vibe-Tags
-- Content-Warning light, spoilerfrei und vorsichtig formuliert
-- kein klinischer Ton
+${text.rules}
+- ${text.titleInsightsRules1}
+- ${text.titleInsightsRules2}
+- ${text.titleInsightsRules3}
 
-Titel:
-${formatTitleContext(title)}
+${text.titleLabel}:
+${formatTitleContext(title, locale)}
 `.trim();
 }
 
-export function personInsightsPrompt(person: AIPersonContext) {
+export function personInsightsPrompt(person: AIPersonContext, locale: Locale = "de") {
+  const text = copyFor(locale);
   return `
-Du ordnest eine Schauspiel- oder Kreativperson für Medienfans kurz ein.
-${baseGuardrails()}
-Antworte ausschließlich als JSON im Format:
+${text.personInsightsIntro}
+${baseGuardrails(locale)}
+${text.outputJson}
 {"summary":"string","highlights":["string","string"]}
 
-Fokus:
-- wofür ist die Person bekannt?
-- welche Rollen oder Werke definieren sie?
-- welche Art von Projekten verbindet man mit ihr?
+${text.focus}
+- ${text.focus1}
+- ${text.focus2}
+- ${text.focus3}
 
-Person:
-Name: ${person.name}
-Department: ${person.knownForDepartment ?? "unbekannt"}
-Biografie: ${person.biography || "keine"}
-Top Credits:
+${text.person}
+${text.name}: ${person.name}
+${text.department}: ${person.knownForDepartment ?? text.unknown}
+${text.biography}: ${person.biography || text.none}
+${text.topCredits}:
 ${person.topCredits
   .map(credit => `- ${credit.title} (${credit.mediaType}, ${credit.roleLabel})`)
   .join("\n")}
