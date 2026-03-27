@@ -23,7 +23,7 @@ export function WatchlistFeedbackControls({
   if (!resolvedItem) {
     return (
       <p className="text-sm text-muted-foreground">
-        Fuege den Titel zuerst zur Watchlist hinzu, um ihn als gesehen zu markieren oder zu
+        Füge den Titel zuerst zur Watchlist hinzu, um ihn als gesehen zu markieren oder zu
         bewerten.
       </p>
     );
@@ -65,7 +65,7 @@ export function WatchlistFeedbackControls({
           }
         >
           <ThumbsUp className="size-4" />
-          Gefaellt mir
+          Gefällt mir
         </Button>
 
         <Button
@@ -80,7 +80,7 @@ export function WatchlistFeedbackControls({
           }
         >
           <ThumbsDown className="size-4" />
-          Gefaellt mir nicht
+          Gefällt mir nicht
         </Button>
       </div>
 

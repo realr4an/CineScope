@@ -53,7 +53,7 @@ export default async function handler(
       recommendations: resolvedRecommendations,
       message: resolvedRecommendations.length
         ? undefined
-        : "Es konnten aktuell keine altersgerechten Empfehlungen sicher aufgeloest werden."
+        : "Es konnten aktuell keine altersgerechten Empfehlungen sicher aufgelÃ–st werden."
     });
   } catch (error) {
     return response.status(500).json({

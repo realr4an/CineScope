@@ -51,7 +51,7 @@ export default async function HomePage() {
                       Entdecke Filme und Serien mit echtem Daten- und KI-Stack.
                     </h1>
                     <p className="max-w-lg text-base leading-7 text-muted-foreground sm:text-lg">
-                      TMDB liefert Live-Daten fuer Trending, Popular, Detailseiten und Cast.
+                      TMDB liefert Live-Daten fÜr Trending, Popular, Detailseiten und Cast.
                       Supabase speichert deine Watchlist dauerhaft, OpenRouter ergaenzt
                       intelligente Empfehlungen.
                     </p>
@@ -115,7 +115,7 @@ export default async function HomePage() {
             section={{
               id: "trending-tv",
               title: "Trending Serien",
-              subtitle: "Aktuell heiss diskutiert",
+              subtitle: "Aktuell heiß diskutiert",
               items: safeTrendingTv,
               href: "/search?type=tv"
             }}

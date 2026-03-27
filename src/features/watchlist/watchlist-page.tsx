@@ -79,9 +79,9 @@ function WatchlistCard({ item }: { item: WatchlistItem }) {
 
             <div className="flex flex-wrap gap-2">
               <StatusBadge label="Gesehen" active={item.watched} tone="primary" />
-              <StatusBadge label="Gefaellt mir" active={item.liked === true} tone="positive" />
+              <StatusBadge label="GefÄllt mir" active={item.liked === true} tone="positive" />
               <StatusBadge
-                label="Gefaellt mir nicht"
+                label="GefÄllt mir nicht"
                 active={item.liked === false}
                 tone="negative"
               />
@@ -152,7 +152,7 @@ export function WatchlistPageContent() {
       ) : (
         <EmptyState
           title="Keine passenden Watchlist-Eintraege"
-          description="Fuer den aktuell gewaehlten Filter gibt es noch keine Titel."
+          description="FÜr den aktuell gewÄhlten Filter gibt es noch keine Titel."
           action={{ label: "Alle anzeigen", onClick: () => setFilter("all") }}
         />
       )}

@@ -33,7 +33,7 @@ export default async function MoviePage({ params }: MoviePageProps) {
       return (
         <AppShell>
           <ErrorState
-            title="Dieser Titel ist fuer dein Alter gesperrt"
+            title="Dieser Titel ist fÜr dein Alter gesperrt"
             description={`${movie.title} ist aktuell mit ${access.certification?.label ?? "einer hoeheren Altersfreigabe"} gekennzeichnet und wird deshalb ausgeblendet.`}
             action={{ label: "Zur Startseite", href: "/" }}
           />
@@ -118,7 +118,7 @@ export default async function MoviePage({ params }: MoviePageProps) {
               <HorizontalMediaRow
                 section={{
                   id: "similar-movies",
-                  title: "Aehnliche Filme",
+                  title: "Ähnliche Filme",
                   subtitle: "Passende Anschlusskandidaten",
                   items: safeSimilar
                 }}
@@ -153,7 +153,7 @@ export default async function MoviePage({ params }: MoviePageProps) {
                   items={[
                     { label: "Status", value: movie.status },
                     { label: "Originaltitel", value: movie.originalTitle ?? "-" },
-                    { label: "Veroeffentlichung", value: formatDate(movie.releaseDate) },
+                    { label: "VerÖffentlichung", value: formatDate(movie.releaseDate) },
                     { label: "Originalsprache", value: movie.originalLanguage ?? "-" },
                     { label: "Altersfreigabe", value: movie.ageCertification?.label ?? "Nicht hinterlegt" },
                     { label: "Sprachen", value: movie.spokenLanguages.join(", ") || movie.originalLanguage || "-" }

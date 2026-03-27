@@ -33,7 +33,7 @@ export default async function TvPage({ params }: TvPageProps) {
       return (
         <AppShell>
           <ErrorState
-            title="Dieser Titel ist fuer dein Alter gesperrt"
+            title="Dieser Titel ist fÜr dein Alter gesperrt"
             description={`${series.title} ist aktuell mit ${access.certification?.label ?? "einer hoeheren Altersfreigabe"} gekennzeichnet und wird deshalb ausgeblendet.`}
             action={{ label: "Zur Startseite", href: "/" }}
           />
@@ -124,7 +124,7 @@ export default async function TvPage({ params }: TvPageProps) {
               <HorizontalMediaRow
                 section={{
                   id: "similar-tv",
-                  title: "Aehnliche Serien",
+                  title: "Ähnliche Serien",
                   subtitle: "Mehr aus derselben Zielgruppe",
                   items: safeSimilar
                 }}

@@ -118,7 +118,7 @@ export function AgeGatePrompt({ initialState, user }: AgeGatePromptProps) {
             <h2 className="text-2xl font-semibold tracking-tight">Jugendschutz</h2>
             <p className="text-sm leading-6 text-muted-foreground">
               Bitte gib dein Geburtsdatum oder dein Alter an. Wir nutzen diese Angabe,
-              um Inhalte mit hoeherer Altersfreigabe fuer Minderjaehrige auszublenden.
+              um Inhalte mit hÖherer Altersfreigabe fÜr MinderjÄhrige auszublenden.
             </p>
           </div>
         </div>
@@ -155,7 +155,7 @@ export function AgeGatePrompt({ initialState, user }: AgeGatePromptProps) {
 
           <div className="rounded-2xl border border-border/50 bg-card/50 p-4 text-sm text-muted-foreground">
             Die Angabe wird als Cookie gespeichert. Wenn du eingeloggt bist, wird sie
-            zusaetzlich in deinem Profil hinterlegt.
+            zusÄtzlich in deinem Profil hinterlegt.
           </div>
 
           <Button type="submit" className="w-full" disabled={saving}>

@@ -113,14 +113,14 @@ export function RecommendationPanel() {
       </div>
 
       <p className="text-sm text-muted-foreground">
-        Bereits gesehene sowie positiv oder negativ bewertete Watchlist-Titel fliessen automatisch
+        Bereits gesehene sowie positiv oder negativ bewertete Watchlist-Titel fließen automatisch
         in die Empfehlungen ein.
       </p>
 
       <Textarea
         value={prompt}
         onChange={event => setPrompt(event.target.value)}
-        placeholder='Zum Beispiel: "Schlage mir Filme vor wie die, die mir gefallen haben, aber etwas duesterer."'
+        placeholder='Zum Beispiel: "Schlage mir Filme vor wie die, die mir gefallen haben, aber etwas dÜsterer."'
       />
 
       <div className="flex flex-col gap-3 sm:flex-row">
@@ -136,7 +136,7 @@ export function RecommendationPanel() {
             setError(null);
           }}
         >
-          Zuruecksetzen
+          ZurÜcksetzen
         </Button>
       </div>
 

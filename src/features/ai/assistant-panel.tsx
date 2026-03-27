@@ -27,8 +27,8 @@ type AssistantResponse = {
 
 const QUICK_PROMPTS = [
   "Ich habe heute Abend nur etwa 2 Stunden und will etwas starkes, aber nicht zu schweres.",
-  "Ich suche etwas fuer Date Night, eher stimmungsvoll und zugaenglich.",
-  "Ich will eine Miniserie fuers Wochenende.",
+  "Ich suche etwas fÜr Date Night, eher stimmungsvoll und zugÄnglich.",
+  "Ich will eine Miniserie fÜrs Wochenende.",
   "Schlage mir etwas vor wie die Titel, die mir gefallen haben, aber etwas leichter."
 ];
 
@@ -108,7 +108,7 @@ export function AIAssistantPanel() {
   return (
     <AIPanelShell
       title="Assistenzmodus"
-      description="Ein fokussierter KI-Layer fuer Stimmung, Zeit, soziale Situation und persoenliche Praeferenzen."
+      description="Ein fokussierter KI-Layer fÜr Stimmung, Zeit, soziale Situation und persÖnliche PrÄferenzen."
       actions={
         <Button onClick={submit} disabled={loading}>
           {loading ? <RefreshCw className="size-4 animate-spin" /> : null}
@@ -156,7 +156,7 @@ export function AIAssistantPanel() {
           <input
             value={mood}
             onChange={event => setMood(event.target.value)}
-            placeholder="Mood, z. B. duester aber zugaenglich"
+            placeholder="Mood, z. B. dÜster aber zugÄnglich"
             className="h-11 rounded-xl border border-border/60 bg-background px-3 text-sm"
           />
           <select
@@ -213,7 +213,7 @@ export function AIAssistantPanel() {
             </div>
           ) : (
             <div className="rounded-2xl border border-border/50 bg-background/50 p-4 text-sm text-muted-foreground">
-              Fuer das hinterlegte Alter konnten aktuell keine passenden Titel sicher aufgeloest werden.
+              FÜr das hinterlegte Alter konnten aktuell keine passenden Titel sicher aufgelÖst werden.
             </div>
           )
         ) : null}

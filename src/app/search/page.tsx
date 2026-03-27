@@ -54,7 +54,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
           <div className="space-y-2">
             <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">Suche</h1>
             <p className="text-muted-foreground">
-              Suche ueber TMDB nach Filmen und Serien mit produktionsnahen Zustaenden.
+              Suche Über TMDB nach Filmen und Serien mit produktionsnahen ZustÄnden.
             </p>
           </div>
 
@@ -69,7 +69,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
               <div className="space-y-4">
                 <SectionHeader
                   title={`${sortedResults.length} Ergebnisse`}
-                  subtitle={`Treffer fuer "${parsed.q}"`}
+                  subtitle={`Treffer fÜr "${parsed.q}"`}
                 />
                 <MediaGrid items={sortedResults} />
               </div>

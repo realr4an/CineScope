@@ -58,7 +58,7 @@ export function ForgotPasswordForm() {
         Reset-Link senden
       </Button>
       <p className="text-sm text-muted-foreground">
-        Zurueck zum{" "}
+        ZurÜck zum{" "}
         <Link href="/auth/login" className="text-primary">
           Login
         </Link>

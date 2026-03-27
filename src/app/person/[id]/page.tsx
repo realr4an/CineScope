@@ -50,7 +50,7 @@ export default async function PersonPage({ params }: PersonPageProps) {
                 </div>
               </div>
               <p className="max-w-3xl whitespace-pre-line text-sm leading-7 text-muted-foreground">
-                {person.biography || "Fuer diese Person liegt in TMDB aktuell keine Biografie vor."}
+                {person.biography || "FÜr diese Person liegt in TMDB aktuell keine Biografie vor."}
               </p>
             </div>
           </section>

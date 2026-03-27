@@ -116,7 +116,7 @@ export function ResetPasswordForm() {
     }
 
     if (password !== confirmPassword) {
-      toast.error("Die Passwoerter stimmen nicht ueberein.");
+      toast.error("Die PasswÖrter stimmen nicht Überein.");
       return;
     }
 
