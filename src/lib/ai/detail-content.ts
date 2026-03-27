@@ -3,12 +3,9 @@
 import { unstable_cache } from "next/cache";
 
 import { mapMediaDetailToAIContext } from "@/lib/ai/context";
-import { askOpenRouter, askOpenRouterJson } from "@/lib/ai/openrouter";
-import {
-  fitPrompt,
-  spoilerFreeSummaryPrompt,
-  titleInsightsPrompt
-} from "@/lib/ai/prompts";
+import { askOpenRouterJson } from "@/lib/ai/openrouter";
+import { fitPrompt, titleInsightsPrompt } from "@/lib/ai/prompts";
+import { generateSpoilerFreeSummary } from "@/lib/ai/summary";
 import {
   aiFitResponseSchema,
   aiTitleInsightsResponseSchema
@@ -37,15 +34,13 @@ function mapWatchlistToFeedback(items: WatchlistItem[]): AIRecommendationFeedbac
 function getCachedSummary(media: MediaDetail) {
   return unstable_cache(
     async () =>
-      askOpenRouter(
-        spoilerFreeSummaryPrompt({
-          title: media.title,
-          mediaType: media.mediaType,
-          overview: media.overview,
-          genres: media.genres.map(genre => genre.name),
-          releaseDate: media.mediaType === "movie" ? media.releaseDate : media.firstAirDate
-        })
-      ),
+      generateSpoilerFreeSummary({
+        title: media.title,
+        mediaType: media.mediaType,
+        overview: media.overview,
+        genres: media.genres.map(genre => genre.name),
+        releaseDate: media.mediaType === "movie" ? media.releaseDate : media.firstAirDate
+      }),
     [`ai-summary-${media.mediaType}-${media.tmdbId}`],
     { revalidate: AI_CACHE_SECONDS }
   )();
@@ -109,14 +104,4 @@ export async function getInitialDetailAI(media: MediaDetail): Promise<{
     fit: fitResult,
     hasFeedbackSignals: feedback.length > 0
   };
-}
-
-export async function generateSpoilerFreeSummary(input: {
-  title: string;
-  mediaType: "movie" | "tv";
-  overview: string;
-  genres: string[];
-  releaseDate?: string | null;
-}) {
-  return askOpenRouter(spoilerFreeSummaryPrompt(input));
 }

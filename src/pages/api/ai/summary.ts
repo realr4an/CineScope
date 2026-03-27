@@ -1,7 +1,25 @@
 ﻿import type { NextApiRequest, NextApiResponse } from "next";
+import type { ZodError } from "zod";
 
-import { generateSpoilerFreeSummary } from "@/lib/ai/detail-content";
 import { summarySchema } from "@/lib/ai/schemas";
+import { generateSpoilerFreeSummary } from "@/lib/ai/summary";
+
+function formatValidationError(
+  error: ZodError<{
+    title: string;
+    mediaType: "movie" | "tv";
+    overview: string;
+    genres: string[];
+    releaseDate?: string | null;
+  }>
+) {
+  const flattened = error.flatten();
+  const fieldMessages = Object.values(flattened.fieldErrors)
+    .flat()
+    .filter((message): message is string => Boolean(message));
+
+  return fieldMessages[0] ?? flattened.formErrors[0] ?? "Ungültige Zusammenfassungsdaten.";
+}
 
 export default async function handler(
   request: NextApiRequest,
@@ -15,7 +33,7 @@ export default async function handler(
   const parsed = summarySchema.safeParse(request.body);
 
   if (!parsed.success) {
-    return response.status(400).json({ error: parsed.error.flatten() });
+    return response.status(400).json({ error: formatValidationError(parsed.error) });
   }
 
   try {

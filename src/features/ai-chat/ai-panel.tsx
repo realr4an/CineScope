@@ -12,9 +12,49 @@ import { useLanguage } from "@/features/i18n/language-provider";
 import { useWatchlist } from "@/features/watchlist/watchlist-provider";
 import type { AIRecommendation, MediaDetail } from "@/types/media";
 
+function normalizeApiError(payload: unknown, fallback: string) {
+  if (!payload || typeof payload !== "object") {
+    return fallback;
+  }
+
+  const record = payload as { error?: unknown };
+
+  if (typeof record.error === "string" && record.error.trim()) {
+    return record.error;
+  }
+
+  if (record.error && typeof record.error === "object") {
+    const nested = record.error as { formErrors?: unknown; fieldErrors?: Record<string, unknown> };
+
+    if (Array.isArray(nested.formErrors)) {
+      const firstFormError = nested.formErrors.find(
+        (value): value is string => typeof value === "string" && value.trim().length > 0
+      );
+      if (firstFormError) {
+        return firstFormError;
+      }
+    }
+
+    if (nested.fieldErrors && typeof nested.fieldErrors === "object") {
+      for (const value of Object.values(nested.fieldErrors)) {
+        if (Array.isArray(value)) {
+          const firstFieldError = value.find(
+            (entry): entry is string => typeof entry === "string" && entry.trim().length > 0
+          );
+          if (firstFieldError) {
+            return firstFieldError;
+          }
+        }
+      }
+    }
+  }
+
+  return fallback;
+}
+
 async function getErrorMessage(response: Response, fallback: string) {
-  const payload = (await response.json().catch(() => null)) as { error?: string } | null;
-  return payload?.error ?? fallback;
+  const payload = await response.json().catch(() => null);
+  return normalizeApiError(payload, fallback);
 }
 
 export function RecommendationPanel() {
@@ -46,7 +86,7 @@ export function RecommendationPanel() {
         reset: "Zurücksetzen",
         movie: "Film",
         tv: "Serie",
-        mood: "Mood"
+        mood: "Stimmung"
       };
 
   const [prompt, setPrompt] = useState("");
@@ -142,7 +182,8 @@ export function SummaryPanel({ media, initialSummary }: { media: MediaDetail; in
         description: "Generated automatically with the detail page and based only on existing metadata.",
         regenerate: "Regenerate",
         generate: "Generate now",
-        empty: "The summary could not be generated on first load. You can retry it here."
+        empty: "The summary could not be generated on first load. You can retry it here.",
+        noOverview: "TMDB currently does not provide enough plot information for this title to generate a reliable spoiler-free summary."
       }
     : {
         error: "Die Zusammenfassung konnte nicht erzeugt werden.",
@@ -150,14 +191,21 @@ export function SummaryPanel({ media, initialSummary }: { media: MediaDetail; in
         description: "Wird automatisch mit der Detailseite erzeugt und nutzt nur vorhandene Metadaten.",
         regenerate: "Neu generieren",
         generate: "Jetzt erzeugen",
-        empty: "Die Zusammenfassung konnte beim ersten Laden nicht erzeugt werden. Du kannst sie hier bei Bedarf neu anstoßen."
+        empty: "Die Zusammenfassung konnte beim ersten Laden nicht erzeugt werden. Du kannst sie hier bei Bedarf neu anstoßen.",
+        noOverview: "TMDB liefert für diesen Titel aktuell nicht genug Inhaltsangaben, um eine verlässliche spoilerfreie Zusammenfassung zu erzeugen."
       };
 
   const [loading, setLoading] = useState(false);
   const [summary, setSummary] = useState<string | null>(initialSummary ?? null);
   const [error, setError] = useState<string | null>(null);
+  const hasOverviewContext = media.overview.trim().length >= 10;
 
   const submit = async () => {
+    if (!hasOverviewContext) {
+      setError(text.noOverview);
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
@@ -186,10 +234,10 @@ export function SummaryPanel({ media, initialSummary }: { media: MediaDetail; in
             <p className="text-sm text-muted-foreground">{text.description}</p>
           </div>
         </div>
-        <Button onClick={submit} disabled={loading} className="w-full sm:w-auto">{loading ? <RefreshCw className="size-4 animate-spin" /> : <Sparkles className="size-4" />}{summary ? text.regenerate : text.generate}</Button>
+        <Button onClick={submit} disabled={loading || !hasOverviewContext} className="w-full sm:w-auto">{loading ? <RefreshCw className="size-4 animate-spin" /> : <Sparkles className="size-4" />}{summary ? text.regenerate : text.generate}</Button>
       </div>
       {error ? <div className="mb-4 rounded-2xl border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive">{error}</div> : null}
-      {summary ? <p className="text-sm leading-7 text-foreground/90">{summary}</p> : <p className="text-sm leading-7 text-muted-foreground">{text.empty}</p>}
+      {summary ? <p className="text-sm leading-7 text-foreground/90">{summary}</p> : <p className="text-sm leading-7 text-muted-foreground">{hasOverviewContext ? text.empty : text.noOverview}</p>}
     </div>
   );
 }
