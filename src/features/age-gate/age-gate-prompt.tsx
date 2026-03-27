@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CalendarDays, ShieldAlert } from "lucide-react";
+import { CalendarDays, ChevronRight, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -28,7 +28,7 @@ const MONTH_LABELS = {
 } as const;
 
 const selectClassName =
-  "h-11 w-full rounded-xl border border-border/60 bg-card/60 px-3 text-sm shadow-sm transition-colors focus:border-primary/50 focus:outline-none focus:ring-2 focus:ring-primary/40";
+  "h-11 w-full rounded-xl border border-border/60 bg-card/60 px-3 text-sm shadow-sm transition-colors focus:border-primary/50 focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:cursor-not-allowed disabled:opacity-60";
 
 function persistBirthDateCookie(birthDate: string) {
   document.cookie = `${AGE_GATE_COOKIE_NAME}=${birthDate}; Max-Age=${AGE_GATE_COOKIE_MAX_AGE}; Path=/; SameSite=Lax`;
@@ -83,7 +83,10 @@ export function AgeGatePrompt({ initialState, user }: AgeGatePromptProps) {
         savedMinor: "Date of birth saved. Titles will now be filtered by age rating.",
         cookieInfo: "This information is stored in a cookie. If you are signed in, it is also saved to your profile.",
         selected: "Selected",
-        chooseAll: "Please choose day, month and year.",
+        chooseAll: "Please complete year, month and day.",
+        chooseYearFirst: "Start with your birth year.",
+        chooseMonthNext: "Now choose the month.",
+        chooseDayLast: "Finally choose the day.",
         submit: "Save date of birth and continue",
         saving: "Saving..."
       }
@@ -100,7 +103,10 @@ export function AgeGatePrompt({ initialState, user }: AgeGatePromptProps) {
         savedMinor: "Geburtsdatum gespeichert. Inhalte werden altersgerecht gefiltert.",
         cookieInfo: "Die Angabe wird als Cookie gespeichert. Wenn du eingeloggt bist, wird sie zusätzlich in deinem Profil hinterlegt.",
         selected: "Ausgewählt",
-        chooseAll: "Bitte wähle Tag, Monat und Jahr aus.",
+        chooseAll: "Bitte vervollständige Jahr, Monat und Tag.",
+        chooseYearFirst: "Starte mit deinem Geburtsjahr.",
+        chooseMonthNext: "Wähle als Nächstes den Monat.",
+        chooseDayLast: "Zum Schluss wähle den Tag.",
         submit: "Geburtsdatum speichern und fortfahren",
         saving: "Speichere..."
       };
@@ -130,6 +136,10 @@ export function AgeGatePrompt({ initialState, user }: AgeGatePromptProps) {
   const years = useMemo(() => Array.from({ length: 131 }, (_, index) => String(currentYear - index)), [currentYear]);
 
   const months = useMemo(() => {
+    if (!year) {
+      return [] as number[];
+    }
+
     const maxMonth = Number(year) === currentYear ? currentMonth : 12;
     return Array.from({ length: maxMonth }, (_, index) => index + 1);
   }, [currentMonth, currentYear, year]);
@@ -153,8 +163,23 @@ export function AgeGatePrompt({ initialState, user }: AgeGatePromptProps) {
   }, [currentDay, currentMonth, currentYear, month, year]);
 
   useEffect(() => {
+    if (!year) {
+      if (month) {
+        setMonth("");
+      }
+      if (day) {
+        setDay("");
+      }
+      return;
+    }
+
     if (month && !months.includes(Number(month))) {
       setMonth("");
+      setDay("");
+      return;
+    }
+
+    if (!month && day) {
       setDay("");
       return;
     }
@@ -162,7 +187,7 @@ export function AgeGatePrompt({ initialState, user }: AgeGatePromptProps) {
     if (day && !days.includes(Number(day))) {
       setDay("");
     }
-  }, [day, days, month, months]);
+  }, [day, days, month, months, year]);
 
   if (!initialState.needsPrompt) {
     return null;
@@ -170,6 +195,15 @@ export function AgeGatePrompt({ initialState, user }: AgeGatePromptProps) {
 
   const selectedBirthDate = buildBirthDate(year, month, day);
   const derivedAge = calculateAgeFromBirthDate(selectedBirthDate);
+  const monthEnabled = Boolean(year);
+  const dayEnabled = Boolean(year && month);
+  const helperText = !year
+    ? text.chooseYearFirst
+    : !month
+      ? text.chooseMonthNext
+      : !day
+        ? text.chooseDayLast
+        : text.chooseAll;
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -213,19 +247,40 @@ export function AgeGatePrompt({ initialState, user }: AgeGatePromptProps) {
         <form onSubmit={handleSubmit} className="space-y-5">
           <div className="space-y-3">
             <label className="text-sm font-medium">{text.birthDate}</label>
-            <div className="grid gap-3 sm:grid-cols-[1fr_1.1fr_1fr]">
-              <select value={day} onChange={event => setDay(event.target.value)} className={selectClassName}>
-                <option value="">{text.day}</option>
-                {days.map(option => <option key={option} value={String(option)}>{option}</option>)}
-              </select>
-              <select value={month} onChange={event => setMonth(event.target.value)} className={selectClassName}>
-                <option value="">{text.month}</option>
-                {months.map(option => <option key={option} value={String(option)}>{MONTH_LABELS[locale][option - 1]}</option>)}
-              </select>
-              <select value={year} onChange={event => setYear(event.target.value)} className={selectClassName}>
-                <option value="">{text.year}</option>
-                {years.map(option => <option key={option} value={option}>{option}</option>)}
-              </select>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div className="space-y-2">
+                <div className="inline-flex items-center gap-2 text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
+                  <span>1</span>
+                  <ChevronRight className="size-3" />
+                  <span>{text.year}</span>
+                </div>
+                <select value={year} onChange={event => setYear(event.target.value)} className={selectClassName}>
+                  <option value="">{text.year}</option>
+                  {years.map(option => <option key={option} value={option}>{option}</option>)}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <div className="inline-flex items-center gap-2 text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
+                  <span>2</span>
+                  <ChevronRight className="size-3" />
+                  <span>{text.month}</span>
+                </div>
+                <select value={month} onChange={event => setMonth(event.target.value)} className={selectClassName} disabled={!monthEnabled}>
+                  <option value="">{text.month}</option>
+                  {months.map(option => <option key={option} value={String(option)}>{MONTH_LABELS[locale][option - 1]}</option>)}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <div className="inline-flex items-center gap-2 text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
+                  <span>3</span>
+                  <ChevronRight className="size-3" />
+                  <span>{text.day}</span>
+                </div>
+                <select value={day} onChange={event => setDay(event.target.value)} className={selectClassName} disabled={!dayEnabled}>
+                  <option value="">{text.day}</option>
+                  {days.map(option => <option key={option} value={String(option)}>{option}</option>)}
+                </select>
+              </div>
             </div>
           </div>
 
@@ -237,7 +292,7 @@ export function AgeGatePrompt({ initialState, user }: AgeGatePromptProps) {
                 {selectedBirthDate && derivedAge !== null ? (
                   <p className="text-foreground/90">{text.selected}: {selectedBirthDate} ({derivedAge})</p>
                 ) : (
-                  <p>{text.chooseAll}</p>
+                  <p>{helperText}</p>
                 )}
               </div>
             </div>
