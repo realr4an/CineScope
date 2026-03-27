@@ -1,4 +1,11 @@
-import type { MediaType } from "@/types/media";
+﻿import type { MediaType } from "@/types/media";
+
+export interface AIRecommendationFeedback {
+  title: string;
+  mediaType: "movie" | "tv";
+  watched: boolean;
+  liked: boolean | null;
+}
 
 export interface AITitleContext {
   tmdbId: number;

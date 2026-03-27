@@ -7,18 +7,29 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { AIAssistantPick } from "@/lib/ai/types";
 
+export function AIGeneratedBadge({ label = "AI-generiert" }: { label?: string }) {
+  return (
+    <span className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-primary">
+      <Sparkles className="size-3.5" />
+      {label}
+    </span>
+  );
+}
+
 export function AIPanelShell({
   title,
   description,
   actions,
   children,
-  className
+  className,
+  badgeLabel = "AI-generiert"
 }: {
   title: string;
   description: string;
   actions?: React.ReactNode;
   children: React.ReactNode;
   className?: string;
+  badgeLabel?: string;
 }) {
   return (
     <div className={cn("rounded-[2rem] border border-border/50 bg-card/50 p-6", className)}>
@@ -27,9 +38,12 @@ export function AIPanelShell({
           <div className="flex size-10 items-center justify-center rounded-xl bg-primary/20 text-primary">
             <Sparkles className="size-5" />
           </div>
-          <div className="min-w-0">
-            <h2 className="text-lg font-bold">{title}</h2>
-            <p className="break-words text-sm text-muted-foreground">{description}</p>
+          <div className="min-w-0 space-y-2">
+            <AIGeneratedBadge label={badgeLabel} />
+            <div>
+              <h2 className="text-lg font-bold">{title}</h2>
+              <p className="break-words text-sm text-muted-foreground">{description}</p>
+            </div>
           </div>
         </div>
         {actions}

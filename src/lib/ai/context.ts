@@ -1,4 +1,4 @@
-import "server-only";
+﻿import "server-only";
 
 import { getMovieDetail } from "@/lib/tmdb/movies";
 import { getPersonDetail } from "@/lib/tmdb/people";
@@ -7,7 +7,7 @@ import { getTvDetail } from "@/lib/tmdb/tv";
 import type { AIPersonContext, AITitleContext } from "@/lib/ai/types";
 import type { MediaType, MovieDetail, TvDetail } from "@/types/media";
 
-function mapMediaDetailToAIContext(detail: MovieDetail | TvDetail): AITitleContext {
+export function mapMediaDetailToAIContext(detail: MovieDetail | TvDetail): AITitleContext {
   return {
     tmdbId: detail.tmdbId,
     mediaType: detail.mediaType,

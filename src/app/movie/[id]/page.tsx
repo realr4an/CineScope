@@ -12,6 +12,7 @@ import { WhereToWatchSection } from "@/features/watch-providers/where-to-watch-s
 import { WatchlistFeedbackControls } from "@/features/watchlist/watchlist-feedback-controls";
 import { WatchlistToggleButton } from "@/features/watchlist/watchlist-toggle-button";
 import { filterMediaForViewerAge, getAgeAccessForMedia } from "@/lib/age-gate/server";
+import { getInitialDetailAI } from "@/lib/ai/detail-content";
 import { formatCurrency, formatDate, formatRuntime } from "@/lib/format";
 import { getServerDictionary } from "@/lib/i18n/server";
 import { getMovieDetail } from "@/lib/tmdb/movies";
@@ -43,7 +44,10 @@ export default async function MoviePage({ params }: MoviePageProps) {
       );
     }
 
-    const safeSimilar = await filterMediaForViewerAge(movie.similar);
+    const [safeSimilar, initialAI] = await Promise.all([
+      filterMediaForViewerAge(movie.similar),
+      getInitialDetailAI(movie)
+    ]);
 
     return (
       <AppShell>
@@ -114,8 +118,13 @@ export default async function MoviePage({ params }: MoviePageProps) {
             <div className="min-w-0 space-y-8">
               <CastSection cast={movie.cast} />
               <TrailerSection videos={movie.videos} />
-              <SummaryPanel media={movie} />
-              <AITitlePanel media={movie} />
+              <SummaryPanel media={movie} initialSummary={initialAI.summary} />
+              <AITitlePanel
+                media={movie}
+                initialInsights={initialAI.insights}
+                initialFit={initialAI.fit}
+                hasProfileSignals={initialAI.hasFeedbackSignals}
+              />
               <WhereToWatchSection mediaType="movie" tmdbId={movie.tmdbId} />
               <HorizontalMediaRow
                 section={{

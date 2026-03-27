@@ -1,7 +1,6 @@
-import type { NextApiRequest, NextApiResponse } from "next";
+﻿import type { NextApiRequest, NextApiResponse } from "next";
 
-import { askOpenRouter } from "@/lib/ai/openrouter";
-import { spoilerFreeSummaryPrompt } from "@/lib/ai/prompts";
+import { generateSpoilerFreeSummary } from "@/lib/ai/detail-content";
 import { summarySchema } from "@/lib/ai/schemas";
 
 export default async function handler(
@@ -20,7 +19,7 @@ export default async function handler(
   }
 
   try {
-    const summary = await askOpenRouter(spoilerFreeSummaryPrompt(parsed.data));
+    const summary = await generateSpoilerFreeSummary(parsed.data);
     return response.status(200).json({ summary });
   } catch (error) {
     return response.status(500).json({

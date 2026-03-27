@@ -12,6 +12,7 @@ import { WhereToWatchSection } from "@/features/watch-providers/where-to-watch-s
 import { WatchlistFeedbackControls } from "@/features/watchlist/watchlist-feedback-controls";
 import { WatchlistToggleButton } from "@/features/watchlist/watchlist-toggle-button";
 import { filterMediaForViewerAge, getAgeAccessForMedia } from "@/lib/age-gate/server";
+import { getInitialDetailAI } from "@/lib/ai/detail-content";
 import { formatDate, formatRuntime } from "@/lib/format";
 import { getServerDictionary } from "@/lib/i18n/server";
 import { getTvDetail } from "@/lib/tmdb/tv";
@@ -49,7 +50,11 @@ export default async function TvPage({ params }: TvPageProps) {
             series.episodeRuntime.length
         )
       : null;
-    const safeSimilar = await filterMediaForViewerAge(series.similar);
+
+    const [safeSimilar, initialAI] = await Promise.all([
+      filterMediaForViewerAge(series.similar),
+      getInitialDetailAI(series)
+    ]);
 
     return (
       <AppShell>
@@ -120,8 +125,13 @@ export default async function TvPage({ params }: TvPageProps) {
             <div className="min-w-0 space-y-8">
               <CastSection cast={series.cast} />
               <TrailerSection videos={series.videos} />
-              <SummaryPanel media={series} />
-              <AITitlePanel media={series} />
+              <SummaryPanel media={series} initialSummary={initialAI.summary} />
+              <AITitlePanel
+                media={series}
+                initialInsights={initialAI.insights}
+                initialFit={initialAI.fit}
+                hasProfileSignals={initialAI.hasFeedbackSignals}
+              />
               <WhereToWatchSection mediaType="tv" tmdbId={series.tmdbId} />
               <HorizontalMediaRow
                 section={{

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useMemo, useState } from "react";
 import { RefreshCw } from "lucide-react";
@@ -9,32 +9,36 @@ import { AIComparePanel } from "@/features/ai/compare-panel";
 import { postAIAction } from "@/features/ai/client";
 import { useWatchlist } from "@/features/watchlist/watchlist-provider";
 import { Button } from "@/components/ui/button";
+import type { AIFitResponse, AITitleInsightsResponse } from "@/lib/ai/types";
 import type { MediaDetail } from "@/types/media";
 
 type TitleInsightsResponse = {
   mode: "title_insights";
-  data: {
-    vibeTags: string[];
-    contentWarning: string;
-  };
+  data: AITitleInsightsResponse;
 };
 
 type FitResponse = {
   mode: "fit";
-  data: {
-    summary: string;
-    reasons: string[];
-    caveat?: string;
-  };
+  data: AIFitResponse;
 };
 
-export function AITitlePanel({ media }: { media: MediaDetail }) {
+export function AITitlePanel({
+  media,
+  initialInsights,
+  initialFit,
+  hasProfileSignals = false
+}: {
+  media: MediaDetail;
+  initialInsights?: AITitleInsightsResponse | null;
+  initialFit?: AIFitResponse | null;
+  hasProfileSignals?: boolean;
+}) {
   const { items } = useWatchlist();
   const [loadingInsights, setLoadingInsights] = useState(false);
   const [loadingFit, setLoadingFit] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [insights, setInsights] = useState<TitleInsightsResponse["data"] | null>(null);
-  const [fit, setFit] = useState<FitResponse["data"] | null>(null);
+  const [insights, setInsights] = useState<AITitleInsightsResponse | null>(initialInsights ?? null);
+  const [fit, setFit] = useState<AIFitResponse | null>(initialFit ?? null);
 
   const feedback = useMemo(
     () =>
@@ -110,16 +114,16 @@ export function AITitlePanel({ media }: { media: MediaDetail }) {
     <div className="space-y-4">
       <AIPanelShell
         title="AI Layer"
-        description="Kurze KI-Insights für Ton, Warnhinweise und persönliche Passung."
+        description="Automatisch generierte KI-Insights für Ton, Warnhinweise und persönliche Passung."
         actions={
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" size="sm" onClick={loadInsights} disabled={loadingInsights}>
               {loadingInsights ? <RefreshCw className="size-4 animate-spin" /> : null}
-              Vibe & Warnings
+              Vibe & Warnings aktualisieren
             </Button>
             <Button variant="outline" size="sm" onClick={loadFit} disabled={loadingFit}>
               {loadingFit ? <RefreshCw className="size-4 animate-spin" /> : null}
-              Warum passt das zu mir?
+              Passung neu bewerten
             </Button>
           </div>
         }
@@ -141,7 +145,12 @@ export function AITitlePanel({ media }: { media: MediaDetail }) {
                 <p className="mt-2 text-sm text-muted-foreground">{insights.contentWarning}</p>
               </div>
             </div>
-          ) : null}
+          ) : (
+            <div className="rounded-2xl border border-border/50 bg-background/50 p-4 text-sm text-muted-foreground">
+              Die Vibe-Tags konnten beim ersten Laden nicht erzeugt werden. Du kannst den Bereich
+              oben erneut anstoßen.
+            </div>
+          )}
 
           {fit ? (
             <div className="rounded-2xl border border-border/50 bg-background/50 p-4">
@@ -156,7 +165,17 @@ export function AITitlePanel({ media }: { media: MediaDetail }) {
               </ul>
               {fit.caveat ? <p className="mt-3 text-xs text-muted-foreground">{fit.caveat}</p> : null}
             </div>
-          ) : null}
+          ) : hasProfileSignals ? (
+            <div className="rounded-2xl border border-border/50 bg-background/50 p-4 text-sm text-muted-foreground">
+              Die persönliche Einordnung konnte beim ersten Laden nicht erzeugt werden. Du kannst
+              sie oben neu berechnen.
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-border/50 bg-background/50 p-4 text-sm text-muted-foreground">
+              Sobald du Watchlist-Titel als gesehen markierst oder bewertest, wird hier automatisch
+              erklärt, warum dieser Titel zu deinem Geschmack passt.
+            </div>
+          )}
         </div>
       </AIPanelShell>
 

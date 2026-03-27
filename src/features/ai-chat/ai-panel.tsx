@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
@@ -14,6 +14,7 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { AIGeneratedBadge } from "@/features/ai/ai-primitives";
 import { useWatchlist } from "@/features/watchlist/watchlist-provider";
 import type { AIRecommendation, MediaDetail } from "@/types/media";
 
@@ -93,11 +94,14 @@ export function RecommendationPanel() {
         <div className="flex size-10 items-center justify-center rounded-xl bg-primary/20 text-primary">
           <Sparkles className="size-5" />
         </div>
-        <div className="min-w-0">
-          <h2 className="text-lg font-bold">KI-Empfehlungs-Chat</h2>
-          <p className="text-sm text-muted-foreground">
-            Beschreibe Stimmung, Thema, Art, Dauer oder Vergleichstitel.
-          </p>
+        <div className="min-w-0 space-y-2">
+          <AIGeneratedBadge />
+          <div>
+            <h2 className="text-lg font-bold">KI-Empfehlungs-Chat</h2>
+            <p className="text-sm text-muted-foreground">
+              Beschreibe Stimmung, Thema, Art, Dauer oder Vergleichstitel.
+            </p>
+          </div>
         </div>
       </div>
 
@@ -120,7 +124,7 @@ export function RecommendationPanel() {
       <Textarea
         value={prompt}
         onChange={event => setPrompt(event.target.value)}
-        placeholder='Zum Beispiel: "Schlage mir Filme vor wie die, die mir gefallen haben, aber etwas dÜsterer."'
+        placeholder='Zum Beispiel: "Schlage mir Filme vor wie die, die mir gefallen haben, aber etwas düsterer."'
       />
 
       <div className="flex flex-col gap-3 sm:flex-row">
@@ -136,7 +140,7 @@ export function RecommendationPanel() {
             setError(null);
           }}
         >
-          ZurÜcksetzen
+          Zurücksetzen
         </Button>
       </div>
 
@@ -178,9 +182,15 @@ export function RecommendationPanel() {
   );
 }
 
-export function SummaryPanel({ media }: { media: MediaDetail }) {
+export function SummaryPanel({
+  media,
+  initialSummary
+}: {
+  media: MediaDetail;
+  initialSummary?: string | null;
+}) {
   const [loading, setLoading] = useState(false);
-  const [summary, setSummary] = useState<string | null>(null);
+  const [summary, setSummary] = useState<string | null>(initialSummary ?? null);
   const [error, setError] = useState<string | null>(null);
 
   const submit = async () => {
@@ -218,16 +228,19 @@ export function SummaryPanel({ media }: { media: MediaDetail }) {
 
   return (
     <div className="rounded-[2rem] border border-border/50 bg-card/50 p-5">
-      <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0">
-          <h3 className="text-lg font-semibold">Spoilerfreie KI-Zusammenfassung</h3>
-          <p className="text-sm text-muted-foreground">
-            Nutzt nur vorhandene Metadaten und Plot-Kontext.
-          </p>
+      <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0 space-y-2">
+          <AIGeneratedBadge />
+          <div>
+            <h3 className="text-lg font-semibold">Spoilerfreie KI-Zusammenfassung</h3>
+            <p className="text-sm text-muted-foreground">
+              Wird automatisch mit der Detailseite erzeugt und nutzt nur vorhandene Metadaten.
+            </p>
+          </div>
         </div>
         <Button onClick={submit} disabled={loading} className="w-full sm:w-auto">
           {loading ? <RefreshCw className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
-          Zusammenfassen
+          {summary ? "Neu generieren" : "Jetzt erzeugen"}
         </Button>
       </div>
 
@@ -237,9 +250,14 @@ export function SummaryPanel({ media }: { media: MediaDetail }) {
         </div>
       ) : null}
 
-      {summary ? <p className="text-sm leading-7 text-foreground/90">{summary}</p> : null}
+      {summary ? (
+        <p className="text-sm leading-7 text-foreground/90">{summary}</p>
+      ) : (
+        <p className="text-sm leading-7 text-muted-foreground">
+          Die Zusammenfassung konnte beim ersten Laden nicht erzeugt werden. Du kannst sie hier bei
+          Bedarf neu anstoßen.
+        </p>
+      )}
     </div>
   );
 }
-
-
