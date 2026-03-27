@@ -25,6 +25,13 @@ export const dictionaries = {
       imprint: "Impressum",
       privacy: "Datenschutz"
     },
+    cookieNotice: {
+      title: "Hinweis zu Cookies und lokalem Speicher",
+      description:
+        "CineScope verwendet derzeit nur technisch notwendige Cookies und ähnliche Speichermechanismen, zum Beispiel für Login-Sessions, Jugendschutz, Sprache, Theme und Länderpräferenzen. Tracking- oder Marketing-Cookies werden aktuell nicht eingesetzt.",
+      accept: "Verstanden",
+      learnMore: "Mehr erfahren"
+    },
     home: {
       badge: "Trending diese Woche",
       title: "Entdecke Filme und Serien mit echtem Daten- und KI-Stack.",
@@ -232,6 +239,13 @@ export const dictionaries = {
     footer: {
       imprint: "Imprint",
       privacy: "Privacy"
+    },
+    cookieNotice: {
+      title: "Notice about cookies and local storage",
+      description:
+        "CineScope currently uses only technically necessary cookies and similar storage, for example for login sessions, age filtering, language, theme and region preferences. Tracking or marketing cookies are not currently used.",
+      accept: "Understood",
+      learnMore: "Learn more"
     },
     home: {
       badge: "Trending this week",

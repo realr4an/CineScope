@@ -5,6 +5,7 @@ import { Toaster } from "sonner";
 
 import { AgeGatePrompt } from "@/features/age-gate/age-gate-prompt";
 import { LanguageProvider } from "@/features/i18n/language-provider";
+import { CookieNotice } from "@/features/legal/cookie-notice";
 import { HorizontalScrollEnhancer } from "@/features/ui/horizontal-scroll-enhancer";
 import { WatchlistProvider } from "@/features/watchlist/watchlist-provider";
 import type { AgeGateState } from "@/lib/age-gate";
@@ -33,6 +34,7 @@ export function AppProviders({
         <WatchlistProvider initialUser={initialUser} initialWatchlist={initialWatchlist}>
           {children}
           <HorizontalScrollEnhancer />
+          <CookieNotice />
           <AgeGatePrompt initialState={initialAgeGate} user={initialUser} />
           <Toaster
             theme="dark"
