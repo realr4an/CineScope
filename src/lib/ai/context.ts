@@ -46,11 +46,11 @@ export async function resolveMediaAIContext(input: {
 
   const normalizedQuery = input.query.toLowerCase().trim();
   const match =
-    results.find(
+    results.items.find(
       result =>
         result.title.toLowerCase() === normalizedQuery ||
         result.originalTitle?.toLowerCase() === normalizedQuery
-    ) ?? results[0];
+    ) ?? results.items[0];
 
   if (!match) {
     return null;

@@ -3,7 +3,8 @@
 export const searchParamsSchema = z.object({
   q: z.string().trim().default(""),
   type: z.enum(["all", "movie", "tv"]).default("all"),
-  sort: z.enum(["popularity", "rating", "release_date"]).default("popularity")
+  sort: z.enum(["popularity", "rating", "release_date"]).default("popularity"),
+  page: z.coerce.number().int().min(1).default(1)
 });
 
 export const discoverParamsSchema = z.object({

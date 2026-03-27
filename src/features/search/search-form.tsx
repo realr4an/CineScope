@@ -30,6 +30,7 @@ export function SearchForm({
     }
     params.set("type", type);
     params.set("sort", sort);
+    params.set("page", "1");
 
     startTransition(() => {
       router.push(`/search?${params.toString()}`);
