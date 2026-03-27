@@ -1,0 +1,63 @@
+export interface Database {
+  public: {
+    Tables: {
+      profiles: {
+        Row: {
+          id: string;
+          created_at: string;
+          updated_at: string;
+          display_name: string | null;
+          avatar_url: string | null;
+        };
+        Insert: {
+          id: string;
+          display_name?: string | null;
+          avatar_url?: string | null;
+        };
+        Update: {
+          display_name?: string | null;
+          avatar_url?: string | null;
+        };
+        Relationships: [];
+      };
+      watchlist_items: {
+        Row: {
+          id: string;
+          user_id: string;
+          tmdb_id: number;
+          media_type: "movie" | "tv";
+          title: string;
+          poster_path: string | null;
+          backdrop_path: string | null;
+          release_date: string | null;
+          vote_average: number | null;
+          watched: boolean;
+          liked: boolean | null;
+          created_at: string;
+        };
+        Insert: {
+          user_id: string;
+          tmdb_id: number;
+          media_type: "movie" | "tv";
+          title: string;
+          poster_path?: string | null;
+          backdrop_path?: string | null;
+          release_date?: string | null;
+          vote_average?: number | null;
+          watched?: boolean;
+          liked?: boolean | null;
+        };
+        Update: {
+          title?: string;
+          poster_path?: string | null;
+          backdrop_path?: string | null;
+          release_date?: string | null;
+          vote_average?: number | null;
+          watched?: boolean;
+          liked?: boolean | null;
+        };
+        Relationships: [];
+      };
+    };
+  };
+}
