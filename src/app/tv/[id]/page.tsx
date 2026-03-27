@@ -51,8 +51,8 @@ export default async function TvPage({ params }: TvPageProps) {
 
     return (
       <AppShell>
-        <div className="space-y-10">
-          <section className="relative overflow-hidden rounded-[2rem] border border-border/50">
+        <div className="min-w-0 space-y-8 sm:space-y-10">
+          <section className="relative overflow-hidden rounded-[1.75rem] border border-border/50 sm:rounded-[2rem]">
             <img
               src={series.backdropUrl ?? series.posterUrl ?? ""}
               alt={series.title}
@@ -60,7 +60,7 @@ export default async function TvPage({ params }: TvPageProps) {
             />
             <div className="absolute inset-0 bg-gradient-to-r from-background via-background/70 to-background/30" />
             <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent" />
-            <div className="relative z-10 min-h-[60vh] p-8 sm:p-12">
+            <div className="relative z-10 min-h-[56vh] p-5 sm:min-h-[60vh] sm:p-8 lg:p-12">
               <Link
                 href="/"
                 className="mb-8 inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -68,7 +68,7 @@ export default async function TvPage({ params }: TvPageProps) {
                 <ArrowLeft className="size-4" />
                 Zur Startseite
               </Link>
-              <div className="grid gap-6 lg:grid-cols-[260px_minmax(0,1fr)] lg:items-end lg:gap-8">
+              <div className="grid min-w-0 gap-5 sm:gap-6 lg:grid-cols-[260px_minmax(0,1fr)] lg:items-end lg:gap-8">
                 <div className="hidden overflow-hidden rounded-3xl border border-border/50 shadow-2xl shadow-black/40 lg:block">
                   <img src={series.posterUrl ?? ""} alt={series.title} className="w-full" />
                 </div>
@@ -106,7 +106,7 @@ export default async function TvPage({ params }: TvPageProps) {
                     </div>
                     <WatchlistFeedbackControls media={series} compact />
                   </div>
-                  <p className="max-w-3xl text-base leading-7 text-muted-foreground">
+                  <p className="max-w-3xl text-sm leading-7 text-muted-foreground sm:text-base">
                     {series.overview}
                   </p>
                 </div>
@@ -114,8 +114,8 @@ export default async function TvPage({ params }: TvPageProps) {
             </div>
           </section>
 
-          <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_320px]">
-            <div className="space-y-8">
+          <div className="grid min-w-0 gap-8 lg:grid-cols-[minmax(0,1fr)_320px]">
+            <div className="min-w-0 space-y-8">
               <CastSection cast={series.cast} />
               <TrailerSection videos={series.videos} />
               <SummaryPanel media={series} />
@@ -130,7 +130,7 @@ export default async function TvPage({ params }: TvPageProps) {
                 }}
               />
             </div>
-            <aside className="space-y-4">
+            <aside className="min-w-0 space-y-4">
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
                 <StatPill
                   label="Bewertung"
@@ -181,4 +181,5 @@ export default async function TvPage({ params }: TvPageProps) {
     );
   }
 }
+
 

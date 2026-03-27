@@ -89,11 +89,11 @@ export function RecommendationPanel() {
 
   return (
     <div className="space-y-4 rounded-[2rem] border border-border/50 bg-card/50 p-6">
-      <div className="flex items-center gap-3">
+      <div className="flex min-w-0 items-start gap-3">
         <div className="flex size-10 items-center justify-center rounded-xl bg-primary/20 text-primary">
           <Sparkles className="size-5" />
         </div>
-        <div>
+        <div className="min-w-0">
           <h2 className="text-lg font-bold">KI-Empfehlungs-Chat</h2>
           <p className="text-sm text-muted-foreground">
             Beschreibe Stimmung, Genre, Dauer oder Vergleichstitel.
@@ -123,8 +123,8 @@ export function RecommendationPanel() {
         placeholder='Zum Beispiel: "Schlage mir Filme vor wie die, die mir gefallen haben, aber etwas duesterer."'
       />
 
-      <div className="flex gap-3">
-        <Button onClick={submit} disabled={loading}>
+      <div className="flex flex-col gap-3 sm:flex-row">
+        <Button onClick={submit} disabled={loading} className="w-full sm:w-auto">
           {loading ? <RefreshCw className="size-4 animate-spin" /> : <Send className="size-4" />}
           Empfehlungen generieren
         </Button>
@@ -218,14 +218,14 @@ export function SummaryPanel({ media }: { media: MediaDetail }) {
 
   return (
     <div className="rounded-[2rem] border border-border/50 bg-card/50 p-5">
-      <div className="mb-4 flex items-center justify-between gap-4">
-        <div>
+      <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
           <h3 className="text-lg font-semibold">Spoilerfreie KI-Zusammenfassung</h3>
           <p className="text-sm text-muted-foreground">
             Nutzt nur vorhandene Metadaten und Plot-Kontext.
           </p>
         </div>
-        <Button onClick={submit} disabled={loading}>
+        <Button onClick={submit} disabled={loading} className="w-full sm:w-auto">
           {loading ? <RefreshCw className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
           Zusammenfassen
         </Button>
@@ -241,3 +241,4 @@ export function SummaryPanel({ media }: { media: MediaDetail }) {
     </div>
   );
 }
+
