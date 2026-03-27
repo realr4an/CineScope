@@ -9,6 +9,19 @@ type DragState = {
   moved: boolean;
 };
 
+function isScrollbarInteraction(row: HTMLElement, event: PointerEvent) {
+  const scrollbarThickness = row.offsetHeight - row.clientHeight;
+
+  if (scrollbarThickness <= 0) {
+    return false;
+  }
+
+  const bounds = row.getBoundingClientRect();
+  const yWithinRow = event.clientY - bounds.top;
+
+  return yWithinRow >= row.clientHeight;
+}
+
 export function HorizontalScrollEnhancer() {
   useEffect(() => {
     const rows = Array.from(document.querySelectorAll<HTMLElement>(".scroll-row"));
@@ -16,7 +29,7 @@ export function HorizontalScrollEnhancer() {
 
     const cleanups = rows.map(row => {
       const handlePointerDown = (event: PointerEvent) => {
-        if (event.pointerType !== "mouse" || event.button !== 0) {
+        if (event.pointerType !== "mouse" || event.button !== 0 || isScrollbarInteraction(row, event)) {
           return;
         }
 
