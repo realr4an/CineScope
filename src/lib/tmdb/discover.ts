@@ -1,4 +1,4 @@
-import { fetchTmdb } from "@/lib/tmdb/client";
+﻿import { fetchTmdb } from "@/lib/tmdb/client";
 import { mapMediaListItem } from "@/lib/tmdb/mappers";
 import type { Locale } from "@/lib/i18n/types";
 import type { TmdbGenre, TmdbPaginatedResponse } from "@/lib/tmdb/types";
@@ -31,6 +31,8 @@ export async function getDiscoverResults(input: {
   rating?: number;
   page: number;
   sort: string;
+  region?: string;
+  provider?: number;
   locale?: Locale;
 }) {
   const locale = input.locale ?? "de";
@@ -52,7 +54,9 @@ export async function getDiscoverResults(input: {
         sort_by: input.sort,
         page,
         "vote_average.gte": input.rating,
-        [releaseField]: input.year
+        [releaseField]: input.year,
+        watch_region: input.region,
+        with_watch_providers: input.provider
       }, undefined, locale)
     )
   );

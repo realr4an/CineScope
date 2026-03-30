@@ -73,6 +73,12 @@ export const dictionaries = {
       popularity: "Beliebtheit",
       rating: "Bewertung",
       releaseDate: "Erscheinungsdatum",
+      country: "Land",
+      allCountries: "Alle Länder",
+      streamingService: "Streamingdienst",
+      allStreamingServices: "Alle Streamingdienste",
+      loadingStreamingServices: "Streamingdienste laden...",
+      streamingServiceError: "Streamingdienste konnten nicht geladen werden",
       search: "Suchen"
     },
     discoverPage: {
@@ -94,6 +100,11 @@ export const dictionaries = {
       rating: "Bewertung",
       newestMovies: "Neueste Filme",
       newestSeries: "Neueste Serien",
+      country: "Land",
+      streamingService: "Streamingdienst",
+      allStreamingServices: "Alle Streamingdienste",
+      loadingStreamingServices: "Streamingdienste laden...",
+      streamingServiceError: "Streamingdienste konnten nicht geladen werden",
       apply: "Filter anwenden"
     },
     watchlistPage: {
@@ -288,6 +299,12 @@ export const dictionaries = {
       popularity: "Popularity",
       rating: "Rating",
       releaseDate: "Release date",
+      country: "Country",
+      allCountries: "All countries",
+      streamingService: "Streaming service",
+      allStreamingServices: "All streaming services",
+      loadingStreamingServices: "Loading streaming services...",
+      streamingServiceError: "Could not load streaming services",
       search: "Search"
     },
     discoverPage: {
@@ -308,6 +325,11 @@ export const dictionaries = {
       rating: "Rating",
       newestMovies: "Newest movies",
       newestSeries: "Newest series",
+      country: "Country",
+      streamingService: "Streaming service",
+      allStreamingServices: "All streaming services",
+      loadingStreamingServices: "Loading streaming services...",
+      streamingServiceError: "Could not load streaming services",
       apply: "Apply filters"
     },
     watchlistPage: {
@@ -428,3 +450,5 @@ export const dictionaries = {
 export function getDictionary(locale: Locale) {
   return dictionaries[locale];
 }
+
+

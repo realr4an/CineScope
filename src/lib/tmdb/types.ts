@@ -1,4 +1,4 @@
-export interface TmdbGenre {
+﻿export interface TmdbGenre {
   id: number;
   name: string;
 }
@@ -139,3 +139,8 @@ export interface TmdbWatchProviderRegion {
 export interface TmdbAvailableRegionsResponse {
   results: TmdbWatchProviderRegion[];
 }
+
+export interface TmdbWatchProviderListResponse {
+  results: TmdbWatchProvider[];
+}
+

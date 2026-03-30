@@ -1,52 +1,25 @@
-"use client";
+﻿"use client";
 
 import { useCallback, useEffect, useState } from "react";
 
+import {
+  DEFAULT_WATCH_REGION,
+  deriveWatchRegionFromLocale,
+  getWatchRegionDisplayName,
+  normalizeWatchRegionCode,
+  WATCH_REGION_COOKIE_NAME,
+  WATCH_REGION_STORAGE_KEY
+} from "@/lib/tmdb/watch-provider-preference";
 import type { WatchRegion } from "@/types/watch-providers";
 
-const REGION_STORAGE_KEY = "cinescope:watch-region";
-const DEFAULT_REGION = "DE";
-
-function normalizeRegionCode(value: string | null | undefined) {
-  if (!value) {
-    return null;
-  }
-
-  const normalized = value.trim().toUpperCase();
-  return /^[A-Z]{2}$/.test(normalized) ? normalized : null;
-}
-
-export function deriveRegionFromLocale(locale: string | null | undefined) {
-  if (!locale) {
-    return null;
-  }
-
-  try {
-    const intlLocale = new Intl.Locale(locale);
-    return normalizeRegionCode(intlLocale.region ?? intlLocale.maximize().region ?? null);
-  } catch {
-    const parts = locale.split(/[-_]/);
-    return normalizeRegionCode(parts[1]);
-  }
-}
-
-export function getRegionDisplayName(regionCode: string, locales?: string[]) {
-  try {
-    const displayNames = new Intl.DisplayNames(locales?.length ? locales : ["de-DE", "en"], {
-      type: "region"
-    });
-    return displayNames.of(regionCode) ?? regionCode;
-  } catch {
-    return regionCode;
-  }
-}
+export { deriveWatchRegionFromLocale as deriveRegionFromLocale, getWatchRegionDisplayName as getRegionDisplayName };
 
 export function loadPreferredRegion() {
   if (typeof window === "undefined") {
     return null;
   }
 
-  return normalizeRegionCode(window.localStorage.getItem(REGION_STORAGE_KEY));
+  return normalizeWatchRegionCode(window.localStorage.getItem(WATCH_REGION_STORAGE_KEY));
 }
 
 export function savePreferredRegion(regionCode: string) {
@@ -54,7 +27,9 @@ export function savePreferredRegion(regionCode: string) {
     return;
   }
 
-  window.localStorage.setItem(REGION_STORAGE_KEY, regionCode.toUpperCase());
+  const normalizedRegion = normalizeWatchRegionCode(regionCode) ?? DEFAULT_WATCH_REGION;
+  window.localStorage.setItem(WATCH_REGION_STORAGE_KEY, normalizedRegion);
+  document.cookie = `${WATCH_REGION_COOKIE_NAME}=${normalizedRegion}; Path=/; Max-Age=31536000; SameSite=Lax`;
 }
 
 export function getPreferredRegion(availableRegionCodes: string[]) {
@@ -69,11 +44,11 @@ export function getPreferredRegion(availableRegionCodes: string[]) {
       : [window.navigator.language];
 
     for (const locale of browserLocales) {
-      candidates.push(deriveRegionFromLocale(locale));
+      candidates.push(deriveWatchRegionFromLocale(locale));
     }
   }
 
-  candidates.push(DEFAULT_REGION);
+  candidates.push(DEFAULT_WATCH_REGION);
 
   for (const candidate of candidates) {
     if (candidate && availableCodes.has(candidate)) {
@@ -81,11 +56,11 @@ export function getPreferredRegion(availableRegionCodes: string[]) {
     }
   }
 
-  return availableRegionCodes[0] ?? DEFAULT_REGION;
+  return availableRegionCodes[0] ?? DEFAULT_WATCH_REGION;
 }
 
 export function useRegionPreference(regions: WatchRegion[]) {
-  const [regionCode, setRegionCodeState] = useState(DEFAULT_REGION);
+  const [regionCode, setRegionCodeState] = useState(DEFAULT_WATCH_REGION);
   const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
@@ -98,7 +73,7 @@ export function useRegionPreference(regions: WatchRegion[]) {
   }, [regions]);
 
   const setRegionCode = useCallback((nextRegionCode: string) => {
-    const normalizedRegion = normalizeRegionCode(nextRegionCode) ?? DEFAULT_REGION;
+    const normalizedRegion = normalizeWatchRegionCode(nextRegionCode) ?? DEFAULT_WATCH_REGION;
     savePreferredRegion(normalizedRegion);
     setRegionCodeState(normalizedRegion);
   }, []);

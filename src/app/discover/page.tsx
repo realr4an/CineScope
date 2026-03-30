@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 
 import { AppShell } from "@/components/layout/app-shell";
 import { MediaGrid } from "@/components/sections/media-sections";
@@ -9,11 +9,29 @@ import { DiscoverFilters } from "@/features/discover/discover-filters";
 import { filterMediaForViewerAge } from "@/lib/age-gate/server";
 import { getServerDictionary } from "@/lib/i18n/server";
 import { getDiscoverResults, getGenreMaps } from "@/lib/tmdb/discover";
+import { getServerPreferredWatchRegion } from "@/lib/tmdb/watch-provider-preference.server";
+import { DEFAULT_WATCH_REGION } from "@/lib/tmdb/watch-provider-preference";
+import { getAvailableRegions } from "@/lib/tmdb/watch-providers";
 import { discoverParamsSchema } from "@/lib/validators/media";
+import type { WatchRegion } from "@/types/watch-providers";
 
 type DiscoverPageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
+
+function resolveRegionCode(regionCode: string, availableRegions: WatchRegion[]) {
+  const normalized = regionCode.toUpperCase();
+
+  if (availableRegions.some(region => region.regionCode === normalized)) {
+    return normalized;
+  }
+
+  return (
+    availableRegions.find(region => region.regionCode === DEFAULT_WATCH_REGION)?.regionCode ??
+    availableRegions[0]?.regionCode ??
+    DEFAULT_WATCH_REGION
+  );
+}
 
 function buildDiscoverHref(input: {
   mediaType: "movie" | "tv";
@@ -22,14 +40,18 @@ function buildDiscoverHref(input: {
   rating?: number;
   page: number;
   sort: string;
+  region: string;
+  provider?: number;
 }) {
   const params = new URLSearchParams();
   params.set("mediaType", input.mediaType);
   params.set("sort", input.sort);
   params.set("page", String(input.page));
+  params.set("region", input.region);
   if (input.genre) params.set("genre", String(input.genre));
   if (input.year) params.set("year", String(input.year));
   if (input.rating) params.set("rating", String(input.rating));
+  if (input.provider) params.set("provider", String(input.provider));
   return `/discover?${params.toString()}`;
 }
 
@@ -42,20 +64,22 @@ function getVisiblePages(currentPage: number, totalPages: number) {
 export default async function DiscoverPage({ searchParams }: DiscoverPageProps) {
   const { dictionary, locale } = await getServerDictionary();
   const rawSearchParams = await searchParams;
+  const requestedRegion = await getServerPreferredWatchRegion(rawSearchParams.region);
   const parsed = discoverParamsSchema.parse({
     mediaType: rawSearchParams.mediaType,
     genre: rawSearchParams.genre,
     year: rawSearchParams.year,
     rating: rawSearchParams.rating,
     page: rawSearchParams.page,
-    sort: rawSearchParams.sort
+    sort: rawSearchParams.sort,
+    region: requestedRegion,
+    provider: rawSearchParams.provider
   });
 
   try {
-    const [{ movieList, tvList }, result] = await Promise.all([
-      getGenreMaps(locale),
-      getDiscoverResults({ ...parsed, locale })
-    ]);
+    const [availableRegions, genreMaps] = await Promise.all([getAvailableRegions(), getGenreMaps(locale)]);
+    const activeRegion = resolveRegionCode(parsed.region ?? requestedRegion, availableRegions);
+    const result = await getDiscoverResults({ ...parsed, region: activeRegion, locale });
     const safeItems = await filterMediaForViewerAge(result.items);
     const totalPages = Math.max(1, Math.min(result.totalPages, 167));
     const visiblePages = getVisiblePages(result.page, totalPages);
@@ -67,6 +91,7 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
             previous: "Previous",
             next: "Next",
             tmdbPageInfo: "This view combines up to 60 titles per page.",
+            filteredInfo: "Streaming-service filter active.",
             resultsLabel: `${result.totalResults.toLocaleString("en-US")} results`
           }
         : {
@@ -75,6 +100,7 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
             previous: "Zurück",
             next: "Weiter",
             tmdbPageInfo: "Diese Ansicht bündelt bis zu 60 Titel pro Seite.",
+            filteredInfo: "Streamingdienst-Filter aktiv.",
             resultsLabel: `${result.totalResults.toLocaleString("de-DE")} Treffer`
           };
 
@@ -88,7 +114,12 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
             <p className="text-muted-foreground">{dictionary.discoverPage.description}</p>
           </div>
 
-          <DiscoverFilters movieGenres={movieList} tvGenres={tvList} initial={parsed} />
+          <DiscoverFilters
+            movieGenres={genreMaps.movieList}
+            tvGenres={genreMaps.tvList}
+            regions={availableRegions}
+            initial={{ ...parsed, region: activeRegion }}
+          />
 
           <div className="space-y-4">
             <SectionHeader
@@ -97,7 +128,7 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
                   ? dictionary.discoverPage.discoverMovies
                   : dictionary.discoverPage.discoverSeries
               }
-              subtitle={`${paginationText.resultsLabel} · ${paginationText.page} ${result.page} ${paginationText.of} ${totalPages} · ${paginationText.tmdbPageInfo}`}
+              subtitle={`${paginationText.resultsLabel} · ${paginationText.page} ${result.page} ${paginationText.of} ${totalPages} · ${parsed.provider ? paginationText.filteredInfo : paginationText.tmdbPageInfo}`}
             />
             <MediaGrid items={safeItems} />
 
@@ -110,20 +141,20 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
                   <Button asChild variant="outline" size="sm" disabled={result.page <= 1}>
                     <Link
                       aria-disabled={result.page <= 1}
-                      href={buildDiscoverHref({ ...parsed, page: Math.max(1, result.page - 1) })}
+                      href={buildDiscoverHref({ ...parsed, page: Math.max(1, result.page - 1), region: activeRegion })}
                     >
                       {paginationText.previous}
                     </Link>
                   </Button>
                   {visiblePages.map(page => (
                     <Button key={page} asChild variant={page === result.page ? "default" : "outline"} size="sm">
-                      <Link href={buildDiscoverHref({ ...parsed, page })}>{page}</Link>
+                      <Link href={buildDiscoverHref({ ...parsed, page, region: activeRegion })}>{page}</Link>
                     </Button>
                   ))}
                   <Button asChild variant="outline" size="sm" disabled={result.page >= totalPages}>
                     <Link
                       aria-disabled={result.page >= totalPages}
-                      href={buildDiscoverHref({ ...parsed, page: Math.min(totalPages, result.page + 1) })}
+                      href={buildDiscoverHref({ ...parsed, page: Math.min(totalPages, result.page + 1), region: activeRegion })}
                     >
                       {paginationText.next}
                     </Link>
@@ -146,4 +177,3 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
     );
   }
 }
-
