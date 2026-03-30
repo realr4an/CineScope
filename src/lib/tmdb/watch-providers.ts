@@ -18,6 +18,9 @@ import type {
 } from "@/types/watch-providers";
 
 const WATCH_PROVIDER_GROUPS: WatchProviderGroupKey[] = ["flatrate", "free", "ads", "rent", "buy"];
+const SEARCH_PROVIDER_BATCH_SIZE = 10;
+const SEARCH_PROVIDER_MAX_CHECKS = 30;
+const watchProviderResponseCache = new Map<string, Promise<TmdbWatchProvidersResponse>>();
 
 function mapProvider(provider: TmdbWatchProvider): ProviderItem {
   return {
@@ -86,6 +89,19 @@ function getRegionProviders(
   }
 
   return WATCH_PROVIDER_GROUPS.flatMap(group => providersForRegion[group] ?? []);
+}
+
+function getCachedWatchProviders(mediaType: MediaType, tmdbId: number) {
+  const cacheKey = `${mediaType}-${tmdbId}`;
+  const cached = watchProviderResponseCache.get(cacheKey);
+
+  if (cached) {
+    return cached;
+  }
+
+  const request = mediaType === "movie" ? getMovieWatchProviders(tmdbId) : getTvWatchProviders(tmdbId);
+  watchProviderResponseCache.set(cacheKey, request);
+  return request;
 }
 
 export async function getAvailableRegions(): Promise<WatchRegion[]> {
@@ -189,25 +205,33 @@ export async function filterMediaByWatchProvider<
   }
 >(items: T[], regionCode: string, providerId: number) {
   const normalizedRegion = normalizeWatchRegionCode(regionCode) ?? "DE";
+  const limitedItems = items.slice(0, SEARCH_PROVIDER_MAX_CHECKS);
+  const matches: T[] = [];
 
-  const checks = await Promise.all(
-    items.map(async item => {
-      try {
-        const rawResponse =
-          item.mediaType === "movie"
-            ? await getMovieWatchProviders(item.tmdbId)
-            : await getTvWatchProviders(item.tmdbId);
-        const providers = getRegionProviders(rawResponse, normalizedRegion);
+  for (let index = 0; index < limitedItems.length; index += SEARCH_PROVIDER_BATCH_SIZE) {
+    const batch = limitedItems.slice(index, index + SEARCH_PROVIDER_BATCH_SIZE);
+    const checks = await Promise.all(
+      batch.map(async item => {
+        try {
+          const rawResponse = await getCachedWatchProviders(item.mediaType, item.tmdbId);
+          const providers = getRegionProviders(rawResponse, normalizedRegion);
 
-        return {
-          item,
-          matches: providers.some(provider => provider.provider_id === providerId)
-        };
-      } catch {
-        return { item, matches: false };
-      }
-    })
-  );
+          return {
+            item,
+            matches: providers.some(provider => provider.provider_id === providerId)
+          };
+        } catch {
+          return { item, matches: false };
+        }
+      })
+    );
 
-  return checks.filter(result => result.matches).map(result => result.item);
+    matches.push(...checks.filter(result => result.matches).map(result => result.item));
+
+    if (matches.length >= SEARCH_PROVIDER_BATCH_SIZE) {
+      break;
+    }
+  }
+
+  return matches;
 }
