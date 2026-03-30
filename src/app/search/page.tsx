@@ -6,6 +6,7 @@ import { SectionHeader } from "@/components/shared/ui-components";
 import { EmptyState, ErrorState } from "@/components/states/state-components";
 import { Button } from "@/components/ui/button";
 import { SearchForm } from "@/features/search/search-form";
+import { SearchSidebarFilters } from "@/features/search/search-sidebar-filters";
 import { filterMediaForViewerAge } from "@/lib/age-gate/server";
 import { getServerDictionary } from "@/lib/i18n/server";
 import { getDiscoverResults } from "@/lib/tmdb/discover";
@@ -51,7 +52,7 @@ function buildSearchHref(input: {
   sort: "popularity" | "rating" | "release_date";
   page: number;
   region: string;
-  provider?: number;
+  providers: number[];
 }) {
   const params = new URLSearchParams();
   if (input.q.trim()) {
@@ -61,8 +62,8 @@ function buildSearchHref(input: {
   params.set("sort", input.sort);
   params.set("page", String(input.page));
   params.set("region", input.region);
-  if (input.provider) {
-    params.set("provider", String(input.provider));
+  for (const providerId of input.providers) {
+    params.append("providers", String(providerId));
   }
   return `/search?${params.toString()}`;
 }
@@ -120,7 +121,7 @@ async function getPopularStartingPoints(page: number, locale: "de" | "en") {
 async function getProviderStartingPoints(input: {
   page: number;
   region: string;
-  provider: number;
+  providers: number[];
   locale: "de" | "en";
 }) {
   const [movieResults, tvResults] = await Promise.all([
@@ -129,7 +130,7 @@ async function getProviderStartingPoints(input: {
       page: input.page,
       sort: "popularity.desc",
       region: input.region,
-      provider: input.provider,
+      providers: input.providers,
       locale: input.locale
     }),
     getDiscoverResults({
@@ -137,13 +138,16 @@ async function getProviderStartingPoints(input: {
       page: input.page,
       sort: "popularity.desc",
       region: input.region,
-      provider: input.provider,
+      providers: input.providers,
       locale: input.locale
     })
   ]);
 
   return {
-    items: interleavePopularItems(movieResults.items.slice(0, FEED_SPLIT_SIZE), tvResults.items.slice(0, FEED_SPLIT_SIZE)),
+    items: interleavePopularItems(
+      movieResults.items.slice(0, FEED_SPLIT_SIZE),
+      tvResults.items.slice(0, FEED_SPLIT_SIZE)
+    ),
     page: input.page,
     totalPages: Math.max(1, Math.max(movieResults.totalPages, tvResults.totalPages))
   };
@@ -159,7 +163,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
     sort: rawSearchParams.sort,
     page: rawSearchParams.page,
     region: requestedRegion,
-    provider: rawSearchParams.provider
+    providers: rawSearchParams.providers ?? rawSearchParams.provider
   });
 
   try {
@@ -174,8 +178,8 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
         })
       : { items: [], appliedQuery: parsed.q, fallbackUsed: false, page: parsed.page, totalPages: 1, totalResults: 0 };
 
-    const providerFilteredResults = parsed.provider
-      ? await filterMediaByWatchProvider(searchResult.items, activeRegion, parsed.provider)
+    const providerFilteredResults = parsed.providers.length
+      ? await filterMediaByWatchProvider(searchResult.items, activeRegion, parsed.providers)
       : searchResult.items;
     const safeResults = await filterMediaForViewerAge(providerFilteredResults);
 
@@ -193,11 +197,11 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
 
     const popularStartingPoints =
       parsed.q.trim().length === 0
-        ? parsed.provider
+        ? parsed.providers.length
           ? await getProviderStartingPoints({
               page: parsed.page,
               region: activeRegion,
-              provider: parsed.provider,
+              providers: parsed.providers,
               locale
             })
           : await getPopularStartingPoints(parsed.page, locale)
@@ -218,7 +222,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
           next: "Next",
           pageInfo: "This view combines up to 60 titles per page.",
           popularInfo: "Popular starting points, 60 titles per page.",
-          filteredInfo: "Streaming-service filter applied to the current page.",
+          filteredInfo: "Streaming filters applied to the current page.",
           filteredResults: `${sortedResults.length.toLocaleString("en-US")} filtered results on this page`
         }
       : {
@@ -228,10 +232,10 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
           next: "Weiter",
           pageInfo: "Diese Ansicht bündelt bis zu 60 Titel pro Seite.",
           popularInfo: "Beliebte Einstiege, 60 Titel pro Seite.",
-          filteredInfo: "Streamingdienst-Filter auf diese Seite angewendet.",
+          filteredInfo: "Streaming-Filter auf diese Seite angewendet.",
           filteredResults: `${sortedResults.length.toLocaleString("de-DE")} gefilterte Treffer auf dieser Seite`
         };
-    const resultsLabel = parsed.provider
+    const resultsLabel = parsed.providers.length
       ? pageText.filteredResults
       : isEnglish
         ? `${searchResult.totalResults.toLocaleString("en-US")} results`
@@ -253,105 +257,119 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
             initialType={parsed.type}
             initialSort={parsed.sort}
             initialRegion={activeRegion}
-            initialProvider={parsed.provider}
-            availableRegions={availableRegions}
+            initialProviders={parsed.providers}
           />
 
-          {parsed.q ? (
-            sortedResults.length ? (
-              <div className="space-y-4">
-                <SectionHeader
-                  title={resultsLabel}
-                  subtitle={`${dictionary.searchPage.matchesFor} "${searchResult.appliedQuery}" · ${pageText.page} ${searchResult.page} ${pageText.of} ${totalPages} · ${parsed.provider ? pageText.filteredInfo : pageText.pageInfo}`}
-                />
-                {searchResult.fallbackUsed ? (
-                  <p className="text-sm text-muted-foreground">
-                    {isEnglish
-                      ? `Showing corrected results for "${searchResult.appliedQuery}" based on your input "${parsed.q}".`
-                      : `Zeige korrigierte Ergebnisse für "${searchResult.appliedQuery}" auf Basis deiner Eingabe "${parsed.q}".`}
-                  </p>
-                ) : null}
-                <MediaGrid items={sortedResults} />
-                {totalPages > 1 ? (
-                  <div className="flex flex-col gap-3 rounded-[1.5rem] border border-border/50 bg-card/50 p-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="text-sm text-muted-foreground">
-                      {pageText.page} {searchResult.page} {pageText.of} {totalPages}
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Button asChild variant="outline" size="sm" disabled={searchResult.page <= 1}>
-                        <Link
-                          aria-disabled={searchResult.page <= 1}
-                          href={buildSearchHref({ ...parsed, page: Math.max(1, searchResult.page - 1), region: activeRegion })}
-                        >
-                          {pageText.previous}
-                        </Link>
-                      </Button>
-                      {visiblePages.map(page => (
-                        <Button key={page} asChild variant={page === searchResult.page ? "default" : "outline"} size="sm">
-                          <Link href={buildSearchHref({ ...parsed, page, region: activeRegion })}>{page}</Link>
-                        </Button>
-                      ))}
-                      <Button asChild variant="outline" size="sm" disabled={searchResult.page >= totalPages}>
-                        <Link
-                          aria-disabled={searchResult.page >= totalPages}
-                          href={buildSearchHref({ ...parsed, page: Math.min(totalPages, searchResult.page + 1), region: activeRegion })}
-                        >
-                          {pageText.next}
-                        </Link>
-                      </Button>
-                    </div>
-                  </div>
-                ) : null}
-              </div>
-            ) : (
-              <EmptyState
-                title={dictionary.searchPage.title === "Search" ? "No matches found" : "Keine Treffer gefunden"}
-                description={
-                  dictionary.searchPage.title === "Search"
-                    ? `No matching movies or series were found for "${parsed.q}".`
-                    : `Für "${parsed.q}" wurden keine passenden Filme oder Serien gefunden.`
-                }
-              />
-            )
-          ) : (
+          <div className="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)] lg:items-start">
+            <SearchSidebarFilters
+              query={parsed.q}
+              availableRegions={availableRegions}
+              initial={{
+                type: parsed.type,
+                sort: parsed.sort,
+                region: activeRegion,
+                providers: parsed.providers
+              }}
+            />
+
             <div className="space-y-4">
-              <SectionHeader
-                title={dictionary.searchPage.discoverTitle}
-                subtitle={`${dictionary.searchPage.discoverSubtitle} · ${pageText.page} ${popularStartingPoints.page} ${pageText.of} ${popularStartingPoints.totalPages} · ${parsed.provider ? pageText.filteredInfo : pageText.popularInfo}`}
-              />
-              <MediaGrid items={discoveryItems} />
-              {popularStartingPoints.totalPages > 1 ? (
-                <div className="flex flex-col gap-3 rounded-[1.5rem] border border-border/50 bg-card/50 p-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="text-sm text-muted-foreground">
-                    {pageText.page} {popularStartingPoints.page} {pageText.of} {popularStartingPoints.totalPages}
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Button asChild variant="outline" size="sm" disabled={popularStartingPoints.page <= 1}>
-                      <Link
-                        aria-disabled={popularStartingPoints.page <= 1}
-                        href={buildSearchHref({ ...parsed, page: Math.max(1, popularStartingPoints.page - 1), region: activeRegion })}
-                      >
-                        {pageText.previous}
-                      </Link>
-                    </Button>
-                    {popularVisiblePages.map(page => (
-                      <Button key={page} asChild variant={page === popularStartingPoints.page ? "default" : "outline"} size="sm">
-                        <Link href={buildSearchHref({ ...parsed, page, region: activeRegion })}>{page}</Link>
-                      </Button>
-                    ))}
-                    <Button asChild variant="outline" size="sm" disabled={popularStartingPoints.page >= popularStartingPoints.totalPages}>
-                      <Link
-                        aria-disabled={popularStartingPoints.page >= popularStartingPoints.totalPages}
-                        href={buildSearchHref({ ...parsed, page: Math.min(popularStartingPoints.totalPages, popularStartingPoints.page + 1), region: activeRegion })}
-                      >
-                        {pageText.next}
-                      </Link>
-                    </Button>
-                  </div>
-                </div>
-              ) : null}
+              {parsed.q ? (
+                sortedResults.length ? (
+                  <>
+                    <SectionHeader
+                      title={resultsLabel}
+                      subtitle={`${dictionary.searchPage.matchesFor} "${searchResult.appliedQuery}" · ${pageText.page} ${searchResult.page} ${pageText.of} ${totalPages} · ${parsed.providers.length ? pageText.filteredInfo : pageText.pageInfo}`}
+                    />
+                    {searchResult.fallbackUsed ? (
+                      <p className="text-sm text-muted-foreground">
+                        {isEnglish
+                          ? `Showing corrected results for "${searchResult.appliedQuery}" based on your input "${parsed.q}".`
+                          : `Zeige korrigierte Ergebnisse für "${searchResult.appliedQuery}" auf Basis deiner Eingabe "${parsed.q}".`}
+                      </p>
+                    ) : null}
+                    <MediaGrid items={sortedResults} />
+                    {totalPages > 1 ? (
+                      <div className="flex flex-col gap-3 rounded-[1.5rem] border border-border/50 bg-card/50 p-4 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="text-sm text-muted-foreground">
+                          {pageText.page} {searchResult.page} {pageText.of} {totalPages}
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Button asChild variant="outline" size="sm" disabled={searchResult.page <= 1}>
+                            <Link
+                              aria-disabled={searchResult.page <= 1}
+                              href={buildSearchHref({ ...parsed, page: Math.max(1, searchResult.page - 1), region: activeRegion })}
+                            >
+                              {pageText.previous}
+                            </Link>
+                          </Button>
+                          {visiblePages.map(page => (
+                            <Button key={page} asChild variant={page === searchResult.page ? "default" : "outline"} size="sm">
+                              <Link href={buildSearchHref({ ...parsed, page, region: activeRegion })}>{page}</Link>
+                            </Button>
+                          ))}
+                          <Button asChild variant="outline" size="sm" disabled={searchResult.page >= totalPages}>
+                            <Link
+                              aria-disabled={searchResult.page >= totalPages}
+                              href={buildSearchHref({ ...parsed, page: Math.min(totalPages, searchResult.page + 1), region: activeRegion })}
+                            >
+                              {pageText.next}
+                            </Link>
+                          </Button>
+                        </div>
+                      </div>
+                    ) : null}
+                  </>
+                ) : (
+                  <EmptyState
+                    title={dictionary.searchPage.title === "Search" ? "No matches found" : "Keine Treffer gefunden"}
+                    description={
+                      dictionary.searchPage.title === "Search"
+                        ? `No matching movies or series were found for "${parsed.q}".`
+                        : `Für "${parsed.q}" wurden keine passenden Filme oder Serien gefunden.`
+                    }
+                  />
+                )
+              ) : (
+                <>
+                  <SectionHeader
+                    title={dictionary.searchPage.discoverTitle}
+                    subtitle={`${dictionary.searchPage.discoverSubtitle} · ${pageText.page} ${popularStartingPoints.page} ${pageText.of} ${popularStartingPoints.totalPages} · ${parsed.providers.length ? pageText.filteredInfo : pageText.popularInfo}`}
+                  />
+                  <MediaGrid items={discoveryItems} />
+                  {popularStartingPoints.totalPages > 1 ? (
+                    <div className="flex flex-col gap-3 rounded-[1.5rem] border border-border/50 bg-card/50 p-4 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="text-sm text-muted-foreground">
+                        {pageText.page} {popularStartingPoints.page} {pageText.of} {popularStartingPoints.totalPages}
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Button asChild variant="outline" size="sm" disabled={popularStartingPoints.page <= 1}>
+                          <Link
+                            aria-disabled={popularStartingPoints.page <= 1}
+                            href={buildSearchHref({ ...parsed, page: Math.max(1, popularStartingPoints.page - 1), region: activeRegion })}
+                          >
+                            {pageText.previous}
+                          </Link>
+                        </Button>
+                        {popularVisiblePages.map(page => (
+                          <Button key={page} asChild variant={page === popularStartingPoints.page ? "default" : "outline"} size="sm">
+                            <Link href={buildSearchHref({ ...parsed, page, region: activeRegion })}>{page}</Link>
+                          </Button>
+                        ))}
+                        <Button asChild variant="outline" size="sm" disabled={popularStartingPoints.page >= popularStartingPoints.totalPages}>
+                          <Link
+                            aria-disabled={popularStartingPoints.page >= popularStartingPoints.totalPages}
+                            href={buildSearchHref({ ...parsed, page: Math.min(popularStartingPoints.totalPages, popularStartingPoints.page + 1), region: activeRegion })}
+                          >
+                            {pageText.next}
+                          </Link>
+                        </Button>
+                      </div>
+                    </div>
+                  ) : null}
+                </>
+              )}
             </div>
-          )}
+          </div>
         </div>
       </AppShell>
     );

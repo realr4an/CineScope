@@ -32,7 +32,7 @@ export function DiscoverFilters({
     page: number;
     sort: string;
     region: string;
-    provider?: number;
+    providers: number[];
   };
 }) {
   const [mediaType, setMediaType] = useState(initial.mediaType);
@@ -42,11 +42,35 @@ export function DiscoverFilters({
   const [rating, setRating] = useState<number | undefined>(initial.rating);
   const [sort, setSort] = useState(initial.sort);
   const [region, setRegion] = useState(initial.region);
-  const [provider, setProvider] = useState<number | undefined>(initial.provider);
+  const [providers, setProviders] = useState<number[]>(initial.providers);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
   const { dictionary, locale } = useLanguage();
   const providerOptions = useProviderOptions(mediaType, region);
+  const text =
+    locale === "en"
+      ? {
+          title: "Filters",
+          description: "Narrow categories by time range, rating, country and streaming services.",
+          reset: "Reset filters",
+          clearStreaming: "Clear all",
+          noStreamingOptions: "No streaming services are available for this selection."
+        }
+      : {
+          title: "Filter",
+          description: "Grenze Kategorien nach Zeitraum, Bewertung, Land und Streamingdiensten ein.",
+          reset: "Filter zurücksetzen",
+          clearStreaming: "Alle entfernen",
+          noStreamingOptions: "Für diese Auswahl sind keine Streamingdienste verfügbar."
+        };
+  const sortText =
+    locale === "en"
+      ? { sortBy: "Sort by" }
+      : { sortBy: "Sortierung" };
+  const mediaTypeText =
+    locale === "en"
+      ? { label: "Media type" }
+      : { label: "Medientyp" };
 
   useEffect(() => {
     setMediaType(initial.mediaType);
@@ -56,18 +80,17 @@ export function DiscoverFilters({
     setRating(initial.rating);
     setSort(initial.sort);
     setRegion(initial.region);
-    setProvider(initial.provider);
+    setProviders(initial.providers);
   }, [initial]);
 
   useEffect(() => {
-    if (!provider) {
+    if (!providers.length) {
       return;
     }
 
-    if (!providerOptions.options.some(option => option.providerId === provider)) {
-      setProvider(undefined);
-    }
-  }, [provider, providerOptions.options]);
+    const availableIds = new Set(providerOptions.options.map(option => option.providerId));
+    setProviders(current => current.filter(providerId => availableIds.has(providerId)));
+  }, [providerOptions.options]);
 
   useEffect(() => {
     if (!yearFrom) {
@@ -85,57 +108,105 @@ export function DiscoverFilters({
     () => YEAR_OPTIONS.filter(year => !yearFrom || year <= yearFrom),
     [yearFrom]
   );
+  const numberFormatter = new Intl.NumberFormat(locale === "en" ? "en-US" : "de-DE", {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1
+  });
 
-  const apply = () => {
+  const apply = (overrides?: Partial<typeof initial> & { providers?: number[] }) => {
+    const resolvedMediaType = overrides?.mediaType ?? mediaType;
+    const resolvedGenre = overrides?.genre ?? genre;
+    const resolvedYearFrom = overrides?.yearFrom ?? yearFrom;
+    const resolvedYearTo = overrides?.yearTo ?? yearTo;
+    const resolvedRating = overrides?.rating ?? rating;
+    const resolvedSort = overrides?.sort ?? sort;
+    const resolvedRegion = overrides?.region ?? region;
+    const resolvedProviders = overrides?.providers ?? providers;
     const params = new URLSearchParams();
-    params.set("mediaType", mediaType);
-    params.set("sort", sort);
-    params.set("page", "1");
-    params.set("region", region);
-    if (genre) params.set("genre", String(genre));
-    if (yearFrom) params.set("yearFrom", String(yearFrom));
-    if (yearTo) params.set("yearTo", String(yearTo));
-    if (rating !== undefined) params.set("rating", String(rating));
-    if (provider) params.set("provider", String(provider));
 
-    savePreferredRegion(region);
+    params.set("mediaType", resolvedMediaType);
+    params.set("sort", resolvedSort);
+    params.set("page", "1");
+    params.set("region", resolvedRegion);
+    if (resolvedGenre) params.set("genre", String(resolvedGenre));
+    if (resolvedYearFrom) params.set("yearFrom", String(resolvedYearFrom));
+    if (resolvedYearTo) params.set("yearTo", String(resolvedYearTo));
+    if (resolvedRating !== undefined) params.set("rating", String(resolvedRating));
+    for (const providerId of resolvedProviders) {
+      params.append("providers", String(providerId));
+    }
+
+    savePreferredRegion(resolvedRegion);
 
     startTransition(() => {
       router.push(`/discover?${params.toString()}`);
     });
   };
 
-  const numberFormatter = new Intl.NumberFormat(locale === "en" ? "en-US" : "de-DE", {
-    minimumFractionDigits: 1,
-    maximumFractionDigits: 1
-  });
+  const toggleProvider = (providerId: number) => {
+    const nextProviders = providers.includes(providerId)
+      ? providers.filter(id => id !== providerId)
+      : [...providers, providerId];
+    setProviders(nextProviders);
+  };
+
+  const resetFilters = () => {
+    setGenre(undefined);
+    setYearFrom(undefined);
+    setYearTo(undefined);
+    setRating(undefined);
+    setSort("popularity.desc");
+    setProviders([]);
+    apply({
+      genre: undefined,
+      yearFrom: undefined,
+      yearTo: undefined,
+      rating: undefined,
+      sort: "popularity.desc",
+      providers: []
+    });
+  };
 
   return (
-    <form
-      onSubmit={event => {
-        event.preventDefault();
-        apply();
-      }}
-      className="space-y-4 rounded-[2rem] border border-border/50 bg-card/50 p-5"
-    >
-      <div className="flex flex-wrap gap-3">
+    <aside className="space-y-5 rounded-[2rem] border border-border/50 bg-card/50 p-5 lg:sticky lg:top-24">
+      <div className="space-y-1">
+        <h2 className="text-lg font-semibold">{text.title}</h2>
+        <p className="text-sm text-muted-foreground">{text.description}</p>
+      </div>
+
+      <div className="space-y-3">
+        <p className="text-sm font-medium">{mediaTypeText.label}</p>
+        <div className="grid gap-2">
+          {([
+            ["movie", dictionary.discoverFilters.movies],
+            ["tv", dictionary.discoverFilters.series]
+          ] as const).map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => {
+                setMediaType(value);
+                setGenre(undefined);
+                setProviders([]);
+                apply({ mediaType: value, genre: undefined, providers: [] });
+              }}
+              className={`rounded-xl border px-3 py-2 text-left text-sm transition ${mediaType === value ? "border-primary bg-primary/10 text-foreground" : "border-border/50 bg-background hover:border-primary/40"}`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        <label className="text-sm font-medium" htmlFor="discover-genre-filter">
+          {dictionary.discoverFilters.allCategories}
+        </label>
         <select
-          value={mediaType}
-          onChange={event => {
-            setMediaType(event.target.value as "movie" | "tv");
-            setGenre(undefined);
-          }}
-          className="h-10 rounded-xl border border-border/50 bg-background px-3 text-sm"
-        >
-          <option value="movie">{dictionary.discoverFilters.movies}</option>
-          <option value="tv">{dictionary.discoverFilters.series}</option>
-        </select>
-        <select
+          id="discover-genre-filter"
           value={genre ?? ""}
-          onChange={event =>
-            setGenre(event.target.value ? Number(event.target.value) : undefined)
-          }
-          className="h-10 rounded-xl border border-border/50 bg-background px-3 text-sm"
+          onChange={event => setGenre(event.target.value ? Number(event.target.value) : undefined)}
+          className="h-10 w-full rounded-xl border border-border/50 bg-background px-3 text-sm"
         >
           <option value="">{dictionary.discoverFilters.allCategories}</option>
           {genres.map(item => (
@@ -144,13 +215,19 @@ export function DiscoverFilters({
             </option>
           ))}
         </select>
+      </div>
+
+      <div className="space-y-3">
+        <label className="text-sm font-medium" htmlFor="discover-year-from-filter">
+          {dictionary.discoverFilters.yearFrom}
+        </label>
         <select
-          aria-label={dictionary.discoverFilters.yearFrom}
+          id="discover-year-from-filter"
           value={yearFrom ?? ""}
           onChange={event => setYearFrom(event.target.value ? Number(event.target.value) : undefined)}
-          className="h-10 rounded-xl border border-border/50 bg-background px-3 text-sm"
+          className="h-10 w-full rounded-xl border border-border/50 bg-background px-3 text-sm"
         >
-          <option value="">{dictionary.discoverFilters.yearFrom}</option>
+          <option value="">{dictionary.discoverFilters.anyYear}</option>
           {YEAR_OPTIONS.map(year => (
             <option key={year} value={year}>
               {year}
@@ -159,10 +236,9 @@ export function DiscoverFilters({
         </select>
         {yearFrom ? (
           <select
-            aria-label={dictionary.discoverFilters.yearTo}
             value={yearTo ?? ""}
             onChange={event => setYearTo(event.target.value ? Number(event.target.value) : undefined)}
-            className="h-10 rounded-xl border border-border/50 bg-background px-3 text-sm"
+            className="h-10 w-full rounded-xl border border-border/50 bg-background px-3 text-sm"
           >
             <option value="">{dictionary.discoverFilters.yearTo}</option>
             {yearToOptions.map(year => (
@@ -172,11 +248,17 @@ export function DiscoverFilters({
             ))}
           </select>
         ) : null}
+      </div>
+
+      <div className="space-y-3">
+        <label className="text-sm font-medium" htmlFor="discover-rating-filter">
+          {dictionary.discoverFilters.minRating}
+        </label>
         <select
-          aria-label={dictionary.discoverFilters.minRating}
+          id="discover-rating-filter"
           value={rating ?? ""}
           onChange={event => setRating(event.target.value ? Number(event.target.value) : undefined)}
-          className="h-10 rounded-xl border border-border/50 bg-background px-3 text-sm"
+          className="h-10 w-full rounded-xl border border-border/50 bg-background px-3 text-sm"
         >
           <option value="">{dictionary.discoverFilters.allRatings}</option>
           {RATING_OPTIONS.map(value => (
@@ -185,21 +267,42 @@ export function DiscoverFilters({
             </option>
           ))}
         </select>
+      </div>
+
+      <div className="space-y-3">
+        <p className="text-sm font-medium">{sortText.sortBy}</p>
+        <div className="grid gap-2">
+          {([
+            ["popularity.desc", dictionary.discoverFilters.popularity],
+            ["vote_average.desc", dictionary.discoverFilters.rating],
+            ["primary_release_date.desc", dictionary.discoverFilters.newestMovies],
+            ["first_air_date.desc", dictionary.discoverFilters.newestSeries]
+          ] as const).map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setSort(value)}
+              className={`rounded-xl border px-3 py-2 text-left text-sm transition ${sort === value ? "border-primary bg-primary/10 text-foreground" : "border-border/50 bg-background hover:border-primary/40"}`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        <label className="text-sm font-medium" htmlFor="discover-region-filter">
+          {dictionary.discoverFilters.country}
+        </label>
         <select
-          value={sort}
-          onChange={event => setSort(event.target.value)}
-          className="h-10 rounded-xl border border-border/50 bg-background px-3 text-sm"
-        >
-          <option value="popularity.desc">{dictionary.discoverFilters.popularity}</option>
-          <option value="vote_average.desc">{dictionary.discoverFilters.rating}</option>
-          <option value="primary_release_date.desc">{dictionary.discoverFilters.newestMovies}</option>
-          <option value="first_air_date.desc">{dictionary.discoverFilters.newestSeries}</option>
-        </select>
-        <select
-          aria-label={dictionary.discoverFilters.country}
+          id="discover-region-filter"
           value={region}
-          onChange={event => setRegion(event.target.value)}
-          className="h-10 rounded-xl border border-border/50 bg-background px-3 text-sm"
+          onChange={event => {
+            const nextRegion = event.target.value;
+            setRegion(nextRegion);
+            setProviders([]);
+          }}
+          className="h-10 w-full rounded-xl border border-border/50 bg-background px-3 text-sm"
         >
           {regions.map(option => (
             <option key={option.regionCode} value={option.regionCode}>
@@ -207,32 +310,60 @@ export function DiscoverFilters({
             </option>
           ))}
         </select>
-        <select
-          aria-label={dictionary.discoverFilters.streamingService}
-          value={provider ?? ""}
-          onChange={event =>
-            setProvider(event.target.value ? Number(event.target.value) : undefined)
-          }
-          disabled={providerOptions.isLoading}
-          className="h-10 min-w-[13rem] rounded-xl border border-border/50 bg-background px-3 text-sm disabled:opacity-60"
-        >
-          <option value="">
-            {providerOptions.isLoading
-              ? dictionary.discoverFilters.loadingStreamingServices
-              : providerOptions.error
-                ? dictionary.discoverFilters.streamingServiceError
-                : dictionary.discoverFilters.allStreamingServices}
-          </option>
-          {providerOptions.options.map(option => (
-            <option key={option.providerId} value={option.providerId}>
-              {option.providerName}
-            </option>
-          ))}
-        </select>
-        <Button type="submit" disabled={isPending}>
+      </div>
+
+      <div className="space-y-3">
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-sm font-medium">{dictionary.discoverFilters.streamingService}</p>
+          {providers.length ? (
+            <button
+              type="button"
+              onClick={() => setProviders([])}
+              className="text-xs text-muted-foreground underline-offset-4 hover:underline"
+            >
+              {text.clearStreaming}
+            </button>
+          ) : null}
+        </div>
+
+        <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
+          {providerOptions.isLoading ? (
+            <p className="text-sm text-muted-foreground">{dictionary.discoverFilters.loadingStreamingServices}</p>
+          ) : providerOptions.error ? (
+            <p className="text-sm text-destructive">{dictionary.discoverFilters.streamingServiceError}</p>
+          ) : providerOptions.options.length ? (
+            providerOptions.options.map(option => {
+              const checked = providers.includes(option.providerId);
+
+              return (
+                <label
+                  key={option.providerId}
+                  className="flex cursor-pointer items-center gap-3 rounded-xl border border-border/50 bg-background px-3 py-2 text-sm transition hover:border-primary/40"
+                >
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={() => toggleProvider(option.providerId)}
+                    className="size-4 rounded border-border"
+                  />
+                  <span className="min-w-0 truncate">{option.providerName}</span>
+                </label>
+              );
+            })
+          ) : (
+            <p className="text-sm text-muted-foreground">{text.noStreamingOptions}</p>
+          )}
+        </div>
+      </div>
+
+      <div className="grid gap-3">
+        <Button type="button" onClick={() => apply()} disabled={isPending}>
           {dictionary.discoverFilters.apply}
         </Button>
+        <Button type="button" variant="outline" onClick={resetFilters} disabled={isPending}>
+          {text.reset}
+        </Button>
       </div>
-    </form>
+    </aside>
   );
 }

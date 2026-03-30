@@ -20,6 +20,7 @@ import type {
 const WATCH_PROVIDER_GROUPS: WatchProviderGroupKey[] = ["flatrate", "free", "ads", "rent", "buy"];
 const SEARCH_PROVIDER_BATCH_SIZE = 10;
 const SEARCH_PROVIDER_MAX_CHECKS = 30;
+const SEARCH_PROVIDER_TARGET_MATCHES = 18;
 const watchProviderResponseCache = new Map<string, Promise<TmdbWatchProvidersResponse>>();
 
 function mapProvider(provider: TmdbWatchProvider): ProviderItem {
@@ -203,10 +204,15 @@ export async function filterMediaByWatchProvider<
     tmdbId: number;
     mediaType: MediaType;
   }
->(items: T[], regionCode: string, providerId: number) {
+>(items: T[], regionCode: string, providerIds: number[]) {
   const normalizedRegion = normalizeWatchRegionCode(regionCode) ?? "DE";
   const limitedItems = items.slice(0, SEARCH_PROVIDER_MAX_CHECKS);
+  const providerSet = new Set(providerIds);
   const matches: T[] = [];
+
+  if (!providerSet.size) {
+    return items;
+  }
 
   for (let index = 0; index < limitedItems.length; index += SEARCH_PROVIDER_BATCH_SIZE) {
     const batch = limitedItems.slice(index, index + SEARCH_PROVIDER_BATCH_SIZE);
@@ -218,7 +224,7 @@ export async function filterMediaByWatchProvider<
 
           return {
             item,
-            matches: providers.some(provider => provider.provider_id === providerId)
+            matches: providers.some(provider => providerSet.has(provider.provider_id))
           };
         } catch {
           return { item, matches: false };
@@ -228,7 +234,7 @@ export async function filterMediaByWatchProvider<
 
     matches.push(...checks.filter(result => result.matches).map(result => result.item));
 
-    if (matches.length >= SEARCH_PROVIDER_BATCH_SIZE) {
+    if (matches.length >= SEARCH_PROVIDER_TARGET_MATCHES) {
       break;
     }
   }

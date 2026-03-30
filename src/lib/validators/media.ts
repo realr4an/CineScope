@@ -15,6 +15,19 @@ const optionalPositiveIntParam = optionalNumberParam.refine(
   "Expected a positive integer"
 );
 
+const optionalPositiveIntArrayParam = z.preprocess(value => {
+  if (value === "" || value === null || value === undefined) {
+    return [];
+  }
+
+  const values = Array.isArray(value) ? value : [value];
+
+  return values
+    .flatMap(item => String(item).split(","))
+    .map(item => Number(item))
+    .filter(item => Number.isInteger(item) && item > 0);
+}, z.array(z.number().int().positive()).default([]));
+
 const optionalRegionParam = z.preprocess(value => {
   if (value === "" || value === null || value === undefined) {
     return undefined;
@@ -35,7 +48,7 @@ export const searchParamsSchema = z.object({
   sort: z.enum(["popularity", "rating", "release_date"]).default("popularity"),
   page: z.coerce.number().int().min(1).default(1),
   region: optionalRegionParam,
-  provider: optionalPositiveIntParam
+  providers: optionalPositiveIntArrayParam
 });
 
 export const discoverParamsSchema = z
@@ -58,7 +71,7 @@ export const discoverParamsSchema = z
       ])
       .default("popularity.desc"),
     region: optionalRegionParam,
-    provider: optionalPositiveIntParam
+    providers: optionalPositiveIntArrayParam
   })
   .transform(value => {
     const yearFrom = value.yearFrom;

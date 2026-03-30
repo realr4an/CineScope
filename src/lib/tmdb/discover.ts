@@ -56,13 +56,14 @@ export async function getDiscoverResults(input: {
   page: number;
   sort: string;
   region?: string;
-  provider?: number;
+  providers?: number[];
   locale?: Locale;
 }) {
   const locale = input.locale ?? "de";
   const { movieGenres, tvGenres } = await getGenreMaps(locale);
   const genresById = input.mediaType === "movie" ? movieGenres : tvGenres;
   const dateRangeParams = buildDateRangeParams(input);
+  const providerFilter = input.providers?.length ? input.providers.join("|") : undefined;
 
   const requestedPage = Math.max(1, input.page);
   const tmdbStartPage = (requestedPage - 1) * TMDB_PAGES_PER_DISCOVER_PAGE + 1;
@@ -79,7 +80,7 @@ export async function getDiscoverResults(input: {
           page,
           "vote_average.gte": input.rating,
           watch_region: input.region,
-          with_watch_providers: input.provider,
+          with_watch_providers: providerFilter,
           ...dateRangeParams
         },
         undefined,

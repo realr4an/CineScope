@@ -42,7 +42,7 @@ function buildDiscoverHref(input: {
   page: number;
   sort: string;
   region: string;
-  provider?: number;
+  providers: number[];
 }) {
   const params = new URLSearchParams();
   params.set("mediaType", input.mediaType);
@@ -53,7 +53,9 @@ function buildDiscoverHref(input: {
   if (input.yearFrom) params.set("yearFrom", String(input.yearFrom));
   if (input.yearTo) params.set("yearTo", String(input.yearTo));
   if (input.rating !== undefined) params.set("rating", String(input.rating));
-  if (input.provider) params.set("provider", String(input.provider));
+  for (const providerId of input.providers) {
+    params.append("providers", String(providerId));
+  }
   return `/discover?${params.toString()}`;
 }
 
@@ -76,7 +78,7 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
     page: rawSearchParams.page,
     sort: rawSearchParams.sort,
     region: requestedRegion,
-    provider: rawSearchParams.provider
+    providers: rawSearchParams.providers ?? rawSearchParams.provider
   });
 
   try {
@@ -97,7 +99,7 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
             previous: "Previous",
             next: "Next",
             tmdbPageInfo: "This view combines up to 60 titles per page.",
-            filteredInfo: "Streaming-service filter active.",
+            filteredInfo: "Streaming filters active.",
             resultsLabel: `${result.totalResults.toLocaleString("en-US")} results`
           }
         : {
@@ -106,7 +108,7 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
             previous: "Zurück",
             next: "Weiter",
             tmdbPageInfo: "Diese Ansicht bündelt bis zu 60 Titel pro Seite.",
-            filteredInfo: "Streamingdienst-Filter aktiv.",
+            filteredInfo: "Streaming-Filter aktiv.",
             resultsLabel: `${result.totalResults.toLocaleString("de-DE")} Treffer`
           };
 
@@ -120,54 +122,56 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
             <p className="text-muted-foreground">{dictionary.discoverPage.description}</p>
           </div>
 
-          <DiscoverFilters
-            movieGenres={genreMaps.movieList}
-            tvGenres={genreMaps.tvList}
-            regions={availableRegions}
-            initial={{ ...parsed, region: activeRegion }}
-          />
-
-          <div className="space-y-4">
-            <SectionHeader
-              title={
-                parsed.mediaType === "movie"
-                  ? dictionary.discoverPage.discoverMovies
-                  : dictionary.discoverPage.discoverSeries
-              }
-              subtitle={`${paginationText.resultsLabel} · ${paginationText.page} ${result.page} ${paginationText.of} ${totalPages} · ${parsed.provider ? paginationText.filteredInfo : paginationText.tmdbPageInfo}`}
+          <div className="grid gap-6 lg:grid-cols-[300px_minmax(0,1fr)] lg:items-start">
+            <DiscoverFilters
+              movieGenres={genreMaps.movieList}
+              tvGenres={genreMaps.tvList}
+              regions={availableRegions}
+              initial={{ ...parsed, region: activeRegion }}
             />
-            <MediaGrid items={safeItems} />
 
-            {totalPages > 1 ? (
-              <div className="flex flex-col gap-3 rounded-[1.5rem] border border-border/50 bg-card/50 p-4 sm:flex-row sm:items-center sm:justify-between">
-                <div className="text-sm text-muted-foreground">
-                  {paginationText.page} {result.page} {paginationText.of} {totalPages}
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <Button asChild variant="outline" size="sm" disabled={result.page <= 1}>
-                    <Link
-                      aria-disabled={result.page <= 1}
-                      href={buildDiscoverHref({ ...parsed, page: Math.max(1, result.page - 1), region: activeRegion })}
-                    >
-                      {paginationText.previous}
-                    </Link>
-                  </Button>
-                  {visiblePages.map(page => (
-                    <Button key={page} asChild variant={page === result.page ? "default" : "outline"} size="sm">
-                      <Link href={buildDiscoverHref({ ...parsed, page, region: activeRegion })}>{page}</Link>
+            <div className="space-y-4">
+              <SectionHeader
+                title={
+                  parsed.mediaType === "movie"
+                    ? dictionary.discoverPage.discoverMovies
+                    : dictionary.discoverPage.discoverSeries
+                }
+                subtitle={`${paginationText.resultsLabel} · ${paginationText.page} ${result.page} ${paginationText.of} ${totalPages} · ${parsed.providers.length ? paginationText.filteredInfo : paginationText.tmdbPageInfo}`}
+              />
+              <MediaGrid items={safeItems} />
+
+              {totalPages > 1 ? (
+                <div className="flex flex-col gap-3 rounded-[1.5rem] border border-border/50 bg-card/50 p-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="text-sm text-muted-foreground">
+                    {paginationText.page} {result.page} {paginationText.of} {totalPages}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button asChild variant="outline" size="sm" disabled={result.page <= 1}>
+                      <Link
+                        aria-disabled={result.page <= 1}
+                        href={buildDiscoverHref({ ...parsed, page: Math.max(1, result.page - 1), region: activeRegion })}
+                      >
+                        {paginationText.previous}
+                      </Link>
                     </Button>
-                  ))}
-                  <Button asChild variant="outline" size="sm" disabled={result.page >= totalPages}>
-                    <Link
-                      aria-disabled={result.page >= totalPages}
-                      href={buildDiscoverHref({ ...parsed, page: Math.min(totalPages, result.page + 1), region: activeRegion })}
-                    >
-                      {paginationText.next}
-                    </Link>
-                  </Button>
+                    {visiblePages.map(page => (
+                      <Button key={page} asChild variant={page === result.page ? "default" : "outline"} size="sm">
+                        <Link href={buildDiscoverHref({ ...parsed, page, region: activeRegion })}>{page}</Link>
+                      </Button>
+                    ))}
+                    <Button asChild variant="outline" size="sm" disabled={result.page >= totalPages}>
+                      <Link
+                        aria-disabled={result.page >= totalPages}
+                        href={buildDiscoverHref({ ...parsed, page: Math.min(totalPages, result.page + 1), region: activeRegion })}
+                      >
+                        {paginationText.next}
+                      </Link>
+                    </Button>
+                  </div>
                 </div>
-              </div>
-            ) : null}
+              ) : null}
+            </div>
           </div>
         </div>
       </AppShell>
