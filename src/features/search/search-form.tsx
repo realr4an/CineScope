@@ -1,7 +1,7 @@
-﻿"use client";
+"use client";
 
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { SearchField } from "@/components/shared/ui-components";
 import { Button } from "@/components/ui/button";
@@ -21,6 +21,8 @@ export function SearchForm({
   const [sort, setSort] = useState(initialSort);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { dictionary } = useLanguage();
 
   const submit = () => {
@@ -32,8 +34,17 @@ export function SearchForm({
     params.set("sort", sort);
     params.set("page", "1");
 
+    const target = `/search?${params.toString()}`;
+    const currentSearch = searchParams?.toString() ?? "";
+    const current = `${pathname}${currentSearch ? `?${currentSearch}` : ""}`;
+
     startTransition(() => {
-      router.push(`/search?${params.toString()}`);
+      if (current === target) {
+        router.refresh();
+        return;
+      }
+
+      router.push(target);
     });
   };
 
@@ -80,3 +91,4 @@ export function SearchForm({
     </form>
   );
 }
+
