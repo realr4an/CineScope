@@ -36,7 +36,8 @@ function resolveRegionCode(regionCode: string, availableRegions: WatchRegion[]) 
 function buildDiscoverHref(input: {
   mediaType: "movie" | "tv";
   genre?: number;
-  year?: number;
+  yearFrom?: number;
+  yearTo?: number;
   rating?: number;
   page: number;
   sort: string;
@@ -49,8 +50,9 @@ function buildDiscoverHref(input: {
   params.set("page", String(input.page));
   params.set("region", input.region);
   if (input.genre) params.set("genre", String(input.genre));
-  if (input.year) params.set("year", String(input.year));
-  if (input.rating) params.set("rating", String(input.rating));
+  if (input.yearFrom) params.set("yearFrom", String(input.yearFrom));
+  if (input.yearTo) params.set("yearTo", String(input.yearTo));
+  if (input.rating !== undefined) params.set("rating", String(input.rating));
   if (input.provider) params.set("provider", String(input.provider));
   return `/discover?${params.toString()}`;
 }
@@ -68,7 +70,8 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
   const parsed = discoverParamsSchema.parse({
     mediaType: rawSearchParams.mediaType,
     genre: rawSearchParams.genre,
-    year: rawSearchParams.year,
+    yearFrom: rawSearchParams.yearFrom,
+    yearTo: rawSearchParams.yearTo,
     rating: rawSearchParams.rating,
     page: rawSearchParams.page,
     sort: rawSearchParams.sort,
@@ -77,7 +80,10 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
   });
 
   try {
-    const [availableRegions, genreMaps] = await Promise.all([getAvailableRegions(), getGenreMaps(locale)]);
+    const [availableRegions, genreMaps] = await Promise.all([
+      getAvailableRegions(),
+      getGenreMaps(locale)
+    ]);
     const activeRegion = resolveRegionCode(parsed.region ?? requestedRegion, availableRegions);
     const result = await getDiscoverResults({ ...parsed, region: activeRegion, locale });
     const safeItems = await filterMediaForViewerAge(result.items);

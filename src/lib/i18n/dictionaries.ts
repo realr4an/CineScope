@@ -95,7 +95,11 @@ export const dictionaries = {
       series: "Serien",
       allCategories: "Alle Kategorien",
       year: "Jahr",
+      yearFrom: "Jahr von",
+      yearTo: "Jahr bis",
+      anyYear: "Alle Jahre",
       minRating: "Min. Rating",
+      allRatings: "Alle Bewertungen",
       popularity: "Beliebtheit",
       rating: "Bewertung",
       newestMovies: "Neueste Filme",
@@ -320,7 +324,11 @@ export const dictionaries = {
       series: "Series",
       allCategories: "All categories",
       year: "Year",
+      yearFrom: "Year from",
+      yearTo: "Year to",
+      anyYear: "All years",
       minRating: "Min. rating",
+      allRatings: "All ratings",
       popularity: "Popularity",
       rating: "Rating",
       newestMovies: "Newest movies",
@@ -450,5 +458,9 @@ export const dictionaries = {
 export function getDictionary(locale: Locale) {
   return dictionaries[locale];
 }
+
+
+
+
 
 

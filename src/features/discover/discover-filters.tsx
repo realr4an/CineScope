@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,10 @@ import { savePreferredRegion } from "@/features/watch-providers/region-preferenc
 import { useProviderOptions } from "@/features/watch-providers/use-provider-options";
 import type { Genre } from "@/types/media";
 import type { WatchRegion } from "@/types/watch-providers";
+
+const CURRENT_YEAR = new Date().getFullYear();
+const YEAR_OPTIONS = Array.from({ length: CURRENT_YEAR - 1949 }, (_, index) => CURRENT_YEAR - index);
+const RATING_OPTIONS = [9, 8, 7, 6, 5, 4, 3];
 
 export function DiscoverFilters({
   movieGenres,
@@ -22,7 +26,8 @@ export function DiscoverFilters({
   initial: {
     mediaType: "movie" | "tv";
     genre?: number;
-    year?: number;
+    yearFrom?: number;
+    yearTo?: number;
     rating?: number;
     page: number;
     sort: string;
@@ -32,21 +37,23 @@ export function DiscoverFilters({
 }) {
   const [mediaType, setMediaType] = useState(initial.mediaType);
   const [genre, setGenre] = useState<number | undefined>(initial.genre);
-  const [year, setYear] = useState(initial.year?.toString() ?? "");
-  const [rating, setRating] = useState(initial.rating?.toString() ?? "");
+  const [yearFrom, setYearFrom] = useState<number | undefined>(initial.yearFrom);
+  const [yearTo, setYearTo] = useState<number | undefined>(initial.yearTo);
+  const [rating, setRating] = useState<number | undefined>(initial.rating);
   const [sort, setSort] = useState(initial.sort);
   const [region, setRegion] = useState(initial.region);
   const [provider, setProvider] = useState<number | undefined>(initial.provider);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
-  const { dictionary } = useLanguage();
+  const { dictionary, locale } = useLanguage();
   const providerOptions = useProviderOptions(mediaType, region);
 
   useEffect(() => {
     setMediaType(initial.mediaType);
     setGenre(initial.genre);
-    setYear(initial.year?.toString() ?? "");
-    setRating(initial.rating?.toString() ?? "");
+    setYearFrom(initial.yearFrom);
+    setYearTo(initial.yearTo);
+    setRating(initial.rating);
     setSort(initial.sort);
     setRegion(initial.region);
     setProvider(initial.provider);
@@ -62,7 +69,22 @@ export function DiscoverFilters({
     }
   }, [provider, providerOptions.options]);
 
+  useEffect(() => {
+    if (!yearFrom) {
+      setYearTo(undefined);
+      return;
+    }
+
+    if (yearTo && yearTo < yearFrom) {
+      setYearTo(yearFrom);
+    }
+  }, [yearFrom, yearTo]);
+
   const genres = mediaType === "movie" ? movieGenres : tvGenres;
+  const yearToOptions = useMemo(
+    () => YEAR_OPTIONS.filter(year => !yearFrom || year <= yearFrom),
+    [yearFrom]
+  );
 
   const apply = () => {
     const params = new URLSearchParams();
@@ -71,8 +93,9 @@ export function DiscoverFilters({
     params.set("page", "1");
     params.set("region", region);
     if (genre) params.set("genre", String(genre));
-    if (year) params.set("year", year);
-    if (rating) params.set("rating", rating);
+    if (yearFrom) params.set("yearFrom", String(yearFrom));
+    if (yearTo) params.set("yearTo", String(yearTo));
+    if (rating !== undefined) params.set("rating", String(rating));
     if (provider) params.set("provider", String(provider));
 
     savePreferredRegion(region);
@@ -81,6 +104,11 @@ export function DiscoverFilters({
       router.push(`/discover?${params.toString()}`);
     });
   };
+
+  const numberFormatter = new Intl.NumberFormat(locale === "en" ? "en-US" : "de-DE", {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1
+  });
 
   return (
     <form
@@ -116,18 +144,47 @@ export function DiscoverFilters({
             </option>
           ))}
         </select>
-        <input
-          value={year}
-          onChange={event => setYear(event.target.value)}
-          placeholder={dictionary.discoverFilters.year}
-          className="h-10 w-28 rounded-xl border border-border/50 bg-background px-3 text-sm"
-        />
-        <input
-          value={rating}
-          onChange={event => setRating(event.target.value)}
-          placeholder={dictionary.discoverFilters.minRating}
-          className="h-10 w-32 rounded-xl border border-border/50 bg-background px-3 text-sm"
-        />
+        <select
+          aria-label={dictionary.discoverFilters.yearFrom}
+          value={yearFrom ?? ""}
+          onChange={event => setYearFrom(event.target.value ? Number(event.target.value) : undefined)}
+          className="h-10 rounded-xl border border-border/50 bg-background px-3 text-sm"
+        >
+          <option value="">{dictionary.discoverFilters.yearFrom}</option>
+          {YEAR_OPTIONS.map(year => (
+            <option key={year} value={year}>
+              {year}
+            </option>
+          ))}
+        </select>
+        {yearFrom ? (
+          <select
+            aria-label={dictionary.discoverFilters.yearTo}
+            value={yearTo ?? ""}
+            onChange={event => setYearTo(event.target.value ? Number(event.target.value) : undefined)}
+            className="h-10 rounded-xl border border-border/50 bg-background px-3 text-sm"
+          >
+            <option value="">{dictionary.discoverFilters.yearTo}</option>
+            {yearToOptions.map(year => (
+              <option key={year} value={year}>
+                {year}
+              </option>
+            ))}
+          </select>
+        ) : null}
+        <select
+          aria-label={dictionary.discoverFilters.minRating}
+          value={rating ?? ""}
+          onChange={event => setRating(event.target.value ? Number(event.target.value) : undefined)}
+          className="h-10 rounded-xl border border-border/50 bg-background px-3 text-sm"
+        >
+          <option value="">{dictionary.discoverFilters.allRatings}</option>
+          {RATING_OPTIONS.map(value => (
+            <option key={value} value={value}>
+              {`${dictionary.discoverFilters.minRating} ${numberFormatter.format(value)}`}
+            </option>
+          ))}
+        </select>
         <select
           value={sort}
           onChange={event => setSort(event.target.value)}
