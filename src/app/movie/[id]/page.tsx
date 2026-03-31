@@ -6,7 +6,7 @@ import { CastSection, InfoPanel, TrailerSection } from "@/components/sections/de
 import { HorizontalMediaRow } from "@/components/sections/media-sections";
 import { GenreList, RatingBadge, StatPill } from "@/components/shared/ui-components";
 import { ErrorState } from "@/components/states/state-components";
-import { AITagList } from "@/features/ai/ai-primitives";
+import { AIGeneratedBadge, AITagList } from "@/features/ai/ai-primitives";
 import { AITitlePanel } from "@/features/ai/title-ai-panel";
 import { WhereToWatchSection } from "@/features/watch-providers/where-to-watch-section";
 import { WatchlistFeedbackControls } from "@/features/watchlist/watchlist-feedback-controls";
@@ -115,8 +115,11 @@ export default async function MoviePage({ params }: MoviePageProps) {
                     <WatchlistFeedbackControls media={movie} compact />
                   </div>
                   <div className="max-w-3xl space-y-2">
-                    <div className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-                      {locale === "en" ? "Quick take" : "Kurzüberblick"}
+                    <div className="flex flex-wrap items-center gap-2">
+                      <div className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                        {locale === "en" ? "Quick take" : "Kurzüberblick"}
+                      </div>
+                      {initialAI.summary ? <AIGeneratedBadge /> : null}
                     </div>
                     <p className="text-sm leading-7 text-muted-foreground sm:text-base">{summaryText}</p>
                   </div>
