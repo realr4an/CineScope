@@ -16,6 +16,7 @@ import { getInitialDetailAI } from "@/lib/ai/detail-content";
 import { formatDate, formatDetailedRating, formatRuntime } from "@/lib/format";
 import { getServerDictionary } from "@/lib/i18n/server";
 import { getTvDetail } from "@/lib/tmdb/tv";
+import { getServerPreferredWatchRegion } from "@/lib/tmdb/watch-provider-preference.server";
 
 type TvPageProps = {
   params: Promise<{ id: string }>;
@@ -27,9 +28,10 @@ export default async function TvPage({ params }: TvPageProps) {
   const tmdbId = Number(id);
 
   try {
-    const [series, access] = await Promise.all([
+    const [series, access, preferredRegion] = await Promise.all([
       getTvDetail(tmdbId, locale),
-      getAgeAccessForMedia("tv", tmdbId)
+      getAgeAccessForMedia("tv", tmdbId),
+      getServerPreferredWatchRegion()
     ]);
 
     if (!access.allowed) {
@@ -138,7 +140,11 @@ export default async function TvPage({ params }: TvPageProps) {
                 initialFit={initialAI.fit}
                 hasProfileSignals={initialAI.hasFeedbackSignals}
               />
-              <WhereToWatchSection mediaType="tv" tmdbId={series.tmdbId} />
+              <WhereToWatchSection
+                mediaType="tv"
+                tmdbId={series.tmdbId}
+                initialRegionCode={preferredRegion}
+              />
               <HorizontalMediaRow
                 section={{
                   id: "similar-tv",

@@ -122,7 +122,7 @@ export function Header() {
             {user ? (
               <>
                 <Link
-                  href="/watchlist"
+                  href="/account"
                   className="inline-flex items-center gap-2 rounded-xl border border-border/50 px-3 py-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
                 >
                   <User2 className="size-4" />

@@ -16,6 +16,7 @@ import { getInitialDetailAI } from "@/lib/ai/detail-content";
 import { formatCurrency, formatDate, formatDetailedRating, formatRuntime } from "@/lib/format";
 import { getServerDictionary } from "@/lib/i18n/server";
 import { getMovieDetail } from "@/lib/tmdb/movies";
+import { getServerPreferredWatchRegion } from "@/lib/tmdb/watch-provider-preference.server";
 
 type MoviePageProps = {
   params: Promise<{ id: string }>;
@@ -27,9 +28,10 @@ export default async function MoviePage({ params }: MoviePageProps) {
   const tmdbId = Number(id);
 
   try {
-    const [movie, access] = await Promise.all([
+    const [movie, access, preferredRegion] = await Promise.all([
       getMovieDetail(tmdbId, locale),
-      getAgeAccessForMedia("movie", tmdbId)
+      getAgeAccessForMedia("movie", tmdbId),
+      getServerPreferredWatchRegion()
     ]);
 
     if (!access.allowed) {
@@ -131,7 +133,11 @@ export default async function MoviePage({ params }: MoviePageProps) {
                 initialFit={initialAI.fit}
                 hasProfileSignals={initialAI.hasFeedbackSignals}
               />
-              <WhereToWatchSection mediaType="movie" tmdbId={movie.tmdbId} />
+              <WhereToWatchSection
+                mediaType="movie"
+                tmdbId={movie.tmdbId}
+                initialRegionCode={preferredRegion}
+              />
               <HorizontalMediaRow
                 section={{
                   id: "similar-movies",

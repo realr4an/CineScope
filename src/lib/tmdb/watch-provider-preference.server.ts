@@ -2,6 +2,8 @@
 
 import { cookies } from "next/headers";
 
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+
 import {
   DEFAULT_WATCH_REGION,
   normalizeWatchRegionCode,
@@ -21,5 +23,29 @@ export async function getServerPreferredWatchRegion(explicitRegion?: string | st
     cookieStore.get(WATCH_REGION_COOKIE_NAME)?.value ?? null
   );
 
-  return cookieRegion ?? DEFAULT_WATCH_REGION;
+  if (cookieRegion) {
+    return cookieRegion;
+  }
+
+  const supabase = await createSupabaseServerClient();
+
+  if (supabase) {
+    const {
+      data: { user }
+    } = await supabase.auth.getUser();
+
+    if (user) {
+      const { data: preferences } = await (supabase.from("user_preferences") as any)
+        .select("preferred_region")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      const storedRegion = normalizeWatchRegionCode(preferences?.preferred_region ?? null);
+
+      if (storedRegion) {
+        return storedRegion;
+      }
+    }
+  }
+
+  return DEFAULT_WATCH_REGION;
 }

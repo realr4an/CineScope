@@ -64,7 +64,15 @@ async function getJson<T>(input: RequestInfo | URL) {
   return data as T;
 }
 
-export function WhereToWatchSection({ mediaType, tmdbId }: { mediaType: MediaType; tmdbId: number }) {
+export function WhereToWatchSection({
+  mediaType,
+  tmdbId,
+  initialRegionCode
+}: {
+  mediaType: MediaType;
+  tmdbId: number;
+  initialRegionCode?: string | null;
+}) {
   const { locale } = useLanguage();
   const text = locale === "en"
     ? {
@@ -111,7 +119,7 @@ export function WhereToWatchSection({ mediaType, tmdbId }: { mediaType: MediaTyp
   const [providersLoading, setProvidersLoading] = useState(false);
   const [result, setResult] = useState<WhereToWatchResult | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const { regionCode, isReady, setRegionCode } = useRegionPreference(regions);
+  const { regionCode, isReady, setRegionCode } = useRegionPreference(regions, initialRegionCode);
 
   const selectedRegion = useMemo(() => regions.find(region => region.regionCode === regionCode) ?? null, [regionCode, regions]);
 

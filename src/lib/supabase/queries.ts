@@ -22,15 +22,23 @@ export const getViewer = cache(async () => {
     return null;
   }
 
-  const { data: profile } = await (supabase.from("profiles") as any)
-    .select("birth_date")
-    .eq("id", user.id)
-    .maybeSingle();
+  const [{ data: profile }, { data: preferences }] = await Promise.all([
+    (supabase.from("profiles") as any)
+      .select("birth_date, display_name")
+      .eq("id", user.id)
+      .maybeSingle(),
+    (supabase.from("user_preferences") as any)
+      .select("preferred_region")
+      .eq("user_id", user.id)
+      .maybeSingle()
+  ]);
 
   const viewer: Viewer = {
     id: user.id,
     email: user.email ?? null,
-    birthDate: normalizeBirthDate(profile?.birth_date ?? null)
+    displayName: profile?.display_name ?? null,
+    birthDate: normalizeBirthDate(profile?.birth_date ?? null),
+    preferredRegion: preferences?.preferred_region ?? null
   };
 
   return viewer;

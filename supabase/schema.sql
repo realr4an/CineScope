@@ -54,9 +54,13 @@ create table if not exists public.user_preferences (
   user_id uuid not null references auth.users(id) on delete cascade,
   favorite_genres text[] default '{}',
   preferred_media_types text[] default '{}',
+  preferred_region text,
   updated_at timestamptz not null default timezone('utc', now()),
   unique (user_id)
 );
+
+alter table public.user_preferences
+  add column if not exists preferred_region text;
 
 create trigger user_preferences_set_updated_at
 before update on public.user_preferences

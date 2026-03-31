@@ -32,11 +32,15 @@ export function savePreferredRegion(regionCode: string) {
   document.cookie = `${WATCH_REGION_COOKIE_NAME}=${normalizedRegion}; Path=/; Max-Age=31536000; SameSite=Lax`;
 }
 
-export function getPreferredRegion(availableRegionCodes: string[]) {
+export function getPreferredRegion(
+  availableRegionCodes: string[],
+  initialRegionCode?: string | null
+) {
   const availableCodes = new Set(availableRegionCodes.map(code => code.toUpperCase()));
   const candidates: Array<string | null> = [];
 
   candidates.push(loadPreferredRegion());
+  candidates.push(normalizeWatchRegionCode(initialRegionCode));
 
   if (typeof window !== "undefined") {
     const browserLocales = window.navigator.languages?.length
@@ -59,7 +63,7 @@ export function getPreferredRegion(availableRegionCodes: string[]) {
   return availableRegionCodes[0] ?? DEFAULT_WATCH_REGION;
 }
 
-export function useRegionPreference(regions: WatchRegion[]) {
+export function useRegionPreference(regions: WatchRegion[], initialRegionCode?: string | null) {
   const [regionCode, setRegionCodeState] = useState(DEFAULT_WATCH_REGION);
   const [isReady, setIsReady] = useState(false);
 
@@ -68,9 +72,14 @@ export function useRegionPreference(regions: WatchRegion[]) {
       return;
     }
 
-    setRegionCodeState(getPreferredRegion(regions.map(region => region.regionCode)));
+    setRegionCodeState(
+      getPreferredRegion(
+        regions.map(region => region.regionCode),
+        initialRegionCode
+      )
+    );
     setIsReady(true);
-  }, [regions]);
+  }, [initialRegionCode, regions]);
 
   const setRegionCode = useCallback((nextRegionCode: string) => {
     const normalizedRegion = normalizeWatchRegionCode(nextRegionCode) ?? DEFAULT_WATCH_REGION;

@@ -23,6 +23,28 @@ export interface Database {
         };
         Relationships: [];
       };
+      user_preferences: {
+        Row: {
+          id: string;
+          user_id: string;
+          favorite_genres: string[] | null;
+          preferred_media_types: string[] | null;
+          preferred_region: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          user_id: string;
+          favorite_genres?: string[] | null;
+          preferred_media_types?: string[] | null;
+          preferred_region?: string | null;
+        };
+        Update: {
+          favorite_genres?: string[] | null;
+          preferred_media_types?: string[] | null;
+          preferred_region?: string | null;
+        };
+        Relationships: [];
+      };
       watchlist_items: {
         Row: {
           id: string;
