@@ -88,7 +88,8 @@ export const aiPriorityResponseSchema = z.object({
 });
 
 export const aiAssistantResponseSchema = z.object({
-  framing: z.string().min(1),
+  lead: z.string().min(1),
+  personalNote: z.string().optional(),
   picks: z
     .array(
       z.object({

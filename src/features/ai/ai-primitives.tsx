@@ -94,7 +94,7 @@ export function AIPicksGrid({
         <Link
           key={`${pick.mediaType}-${pick.title}`}
           href={pick.href ?? `/search?q=${encodeURIComponent(pick.title)}&type=${pick.mediaType}`}
-          className="group rounded-2xl border border-border/50 bg-background/60 p-4 transition-colors hover:border-primary/40 hover:bg-background/80"
+          className="group rounded-[1.6rem] border border-border/50 bg-background/60 p-4 transition-colors hover:border-primary/40 hover:bg-background/80"
         >
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-3">
@@ -112,9 +112,16 @@ export function AIPicksGrid({
           <h3 className="mt-2 text-lg font-semibold transition-colors group-hover:text-primary">
             {pick.title}
           </h3>
-          <p className="mt-2 text-sm text-muted-foreground">{pick.reason}</p>
+          <div className="mt-3 rounded-xl border border-border/40 bg-card/50 px-3 py-2.5">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-primary/90">
+              {locale === "en" ? "Why it could fit" : "Warum es passen könnte"}
+            </p>
+            <p className="mt-1 text-sm leading-6 text-muted-foreground">{pick.reason}</p>
+          </div>
           {pick.comparableTitle ? (
-            <p className="mt-3 text-xs text-muted-foreground">{locale === "en" ? "Reference" : "Referenz"}: {pick.comparableTitle}</p>
+            <p className="mt-3 text-xs text-muted-foreground">
+              {locale === "en" ? "Reference" : "Referenz"}: {pick.comparableTitle}
+            </p>
           ) : null}
         </Link>
       ))}

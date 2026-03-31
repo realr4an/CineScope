@@ -369,7 +369,7 @@ ${baseGuardrails(locale)}
 ${text.assistantTone}
 ${text.assistantFlow}
 ${text.outputJson}
-{"framing":"string","picks":[{"title":"string","mediaType":"movie|tv","reason":"string","comparableTitle":"string optional"}],"nextStep":"string optional"}
+{"lead":"string","personalNote":"string optional","picks":[{"title":"string","mediaType":"movie|tv","reason":"string","comparableTitle":"string optional"}],"nextStep":"string optional"}
 
 ${text.rules}
 - 3 to 5 suggestions
@@ -377,8 +377,11 @@ ${text.rules}
 - respect time budget, mood, intensity, and social context
 - use reference titles deliberately when provided
 - avoid titles the user rated negatively
-- framing should read like a short direct chat reply, not like a report
+- lead should be one short direct chat reply that clearly responds to the user's latest message
+- personalNote should briefly explain why these picks fit this specific user or mood right now
 - nextStep should be one short optional follow-up question or suggestion for the user
+- write reasons in a user-facing way, not like neutral catalog blurbs
+- if the user mentions a known title, explicitly connect the picks to what they may like about it
 
 ${text.mediaType}: ${input.mediaType}
 ${text.runtime}: ${input.timeBudget ?? text.notSpecified}

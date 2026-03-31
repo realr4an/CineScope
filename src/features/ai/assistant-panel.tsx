@@ -13,7 +13,8 @@ import { useWatchlist } from "@/features/watchlist/watchlist-provider";
 type AssistantResponse = {
   mode: "assistant";
   data: {
-    framing: string;
+    lead: string;
+    personalNote?: string;
     picks: Array<{
       title: string;
       mediaType: "movie" | "tv";
@@ -30,6 +31,8 @@ type ChatMessage = {
   id: string;
   role: "assistant" | "user";
   content: string;
+  personalNote?: string;
+  nextStep?: string;
   picks?: AssistantResponse["data"]["picks"];
   pending?: boolean;
   staticIntro?: boolean;
@@ -78,7 +81,11 @@ export function AIAssistantPanel() {
           chipsLabel: "You can start with one of these prompts:",
           typing: "Typing...",
           noAllowed: "No suitable titles could be safely resolved for the stored age yet.",
-          clearContext: "Clear context"
+          clearContext: "Clear context",
+          you: "You",
+          ai: "AI",
+          fitLabel: "Why this fits",
+          nextLabel: "Next"
         }
       : {
           quickPrompts: [
@@ -114,7 +121,11 @@ export function AIAssistantPanel() {
           chipsLabel: "Zum Einstieg kannst du auch direkt damit starten:",
           typing: "Schreibt gerade...",
           noAllowed: "Für das hinterlegte Alter konnten aktuell keine passenden Titel sicher aufgelöst werden.",
-          clearContext: "Kontext leeren"
+          clearContext: "Kontext leeren",
+          you: "Du",
+          ai: "KI",
+          fitLabel: "Warum das passt",
+          nextLabel: "Nächster Schritt"
         };
 
   const introMessage = useMemo<ChatMessage>(
@@ -214,17 +225,15 @@ export function AIAssistantPanel() {
         text.loadError
       );
 
-      const assistantContent = response.data.nextStep
-        ? `${response.data.framing}\n\n${response.data.nextStep}`
-        : response.data.framing;
-
       setMessages(current =>
         current.map(message =>
           message.id === pendingMessage.id
             ? {
                 id: createId("assistant-response"),
                 role: "assistant",
-                content: assistantContent,
+                content: response.data.lead,
+                personalNote: response.data.personalNote,
+                nextStep: response.data.nextStep,
                 picks: response.data.picks
               }
             : message
@@ -271,7 +280,7 @@ export function AIAssistantPanel() {
                     }`}
                   >
                     {message.role === "user" ? <User2 className="size-3.5" /> : <Bot className="size-3.5" />}
-                    <span>{message.role === "user" ? "You" : "AI"}</span>
+                    <span>{message.role === "user" ? text.you : text.ai}</span>
                   </div>
                   <div
                     className={`rounded-[1.5rem] px-4 py-3 text-sm leading-6 ${
@@ -284,6 +293,16 @@ export function AIAssistantPanel() {
                   >
                     <p className="whitespace-pre-line break-words">{message.content}</p>
                   </div>
+                  {message.personalNote ? (
+                    <div className="rounded-[1.35rem] border border-primary/20 bg-primary/8 px-4 py-3 text-sm text-muted-foreground">
+                      <div className="mb-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
+                        {text.fitLabel}
+                      </div>
+                      <p className="whitespace-pre-line break-words leading-6">
+                        {message.personalNote}
+                      </p>
+                    </div>
+                  ) : null}
                   {message.picks ? (
                     message.picks.length ? (
                       <div className="w-full">
@@ -294,6 +313,14 @@ export function AIAssistantPanel() {
                         {text.noAllowed}
                       </div>
                     )
+                  ) : null}
+                  {message.nextStep ? (
+                    <div className="rounded-[1.35rem] border border-dashed border-border/60 bg-background/40 px-4 py-3 text-sm text-muted-foreground">
+                      <div className="mb-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
+                        {text.nextLabel}
+                      </div>
+                      <p className="whitespace-pre-line break-words leading-6">{message.nextStep}</p>
+                    </div>
                   ) : null}
                   {message.staticIntro ? (
                     <div className="space-y-2">
