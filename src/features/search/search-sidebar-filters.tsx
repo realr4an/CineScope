@@ -114,7 +114,7 @@ export function SearchSidebarFilters({
     : text.allStarRatings;
 
   return (
-    <aside className="space-y-5 rounded-[2rem] border border-border/50 bg-card/50 p-5 lg:sticky lg:top-24">
+    <aside className="space-y-5 rounded-[2rem] border border-border/50 bg-card/50 p-5 lg:sticky lg:top-24 lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto lg:overscroll-contain">
       <div className="space-y-1">
         <h2 className="text-lg font-semibold">{text.title}</h2>
         <p className="text-sm text-muted-foreground">{text.description}</p>
