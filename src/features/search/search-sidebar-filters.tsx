@@ -114,7 +114,7 @@ export function SearchSidebarFilters({
     : text.allStarRatings;
 
   return (
-    <aside className="space-y-5 rounded-[2rem] border border-border/50 bg-card/50 p-5 lg:sticky lg:top-24 lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto lg:overscroll-contain">
+    <aside className="min-w-0 w-full space-y-5 overflow-hidden rounded-[2rem] border border-border/50 bg-card/50 p-5 lg:sticky lg:top-24 lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto lg:overscroll-contain">
       <div className="space-y-1">
         <h2 className="text-lg font-semibold">{text.title}</h2>
         <p className="text-sm text-muted-foreground">{text.description}</p>
@@ -232,9 +232,9 @@ export function SearchSidebarFilters({
       <div className="space-y-3">
         <div className="space-y-2">
           <label className="text-sm font-medium">{text.starRating}</label>
-          <details className="group rounded-xl border border-border/50 bg-background">
-            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2 text-sm">
-              <span className="truncate">{selectedRatingLabel}</span>
+          <details className="group min-w-0 rounded-xl border border-border/50 bg-background">
+            <summary className="flex min-w-0 cursor-pointer list-none items-center justify-between gap-3 px-3 py-2 text-sm">
+              <span className="min-w-0 truncate">{selectedRatingLabel}</span>
               <ChevronDown className="size-4 text-muted-foreground transition-transform group-open:rotate-180" />
             </summary>
             <div className="space-y-2 border-t border-border/50 px-3 py-3">
@@ -247,7 +247,7 @@ export function SearchSidebarFilters({
                 return (
                   <label
                     key={bucket.value}
-                    className="flex cursor-pointer items-center gap-3 rounded-xl border border-border/50 bg-card/40 px-3 py-2 text-sm transition hover:border-primary/40"
+                    className="flex min-w-0 flex-wrap cursor-pointer items-center gap-3 rounded-xl border border-border/50 bg-card/40 px-3 py-2 text-sm transition hover:border-primary/40"
                   >
                     <input
                       type="checkbox"
@@ -260,7 +260,7 @@ export function SearchSidebarFilters({
                       }
                       className="size-4 rounded border-border"
                     />
-                    <span className="flex min-w-[5.5rem] items-center gap-1 text-amber-400">
+                    <span className="flex items-center gap-1 text-amber-400 sm:min-w-[5.5rem]">
                       {Array.from({ length: 5 }).map((_, index) => (
                         <Star
                           key={index}
@@ -272,7 +272,7 @@ export function SearchSidebarFilters({
                         />
                       ))}
                     </span>
-                    <span className="text-muted-foreground">
+                    <span className="min-w-0 break-words text-muted-foreground">
                       {numberFormatter.format(bucket.min)} {text.range}{" "}
                       {numberFormatter.format(bucket.max)}
                     </span>

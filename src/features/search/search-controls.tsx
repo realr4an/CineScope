@@ -116,7 +116,7 @@ export function SearchControls({
         isPending={isPending}
       />
 
-      <div className="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)] lg:items-start">
+      <div className="min-w-0 grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)] lg:items-start">
         <SearchSidebarFilters
           movieGenres={movieGenres}
           tvGenres={tvGenres}
