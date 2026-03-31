@@ -6,7 +6,11 @@ import {
   getPersonAIContext,
   resolveMediaAIContext
 } from "@/lib/ai/context";
-import { resolveAIPicks, resolveAllowedAIPicks } from "@/lib/ai/formatters";
+import {
+  filterAIPicksBySeasonCount,
+  resolveAIPicks,
+  resolveAllowedAIPicks
+} from "@/lib/ai/formatters";
 import { askOpenRouterJson } from "@/lib/ai/openrouter";
 import {
   assistantPrompt,
@@ -58,6 +62,24 @@ function formatValidationError(
 
   const firstFieldError = Object.values(fieldErrors).flat().find(Boolean);
   return firstFieldError ?? fallback;
+}
+
+function getRequestedSeasonCount(input: {
+  prompt?: string;
+  conversation?: Array<{ content: string }>;
+}) {
+  const combined = [input.prompt ?? "", ...(input.conversation ?? []).map(message => message.content)]
+    .join(" \n ")
+    .toLowerCase();
+
+  if (
+    /(?:nur|only)[^.!?\n]{0,30}(?:eine|1|one)\s+(?:staffel|season)\b/.test(combined) ||
+    /(?:mit|with)[^.!?\n]{0,20}(?:nur|only)?[^.!?\n]{0,10}(?:eine|1|one)\s+(?:staffel|season)\b/.test(combined)
+  ) {
+    return 1;
+  }
+
+  return null;
 }
 
 async function ensureResolvedMediaAllowed(
@@ -205,6 +227,10 @@ export async function POST(request: Request) {
       }
 
       case "assistant": {
+        const requestedSeasonCount = getRequestedSeasonCount({
+          prompt: parsed.data.prompt,
+          conversation: parsed.data.conversation
+        });
         const references = (
           await Promise.all(
             parsed.data.referenceTitles.map(reference => ensureResolvedMediaAllowed(reference, locale))
@@ -230,7 +256,10 @@ export async function POST(request: Request) {
           ),
           aiAssistantResponseSchema
         );
-        const picks = await resolveAllowedAIPicks(data.picks, locale);
+        const resolvedPicks = await resolveAllowedAIPicks(data.picks, locale);
+        const picks = requestedSeasonCount
+          ? await filterAIPicksBySeasonCount(resolvedPicks, requestedSeasonCount, locale)
+          : resolvedPicks;
 
         return NextResponse.json({
           mode: "assistant",

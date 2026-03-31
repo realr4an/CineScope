@@ -1,7 +1,7 @@
 import "server-only";
 
 import { getAgeAccessForMedia } from "@/lib/age-gate/server";
-import { resolveMediaAIContext } from "@/lib/ai/context";
+import { getManyMediaAIContexts, resolveMediaAIContext } from "@/lib/ai/context";
 import type { AIAssistantPick } from "@/lib/ai/types";
 import type { Locale } from "@/lib/i18n/types";
 import type { MediaType } from "@/types/media";
@@ -76,6 +76,32 @@ export async function resolveAllowedAIPicks<T extends { title: string; mediaType
       href: string;
     }
   >;
+}
+
+export async function filterAIPicksBySeasonCount<T extends { tmdbId: number; mediaType: MediaType }>(
+  picks: T[],
+  seasonCount: number,
+  locale: Locale = "de"
+) {
+  if (!picks.length) {
+    return picks;
+  }
+
+  const contexts = await getManyMediaAIContexts(
+    picks.map(pick => ({
+      tmdbId: pick.tmdbId,
+      mediaType: pick.mediaType
+    })),
+    locale
+  );
+
+  return picks.filter((pick, index) => {
+    if (pick.mediaType !== "tv") {
+      return false;
+    }
+
+    return contexts[index]?.numberOfSeasons === seasonCount;
+  });
 }
 
 export function mapAIPickToRecommendation(pick: AIAssistantPick) {
