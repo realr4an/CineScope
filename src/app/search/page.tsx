@@ -5,8 +5,7 @@ import { MediaGrid } from "@/components/sections/media-sections";
 import { SectionHeader } from "@/components/shared/ui-components";
 import { EmptyState, ErrorState } from "@/components/states/state-components";
 import { Button } from "@/components/ui/button";
-import { SearchForm } from "@/features/search/search-form";
-import { SearchSidebarFilters } from "@/features/search/search-sidebar-filters";
+import { SearchControls } from "@/features/search/search-controls";
 import { filterMediaForViewerAge } from "@/lib/age-gate/server";
 import { getServerDictionary } from "@/lib/i18n/server";
 import { getMinimumRatingForStars, matchesStarRatings } from "@/lib/media-rating";
@@ -363,39 +362,23 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
             <p className="text-muted-foreground">{dictionary.searchPage.description}</p>
           </div>
 
-          <SearchForm
-            initialQuery={parsed.q}
-            initialType={parsed.type}
-            initialSort={parsed.sort}
-            initialGenre={parsed.genre}
-            initialYearFrom={parsed.yearFrom}
-            initialYearTo={parsed.yearTo}
-            initialRating={parsed.rating}
-            initialRatings={parsed.ratings}
-            initialRegion={activeRegion}
-            initialProviders={parsed.providers}
-          />
-
-          <div className="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)] lg:items-start">
-            <SearchSidebarFilters
-              query={parsed.q}
-              movieGenres={genreMaps.movieList}
-              tvGenres={genreMaps.tvList}
-              availableRegions={availableRegions}
-              initial={{
-                type: parsed.type,
-                sort: parsed.sort,
-                genre: parsed.genre,
-                yearFrom: parsed.yearFrom,
-                yearTo: parsed.yearTo,
-                rating: parsed.rating,
-                ratings: parsed.ratings,
-                region: activeRegion,
-                providers: parsed.providers
-              }}
-            />
-
-            <div className="space-y-4">
+          <SearchControls
+            movieGenres={genreMaps.movieList}
+            tvGenres={genreMaps.tvList}
+            availableRegions={availableRegions}
+            initial={{
+              query: parsed.q,
+              type: parsed.type,
+              sort: parsed.sort,
+              genre: parsed.genre,
+              yearFrom: parsed.yearFrom,
+              yearTo: parsed.yearTo,
+              rating: parsed.rating,
+              ratings: parsed.ratings,
+              region: activeRegion,
+              providers: parsed.providers
+            }}
+          >
               {parsed.q ? (
                 sortedResults.length ? (
                   <>
@@ -507,8 +490,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
                   ) : null}
                 </>
               )}
-            </div>
-          </div>
+          </SearchControls>
         </div>
       </AppShell>
     );
