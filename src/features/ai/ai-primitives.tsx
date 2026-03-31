@@ -57,17 +57,32 @@ export function AIPanelShell({
   );
 }
 
-export function AITagList({ tags }: { tags: string[] }) {
+export function AITagList({
+  tags,
+  showGeneratedLabel = false
+}: {
+  tags: string[];
+  showGeneratedLabel?: boolean;
+}) {
+  const { locale } = useLanguage();
+
   return (
-    <div className="flex flex-wrap gap-2">
-      {tags.map(tag => (
-        <span
-          key={tag}
-          className="rounded-full border border-primary/25 bg-primary/10 px-3 py-1 text-xs font-medium text-primary"
-        >
-          {tag}
-        </span>
-      ))}
+    <div className="space-y-2">
+      {showGeneratedLabel ? (
+        <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary/90">
+          {locale === "en" ? "AI-generated tags" : "KI-generierte Tags"}
+        </div>
+      ) : null}
+      <div className="flex flex-wrap gap-2">
+        {tags.map(tag => (
+          <span
+            key={tag}
+            className="rounded-full border border-primary/25 bg-primary/10 px-3 py-1 text-xs font-medium text-primary"
+          >
+            {tag}
+          </span>
+        ))}
+      </div>
     </div>
   );
 }

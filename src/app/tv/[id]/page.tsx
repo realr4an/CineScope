@@ -111,7 +111,9 @@ export default async function TvPage({ params }: TvPageProps) {
                   </div>
                   <div className="space-y-3">
                     <GenreList genres={series.genres} />
-                    {initialAI.insights?.vibeTags?.length ? <AITagList tags={initialAI.insights.vibeTags} /> : null}
+                    {initialAI.insights?.vibeTags?.length ? (
+                      <AITagList tags={initialAI.insights.vibeTags} showGeneratedLabel />
+                    ) : null}
                   </div>
                   <div className="space-y-3">
                     <div className="flex flex-wrap gap-3">
