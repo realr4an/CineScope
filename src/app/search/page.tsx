@@ -113,6 +113,8 @@ function filterSearchItems(
     ratings: number[];
   }
 ) {
+  const effectiveYearTo = input.yearTo ?? input.yearFrom;
+
   return items.filter(item => {
     if (input.genre && !item.genres.some(genre => genre.id === input.genre)) {
       return false;
@@ -126,7 +128,7 @@ function filterSearchItems(
       return false;
     }
 
-    if (input.yearFrom || input.yearTo) {
+    if (input.yearFrom || effectiveYearTo) {
       const year = item.releaseDate ? Number(item.releaseDate.slice(0, 4)) : undefined;
 
       if (!year) {
@@ -137,7 +139,7 @@ function filterSearchItems(
         return false;
       }
 
-      if (input.yearTo && year > input.yearTo) {
+      if (effectiveYearTo && year > effectiveYearTo) {
         return false;
       }
     }

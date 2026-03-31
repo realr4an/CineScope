@@ -19,13 +19,14 @@ function buildDateRangeParams(input: {
 }) {
   const dateField = getDiscoverDateField(input.mediaType);
   const params: Record<string, string | undefined> = {};
+  const effectiveYearTo = input.yearTo ?? input.yearFrom;
 
   if (input.yearFrom) {
     params[`${dateField}.gte`] = `${input.yearFrom}-01-01`;
   }
 
-  if (input.yearTo) {
-    params[`${dateField}.lte`] = `${input.yearTo}-12-31`;
+  if (effectiveYearTo) {
+    params[`${dateField}.lte`] = `${effectiveYearTo}-12-31`;
   }
 
   return params;
