@@ -28,6 +28,19 @@ const optionalPositiveIntArrayParam = z.preprocess(value => {
     .filter(item => Number.isInteger(item) && item > 0);
 }, z.array(z.number().int().positive()).default([]));
 
+const optionalStarIntArrayParam = z.preprocess(value => {
+  if (value === "" || value === null || value === undefined) {
+    return [];
+  }
+
+  const values = Array.isArray(value) ? value : [value];
+
+  return values
+    .flatMap(item => String(item).split(","))
+    .map(item => Number(item))
+    .filter(item => Number.isInteger(item) && item >= 1 && item <= 5);
+}, z.array(z.number().int().min(1).max(5)).default([]));
+
 const optionalRegionParam = z.preprocess(value => {
   if (value === "" || value === null || value === undefined) {
     return undefined;
@@ -53,22 +66,28 @@ export const searchParamsSchema = z.object({
     value => value === undefined || (value >= 0 && value <= 10),
     "Expected a rating between 0 and 10"
   ),
+  ratings: optionalStarIntArrayParam,
   page: z.coerce.number().int().min(1).default(1),
   region: optionalRegionParam,
   providers: optionalPositiveIntArrayParam
 }).transform(value => {
   const yearFrom = value.yearFrom;
   const yearTo = value.yearTo;
+  const ratings = [...new Set(value.ratings)].sort((left, right) => right - left);
 
   if (yearFrom !== undefined && yearTo !== undefined && yearFrom > yearTo) {
     return {
       ...value,
+      ratings,
       yearFrom: yearTo,
       yearTo: yearFrom
     };
   }
 
-  return value;
+  return {
+    ...value,
+    ratings
+  };
 });
 
 export const discoverParamsSchema = z

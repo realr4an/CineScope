@@ -2,11 +2,13 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { ChevronDown, Star } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/features/i18n/language-provider";
 import { savePreferredRegion } from "@/features/watch-providers/region-preference";
 import { useProviderOptions } from "@/features/watch-providers/use-provider-options";
+import { STAR_RATING_BUCKETS, normalizeStarRatings } from "@/lib/media-rating";
 import type { Genre } from "@/types/media";
 import type { WatchRegion } from "@/types/watch-providers";
 
@@ -15,7 +17,6 @@ const YEAR_OPTIONS = Array.from(
   { length: CURRENT_YEAR - 1949 },
   (_, index) => CURRENT_YEAR - index
 );
-const RATING_OPTIONS = [9, 8, 7, 6, 5, 4, 3];
 
 export function SearchSidebarFilters({
   query,
@@ -35,6 +36,7 @@ export function SearchSidebarFilters({
     yearFrom?: number;
     yearTo?: number;
     rating?: number;
+    ratings: number[];
     region: string;
     providers: number[];
   };
@@ -45,6 +47,7 @@ export function SearchSidebarFilters({
   const [yearFrom, setYearFrom] = useState<number | undefined>(initial.yearFrom);
   const [yearTo, setYearTo] = useState<number | undefined>(initial.yearTo);
   const [rating, setRating] = useState<number | undefined>(initial.rating);
+  const [ratings, setRatings] = useState<number[]>(normalizeStarRatings(initial.ratings));
   const [region, setRegion] = useState(initial.region);
   const [providers, setProviders] = useState<number[]>(initial.providers);
   const [isPending, startTransition] = useTransition();
@@ -60,6 +63,10 @@ export function SearchSidebarFilters({
           mediaType: "Media type",
           sortBy: "Sort by",
           category: "Category",
+          starRating: "Star rating",
+          allStarRatings: "All star ratings",
+          selected: "selected",
+          range: "to",
           chooseTypeFirst: "Select a specific media type to filter by category.",
           clearStreaming: "Clear all",
           noStreamingOptions: "No streaming services are available for this selection.",
@@ -72,6 +79,10 @@ export function SearchSidebarFilters({
           mediaType: "Medientyp",
           sortBy: "Sortierung",
           category: "Kategorie",
+          starRating: "Sternebewertung",
+          allStarRatings: "Alle Sternbewertungen",
+          selected: "ausgewählt",
+          range: "bis",
           chooseTypeFirst: "Wähle erst Film oder Serie, um nach Kategorien zu filtern.",
           clearStreaming: "Alle entfernen",
           noStreamingOptions: "Für diese Auswahl sind keine Streamingdienste verfügbar.",
@@ -85,6 +96,7 @@ export function SearchSidebarFilters({
     setYearFrom(initial.yearFrom);
     setYearTo(initial.yearTo);
     setRating(initial.rating);
+    setRatings(normalizeStarRatings(initial.ratings));
     setRegion(initial.region);
     setProviders(initial.providers);
   }, [initial]);
@@ -132,6 +144,7 @@ export function SearchSidebarFilters({
       yearFrom?: number | undefined;
       yearTo?: number | undefined;
       rating?: number | undefined;
+      ratings?: number[];
     }
   ) => {
     const resolvedType = overrides?.type ?? type;
@@ -140,6 +153,7 @@ export function SearchSidebarFilters({
     const resolvedYearFrom = overrides?.yearFrom ?? yearFrom;
     const resolvedYearTo = overrides?.yearTo ?? yearTo;
     const resolvedRating = overrides?.rating ?? rating;
+    const resolvedRatings = normalizeStarRatings(overrides?.ratings ?? ratings);
     const resolvedRegion = overrides?.region ?? region;
     const resolvedProviders = overrides?.providers ?? providers;
     const params = new URLSearchParams();
@@ -164,6 +178,9 @@ export function SearchSidebarFilters({
     if (resolvedRating !== undefined) {
       params.set("rating", String(resolvedRating));
     }
+    for (const selectedRating of resolvedRatings) {
+      params.append("ratings", String(selectedRating));
+    }
     for (const providerId of resolvedProviders) {
       params.append("providers", String(providerId));
     }
@@ -183,6 +200,15 @@ export function SearchSidebarFilters({
     apply({ providers: nextProviders });
   };
 
+  const toggleStarRating = (nextValue: number) => {
+    const nextRatings = ratings.includes(nextValue)
+      ? ratings.filter(value => value !== nextValue)
+      : [...ratings, nextValue];
+    const normalizedRatings = normalizeStarRatings(nextRatings);
+    setRatings(normalizedRatings);
+    apply({ ratings: normalizedRatings });
+  };
+
   const resetFilters = () => {
     const nextState = {
       type: "all" as const,
@@ -191,6 +217,7 @@ export function SearchSidebarFilters({
       yearFrom: undefined,
       yearTo: undefined,
       rating: undefined,
+      ratings: [] as number[],
       region,
       providers: [] as number[]
     };
@@ -201,9 +228,14 @@ export function SearchSidebarFilters({
     setYearFrom(undefined);
     setYearTo(undefined);
     setRating(undefined);
+    setRatings([]);
     setProviders([]);
     apply(nextState);
   };
+
+  const selectedRatingLabel = ratings.length
+    ? `${ratings.length} ${text.selected}`
+    : text.allStarRatings;
 
   return (
     <aside className="space-y-5 rounded-[2rem] border border-border/50 bg-card/50 p-5 lg:sticky lg:top-24">
@@ -280,7 +312,10 @@ export function SearchSidebarFilters({
           onChange={event => {
             const nextYearFrom = event.target.value ? Number(event.target.value) : undefined;
             setYearFrom(nextYearFrom);
-            apply({ yearFrom: nextYearFrom, yearTo: yearTo && nextYearFrom && yearTo < nextYearFrom ? nextYearFrom : yearTo });
+            apply({
+              yearFrom: nextYearFrom,
+              yearTo: yearTo && nextYearFrom && yearTo < nextYearFrom ? nextYearFrom : yearTo
+            });
           }}
           className="h-10 w-full rounded-xl border border-border/50 bg-background px-3 text-sm"
         >
@@ -312,6 +347,51 @@ export function SearchSidebarFilters({
       </div>
 
       <div className="space-y-3">
+        <div className="space-y-2">
+          <label className="text-sm font-medium">{text.starRating}</label>
+          <details className="group rounded-xl border border-border/50 bg-background">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2 text-sm">
+              <span className="truncate">{selectedRatingLabel}</span>
+              <ChevronDown className="size-4 text-muted-foreground transition-transform group-open:rotate-180" />
+            </summary>
+            <div className="space-y-2 border-t border-border/50 px-3 py-3">
+              {STAR_RATING_BUCKETS.map(bucket => {
+                const checked = ratings.includes(bucket.value);
+
+                return (
+                  <label
+                    key={bucket.value}
+                    className="flex cursor-pointer items-center gap-3 rounded-xl border border-border/50 bg-card/40 px-3 py-2 text-sm transition hover:border-primary/40"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => toggleStarRating(bucket.value)}
+                      className="size-4 rounded border-border"
+                    />
+                    <span className="flex min-w-[5.5rem] items-center gap-1 text-amber-400">
+                      {Array.from({ length: 5 }).map((_, index) => (
+                        <Star
+                          key={index}
+                          className={`size-3.5 ${
+                            index < bucket.value
+                              ? "fill-current text-amber-400"
+                              : "text-muted-foreground/40"
+                          }`}
+                        />
+                      ))}
+                    </span>
+                    <span className="text-muted-foreground">
+                      {numberFormatter.format(bucket.min)} {text.range}{" "}
+                      {numberFormatter.format(bucket.max)}
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+          </details>
+        </div>
+
         <label className="text-sm font-medium" htmlFor="search-rating-filter">
           {dictionary.discoverFilters.minRating}
         </label>
@@ -326,7 +406,7 @@ export function SearchSidebarFilters({
           className="h-10 w-full rounded-xl border border-border/50 bg-background px-3 text-sm"
         >
           <option value="">{dictionary.discoverFilters.allRatings}</option>
-          {RATING_OPTIONS.map(value => (
+          {[9, 8, 7, 6, 5, 4, 3].map(value => (
             <option key={value} value={value}>
               {`${dictionary.discoverFilters.minRating} ${numberFormatter.format(value)}`}
             </option>

@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -15,6 +15,7 @@ export function SearchForm({
   initialYearFrom,
   initialYearTo,
   initialRating,
+  initialRatings,
   initialRegion,
   initialProviders
 }: {
@@ -25,6 +26,7 @@ export function SearchForm({
   initialYearFrom?: number;
   initialYearTo?: number;
   initialRating?: number;
+  initialRatings: number[];
   initialRegion: string;
   initialProviders: number[];
 }) {
@@ -55,6 +57,9 @@ export function SearchForm({
     }
     if (initialRating !== undefined) {
       params.set("rating", String(initialRating));
+    }
+    for (const selectedRating of initialRatings) {
+      params.append("ratings", String(selectedRating));
     }
     for (const providerId of initialProviders) {
       params.append("providers", String(providerId));

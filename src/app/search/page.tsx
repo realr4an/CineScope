@@ -1,4 +1,4 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 
 import { AppShell } from "@/components/layout/app-shell";
 import { MediaGrid } from "@/components/sections/media-sections";
@@ -9,8 +9,8 @@ import { SearchForm } from "@/features/search/search-form";
 import { SearchSidebarFilters } from "@/features/search/search-sidebar-filters";
 import { filterMediaForViewerAge } from "@/lib/age-gate/server";
 import { getServerDictionary } from "@/lib/i18n/server";
-import { getDiscoverResults } from "@/lib/tmdb/discover";
-import { getGenreMaps } from "@/lib/tmdb/discover";
+import { getMinimumRatingForStars, matchesStarRatings } from "@/lib/media-rating";
+import { getDiscoverResults, getGenreMaps } from "@/lib/tmdb/discover";
 import { searchMediaWithFallback } from "@/lib/tmdb/search";
 import { getServerPreferredWatchRegion } from "@/lib/tmdb/watch-provider-preference.server";
 import { DEFAULT_WATCH_REGION } from "@/lib/tmdb/watch-provider-preference";
@@ -48,6 +48,7 @@ function buildSearchHref(input: {
   yearFrom?: number;
   yearTo?: number;
   rating?: number;
+  ratings: number[];
   page: number;
   region: string;
   providers: number[];
@@ -71,6 +72,9 @@ function buildSearchHref(input: {
   }
   if (input.rating !== undefined) {
     params.set("rating", String(input.rating));
+  }
+  for (const selectedRating of input.ratings) {
+    params.append("ratings", String(selectedRating));
   }
   for (const providerId of input.providers) {
     params.append("providers", String(providerId));
@@ -107,6 +111,7 @@ function filterSearchItems(
     yearFrom?: number;
     yearTo?: number;
     rating?: number;
+    ratings: number[];
   }
 ) {
   return items.filter(item => {
@@ -115,6 +120,10 @@ function filterSearchItems(
     }
 
     if (input.rating !== undefined && item.rating < input.rating) {
+      return false;
+    }
+
+    if (!matchesStarRatings(item.rating, input.ratings)) {
       return false;
     }
 
@@ -154,25 +163,27 @@ function mapSearchSortToDiscoverSort(
 }
 
 async function getBrowseResults(input: {
-  query: string;
   type: "all" | "movie" | "tv";
   page: number;
   genre?: number;
   yearFrom?: number;
   yearTo?: number;
   rating?: number;
+  ratings: number[];
   sort: "popularity" | "rating" | "release_date";
   region: string;
   providers: number[];
   locale: "de" | "en";
 }) {
+  const minimumRating = input.rating ?? getMinimumRatingForStars(input.ratings);
+
   if (input.type === "movie" || input.type === "tv") {
     return getDiscoverResults({
       mediaType: input.type,
       genre: input.genre,
       yearFrom: input.yearFrom,
       yearTo: input.yearTo,
-      rating: input.rating,
+      rating: minimumRating,
       page: input.page,
       sort: mapSearchSortToDiscoverSort(input.type, input.sort),
       region: input.region,
@@ -186,7 +197,7 @@ async function getBrowseResults(input: {
       mediaType: "movie",
       yearFrom: input.yearFrom,
       yearTo: input.yearTo,
-      rating: input.rating,
+      rating: minimumRating,
       page: input.page,
       sort: mapSearchSortToDiscoverSort("movie", input.sort),
       region: input.region,
@@ -197,7 +208,7 @@ async function getBrowseResults(input: {
       mediaType: "tv",
       yearFrom: input.yearFrom,
       yearTo: input.yearTo,
-      rating: input.rating,
+      rating: minimumRating,
       page: input.page,
       sort: mapSearchSortToDiscoverSort("tv", input.sort),
       region: input.region,
@@ -226,6 +237,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
     yearFrom: rawSearchParams.yearFrom,
     yearTo: rawSearchParams.yearTo,
     rating: rawSearchParams.rating,
+    ratings: rawSearchParams.ratings,
     page: rawSearchParams.page,
     region: requestedRegion,
     providers: rawSearchParams.providers ?? rawSearchParams.provider
@@ -244,13 +256,21 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
           page: parsed.page,
           locale
         })
-      : { items: [], appliedQuery: parsed.q, fallbackUsed: false, page: parsed.page, totalPages: 1, totalResults: 0 };
+      : {
+          items: [],
+          appliedQuery: parsed.q,
+          fallbackUsed: false,
+          page: parsed.page,
+          totalPages: 1,
+          totalResults: 0
+        };
 
     const filteredSearchItems = filterSearchItems(searchResult.items, {
       genre: parsed.type === "all" ? undefined : parsed.genre,
       yearFrom: parsed.yearFrom,
       yearTo: parsed.yearTo,
-      rating: parsed.rating
+      rating: parsed.rating,
+      ratings: parsed.ratings
     });
     const providerFilteredResults = parsed.providers.length
       ? await filterMediaByWatchProvider(filteredSearchItems, activeRegion, parsed.providers)
@@ -272,22 +292,30 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
     const browseResult =
       parsed.q.trim().length === 0
         ? await getBrowseResults({
-            query: parsed.q,
             type: parsed.type,
             page: parsed.page,
             genre: parsed.type === "all" ? undefined : parsed.genre,
             yearFrom: parsed.yearFrom,
             yearTo: parsed.yearTo,
             rating: parsed.rating,
+            ratings: parsed.ratings,
             sort: parsed.sort,
             region: activeRegion,
             providers: parsed.providers,
             locale
           })
-        : { items: [], page: 1, totalPages: 1 };
+        : { items: [], page: 1, totalPages: 1, totalResults: 0 };
     const discoveryItems =
       parsed.q.trim().length === 0
-        ? await filterMediaForViewerAge(browseResult.items)
+        ? await filterMediaForViewerAge(
+            filterSearchItems(browseResult.items, {
+              genre: parsed.type === "all" ? undefined : parsed.genre,
+              yearFrom: parsed.yearFrom,
+              yearTo: parsed.yearTo,
+              rating: parsed.rating,
+              ratings: parsed.ratings
+            })
+          )
         : [];
 
     const isEnglish = locale === "en";
@@ -343,6 +371,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
             initialYearFrom={parsed.yearFrom}
             initialYearTo={parsed.yearTo}
             initialRating={parsed.rating}
+            initialRatings={parsed.ratings}
             initialRegion={activeRegion}
             initialProviders={parsed.providers}
           />
@@ -360,6 +389,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
                 yearFrom: parsed.yearFrom,
                 yearTo: parsed.yearTo,
                 rating: parsed.rating,
+                ratings: parsed.ratings,
                 region: activeRegion,
                 providers: parsed.providers
               }}
@@ -390,7 +420,11 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
                           <Button asChild variant="outline" size="sm" disabled={searchResult.page <= 1}>
                             <Link
                               aria-disabled={searchResult.page <= 1}
-                              href={buildSearchHref({ ...parsed, page: Math.max(1, searchResult.page - 1), region: activeRegion })}
+                              href={buildSearchHref({
+                                ...parsed,
+                                page: Math.max(1, searchResult.page - 1),
+                                region: activeRegion
+                              })}
                             >
                               {pageText.previous}
                             </Link>
@@ -403,7 +437,11 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
                           <Button asChild variant="outline" size="sm" disabled={searchResult.page >= totalPages}>
                             <Link
                               aria-disabled={searchResult.page >= totalPages}
-                              href={buildSearchHref({ ...parsed, page: Math.min(totalPages, searchResult.page + 1), region: activeRegion })}
+                              href={buildSearchHref({
+                                ...parsed,
+                                page: Math.min(totalPages, searchResult.page + 1),
+                                region: activeRegion
+                              })}
                             >
                               {pageText.next}
                             </Link>
@@ -438,7 +476,11 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
                         <Button asChild variant="outline" size="sm" disabled={browseResult.page <= 1}>
                           <Link
                             aria-disabled={browseResult.page <= 1}
-                            href={buildSearchHref({ ...parsed, page: Math.max(1, browseResult.page - 1), region: activeRegion })}
+                            href={buildSearchHref({
+                              ...parsed,
+                              page: Math.max(1, browseResult.page - 1),
+                              region: activeRegion
+                            })}
                           >
                             {pageText.previous}
                           </Link>
@@ -451,7 +493,11 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
                         <Button asChild variant="outline" size="sm" disabled={browseResult.page >= browseResult.totalPages}>
                           <Link
                             aria-disabled={browseResult.page >= browseResult.totalPages}
-                            href={buildSearchHref({ ...parsed, page: Math.min(browseResult.totalPages, browseResult.page + 1), region: activeRegion })}
+                            href={buildSearchHref({
+                              ...parsed,
+                              page: Math.min(browseResult.totalPages, browseResult.page + 1),
+                              region: activeRegion
+                            })}
                           >
                             {pageText.next}
                           </Link>
