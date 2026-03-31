@@ -26,7 +26,6 @@ export function Header() {
   const navItems = [
     { href: "/", label: dictionary.nav.discover, icon: Tv2 },
     { href: "/search", label: dictionary.nav.search, icon: Search },
-    { href: "/discover", label: dictionary.nav.categories, icon: Search },
     { href: "/ai", label: dictionary.nav.ai, icon: Sparkles },
     { href: "/watchlist", label: dictionary.nav.watchlist, icon: Heart }
   ];
