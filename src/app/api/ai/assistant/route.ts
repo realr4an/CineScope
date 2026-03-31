@@ -223,7 +223,8 @@ export async function POST(request: Request) {
               intensity: parsed.data.intensity,
               socialContext: parsed.data.socialContext,
               references,
-              feedback: parsed.data.feedback
+              feedback: parsed.data.feedback,
+              conversation: parsed.data.conversation
             },
             locale
           ),

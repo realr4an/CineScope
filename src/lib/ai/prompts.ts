@@ -8,6 +8,11 @@ type RecommendationFeedbackItem = {
   liked: boolean | null;
 };
 
+type AssistantConversationMessage = {
+  role: "user" | "assistant";
+  content: string;
+};
+
 const COPY = {
   de: {
     titleLabel: "Titel",
@@ -36,6 +41,8 @@ const COPY = {
     fitIntro: "Du erklärst kurz, warum ein Titel zu einem Nutzer passen könnte.",
     priorityIntro: "Du hilfst bei der Reihenfolge mehrerer Titel.",
     assistantIntro: "Du bist ein fokussierter Auswahl-Assistent für Filme und Serien.",
+    assistantTone: "Antworte wie ein natürlicher Chat-Assistent: freundlich, konkret, führend, aber nicht steif.",
+    assistantFlow: "Greife den letzten Nutzerwunsch direkt auf und hilf mit dem nächsten sinnvollen Schritt.",
     titleInsightsIntro: "Du erzeugst kurze KI-Insights für eine Titel-Detailseite.",
     personInsightsIntro: "Du ordnest eine Schauspiel- oder Kreativperson für Medienfans kurz ein.",
     outputJson: "Antworte ausschließlich als JSON im Format:",
@@ -66,6 +73,7 @@ const COPY = {
     socialContext: "Sozialer Kontext",
     referenceTitles: "Referenztitel:",
     request: "Nutzeranfrage:",
+    conversation: "Bisheriger Gesprächsverlauf:",
     titleInsightsRules1: "3 bis 6 prägnante Vibe-Tags",
     titleInsightsRules2: "Content-Warning light, spoilerfrei und vorsichtig formuliert",
     titleInsightsRules3: "kein klinischer Ton",
@@ -107,6 +115,8 @@ const COPY = {
     fitIntro: "You briefly explain why a title might fit a user.",
     priorityIntro: "You help decide the order of several titles.",
     assistantIntro: "You are a focused movie and series decision assistant.",
+    assistantTone: "Answer like a natural chat assistant: friendly, concrete, and gently guiding without sounding rigid.",
+    assistantFlow: "Address the user's latest need directly and help with the next sensible step.",
     titleInsightsIntro: "You generate short AI insights for a title detail page.",
     personInsightsIntro: "You briefly frame an actor or creative person for media fans.",
     outputJson: "Respond only as JSON in the format:",
@@ -137,6 +147,7 @@ const COPY = {
     socialContext: "Social context",
     referenceTitles: "Reference titles:",
     request: "User request:",
+    conversation: "Conversation so far:",
     titleInsightsRules1: "3 to 6 concise vibe tags",
     titleInsightsRules2: "content warning light, spoiler-free, and cautiously phrased",
     titleInsightsRules3: "no clinical tone",
@@ -349,11 +360,14 @@ export function assistantPrompt(input: {
   socialContext?: string;
   references: AITitleContext[];
   feedback: RecommendationFeedbackItem[];
+  conversation: AssistantConversationMessage[];
 }, locale: Locale = "de") {
   const text = copyFor(locale);
   return `
 ${text.assistantIntro}
 ${baseGuardrails(locale)}
+${text.assistantTone}
+${text.assistantFlow}
 ${text.outputJson}
 {"framing":"string","picks":[{"title":"string","mediaType":"movie|tv","reason":"string","comparableTitle":"string optional"}],"nextStep":"string optional"}
 
@@ -363,6 +377,8 @@ ${text.rules}
 - respect time budget, mood, intensity, and social context
 - use reference titles deliberately when provided
 - avoid titles the user rated negatively
+- framing should read like a short direct chat reply, not like a report
+- nextStep should be one short optional follow-up question or suggestion for the user
 
 ${text.mediaType}: ${input.mediaType}
 ${text.runtime}: ${input.timeBudget ?? text.notSpecified}
@@ -371,6 +387,7 @@ ${text.intensity}: ${input.intensity ?? text.notSpecified}
 ${text.socialContext}: ${input.socialContext ?? text.notSpecified}
 
 ${formatFeedback(input.feedback, locale) ? `${text.userContext}\n${formatFeedback(input.feedback, locale)}\n` : ""}
+${input.conversation.length ? `${text.conversation}\n${input.conversation.map(message => `${message.role === "user" ? "User" : "Assistant"}: ${message.content}`).join("\n")}\n` : ""}
 ${input.references.length ? `${text.referenceTitles}\n${input.references.map(reference => formatTitleContext(reference, locale)).join("\n\n")}\n` : ""}
 ${text.request}
 ${input.prompt}

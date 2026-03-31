@@ -12,6 +12,11 @@ const aiTitleReferenceSchema = z.object({
   mediaType: z.enum(["all", "movie", "tv"]).default("all")
 });
 
+const aiAssistantConversationMessageSchema = z.object({
+  role: z.enum(["user", "assistant"]),
+  content: z.string().trim().min(1).max(500)
+});
+
 const selectedMediaSchema = z.object({
   tmdbId: z.number().int().positive(),
   mediaType: z.enum(["movie", "tv"])
@@ -134,7 +139,8 @@ export const aiActionSchema = z.discriminatedUnion("mode", [
     intensity: z.enum(["easy", "balanced", "intense"]).optional(),
     socialContext: z.enum(["solo", "parents", "friends", "date", "family"]).optional(),
     referenceTitles: z.array(aiTitleReferenceSchema).max(3).default([]),
-    feedback: z.array(feedbackSchema).max(50).default([])
+    feedback: z.array(feedbackSchema).max(50).default([]),
+    conversation: z.array(aiAssistantConversationMessageSchema).max(12).default([])
   }),
   z.object({
     mode: z.literal("title_insights"),
