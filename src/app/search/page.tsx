@@ -10,9 +10,8 @@ import { SearchSidebarFilters } from "@/features/search/search-sidebar-filters";
 import { filterMediaForViewerAge } from "@/lib/age-gate/server";
 import { getServerDictionary } from "@/lib/i18n/server";
 import { getDiscoverResults } from "@/lib/tmdb/discover";
-import { getPopularMovies } from "@/lib/tmdb/movies";
+import { getGenreMaps } from "@/lib/tmdb/discover";
 import { searchMediaWithFallback } from "@/lib/tmdb/search";
-import { getPopularTv } from "@/lib/tmdb/tv";
 import { getServerPreferredWatchRegion } from "@/lib/tmdb/watch-provider-preference.server";
 import { DEFAULT_WATCH_REGION } from "@/lib/tmdb/watch-provider-preference";
 import {
@@ -26,11 +25,6 @@ import type { WatchRegion } from "@/types/watch-providers";
 type SearchPageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
-
-const POPULAR_PAGE_SIZE = 60;
-const TMDB_PAGE_SIZE = 20;
-const FEED_PAGE_COUNT = POPULAR_PAGE_SIZE / TMDB_PAGE_SIZE;
-const FEED_SPLIT_SIZE = POPULAR_PAGE_SIZE / 2;
 
 function resolveRegionCode(regionCode: string, availableRegions: WatchRegion[]) {
   const normalized = regionCode.toUpperCase();
@@ -50,6 +44,10 @@ function buildSearchHref(input: {
   q: string;
   type: "all" | "movie" | "tv";
   sort: "popularity" | "rating" | "release_date";
+  genre?: number;
+  yearFrom?: number;
+  yearTo?: number;
+  rating?: number;
   page: number;
   region: string;
   providers: number[];
@@ -62,6 +60,18 @@ function buildSearchHref(input: {
   params.set("sort", input.sort);
   params.set("page", String(input.page));
   params.set("region", input.region);
+  if (input.type !== "all" && input.genre) {
+    params.set("genre", String(input.genre));
+  }
+  if (input.yearFrom) {
+    params.set("yearFrom", String(input.yearFrom));
+  }
+  if (input.yearTo) {
+    params.set("yearTo", String(input.yearTo));
+  }
+  if (input.rating !== undefined) {
+    params.set("rating", String(input.rating));
+  }
   for (const providerId of input.providers) {
     params.append("providers", String(providerId));
   }
@@ -74,7 +84,7 @@ function getVisiblePages(currentPage: number, totalPages: number) {
   return Array.from({ length: end - start + 1 }, (_, index) => start + index);
 }
 
-function interleavePopularItems(movieItems: MediaListItem[], tvItems: MediaListItem[]) {
+function interleaveItems(movieItems: MediaListItem[], tvItems: MediaListItem[]) {
   const items: MediaListItem[] = [];
   const maxLength = Math.max(movieItems.length, tvItems.length);
 
@@ -87,56 +97,109 @@ function interleavePopularItems(movieItems: MediaListItem[], tvItems: MediaListI
     }
   }
 
-  return items.slice(0, POPULAR_PAGE_SIZE);
+  return items.slice(0, 60);
 }
 
-async function getPopularStartingPoints(page: number, locale: "de" | "en") {
-  const requestedPage = Math.max(1, page);
-  const movieStartPage = (requestedPage - 1) * FEED_PAGE_COUNT + 1;
-  const tvStartPage = (requestedPage - 1) * FEED_PAGE_COUNT + 1;
-  const moviePages = Array.from({ length: FEED_PAGE_COUNT }, (_, index) => movieStartPage + index);
-  const tvPages = Array.from({ length: FEED_PAGE_COUNT }, (_, index) => tvStartPage + index);
+function filterSearchItems(
+  items: MediaListItem[],
+  input: {
+    genre?: number;
+    yearFrom?: number;
+    yearTo?: number;
+    rating?: number;
+  }
+) {
+  return items.filter(item => {
+    if (input.genre && !item.genres.some(genre => genre.id === input.genre)) {
+      return false;
+    }
 
-  const [movieResponses, tvResponses] = await Promise.all([
-    Promise.all(moviePages.map(currentPage => getPopularMovies(currentPage, locale))),
-    Promise.all(tvPages.map(currentPage => getPopularTv(currentPage, locale)))
-  ]);
+    if (input.rating !== undefined && item.rating < input.rating) {
+      return false;
+    }
 
-  const movieItems = movieResponses.flatMap(response => response.items).slice(0, FEED_SPLIT_SIZE);
-  const tvItems = tvResponses.flatMap(response => response.items).slice(0, FEED_SPLIT_SIZE);
-  const totalMoviePages = Math.ceil(
-    Math.min(movieResponses[0]?.totalResults ?? 0, 500 * TMDB_PAGE_SIZE) / FEED_SPLIT_SIZE
-  );
-  const totalTvPages = Math.ceil(
-    Math.min(tvResponses[0]?.totalResults ?? 0, 500 * TMDB_PAGE_SIZE) / FEED_SPLIT_SIZE
-  );
+    if (input.yearFrom || input.yearTo) {
+      const year = item.releaseDate ? Number(item.releaseDate.slice(0, 4)) : undefined;
 
-  return {
-    items: interleavePopularItems(movieItems, tvItems),
-    page: requestedPage,
-    totalPages: Math.max(1, Math.min(totalMoviePages, totalTvPages, 334))
-  };
+      if (!year) {
+        return false;
+      }
+
+      if (input.yearFrom && year < input.yearFrom) {
+        return false;
+      }
+
+      if (input.yearTo && year > input.yearTo) {
+        return false;
+      }
+    }
+
+    return true;
+  });
 }
 
-async function getProviderStartingPoints(input: {
+function mapSearchSortToDiscoverSort(
+  mediaType: "movie" | "tv",
+  sort: "popularity" | "rating" | "release_date"
+) {
+  if (sort === "rating") {
+    return "vote_average.desc";
+  }
+
+  if (sort === "release_date") {
+    return mediaType === "movie" ? "primary_release_date.desc" : "first_air_date.desc";
+  }
+
+  return "popularity.desc";
+}
+
+async function getBrowseResults(input: {
+  query: string;
+  type: "all" | "movie" | "tv";
   page: number;
+  genre?: number;
+  yearFrom?: number;
+  yearTo?: number;
+  rating?: number;
+  sort: "popularity" | "rating" | "release_date";
   region: string;
   providers: number[];
   locale: "de" | "en";
 }) {
+  if (input.type === "movie" || input.type === "tv") {
+    return getDiscoverResults({
+      mediaType: input.type,
+      genre: input.genre,
+      yearFrom: input.yearFrom,
+      yearTo: input.yearTo,
+      rating: input.rating,
+      page: input.page,
+      sort: mapSearchSortToDiscoverSort(input.type, input.sort),
+      region: input.region,
+      providers: input.providers,
+      locale: input.locale
+    });
+  }
+
   const [movieResults, tvResults] = await Promise.all([
     getDiscoverResults({
       mediaType: "movie",
+      yearFrom: input.yearFrom,
+      yearTo: input.yearTo,
+      rating: input.rating,
       page: input.page,
-      sort: "popularity.desc",
+      sort: mapSearchSortToDiscoverSort("movie", input.sort),
       region: input.region,
       providers: input.providers,
       locale: input.locale
     }),
     getDiscoverResults({
       mediaType: "tv",
+      yearFrom: input.yearFrom,
+      yearTo: input.yearTo,
+      rating: input.rating,
       page: input.page,
-      sort: "popularity.desc",
+      sort: mapSearchSortToDiscoverSort("tv", input.sort),
       region: input.region,
       providers: input.providers,
       locale: input.locale
@@ -144,12 +207,10 @@ async function getProviderStartingPoints(input: {
   ]);
 
   return {
-    items: interleavePopularItems(
-      movieResults.items.slice(0, FEED_SPLIT_SIZE),
-      tvResults.items.slice(0, FEED_SPLIT_SIZE)
-    ),
+    items: interleaveItems(movieResults.items.slice(0, 30), tvResults.items.slice(0, 30)),
     page: input.page,
-    totalPages: Math.max(1, Math.max(movieResults.totalPages, tvResults.totalPages))
+    totalPages: Math.max(1, Math.max(movieResults.totalPages, tvResults.totalPages)),
+    totalResults: movieResults.totalResults + tvResults.totalResults
   };
 }
 
@@ -161,13 +222,20 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
     q: rawSearchParams.q,
     type: rawSearchParams.type,
     sort: rawSearchParams.sort,
+    genre: rawSearchParams.genre,
+    yearFrom: rawSearchParams.yearFrom,
+    yearTo: rawSearchParams.yearTo,
+    rating: rawSearchParams.rating,
     page: rawSearchParams.page,
     region: requestedRegion,
     providers: rawSearchParams.providers ?? rawSearchParams.provider
   });
 
   try {
-    const availableRegions = await getAvailableRegions();
+    const [availableRegions, genreMaps] = await Promise.all([
+      getAvailableRegions(),
+      getGenreMaps(locale)
+    ]);
     const activeRegion = resolveRegionCode(parsed.region ?? requestedRegion, availableRegions);
     const searchResult = parsed.q
       ? await searchMediaWithFallback({
@@ -178,9 +246,15 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
         })
       : { items: [], appliedQuery: parsed.q, fallbackUsed: false, page: parsed.page, totalPages: 1, totalResults: 0 };
 
+    const filteredSearchItems = filterSearchItems(searchResult.items, {
+      genre: parsed.type === "all" ? undefined : parsed.genre,
+      yearFrom: parsed.yearFrom,
+      yearTo: parsed.yearTo,
+      rating: parsed.rating
+    });
     const providerFilteredResults = parsed.providers.length
-      ? await filterMediaByWatchProvider(searchResult.items, activeRegion, parsed.providers)
-      : searchResult.items;
+      ? await filterMediaByWatchProvider(filteredSearchItems, activeRegion, parsed.providers)
+      : filteredSearchItems;
     const safeResults = await filterMediaForViewerAge(providerFilteredResults);
 
     const sortedResults = [...safeResults].sort((left, right) => {
@@ -195,20 +269,25 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
       return right.voteCount - left.voteCount;
     });
 
-    const popularStartingPoints =
+    const browseResult =
       parsed.q.trim().length === 0
-        ? parsed.providers.length
-          ? await getProviderStartingPoints({
-              page: parsed.page,
-              region: activeRegion,
-              providers: parsed.providers,
-              locale
-            })
-          : await getPopularStartingPoints(parsed.page, locale)
+        ? await getBrowseResults({
+            query: parsed.q,
+            type: parsed.type,
+            page: parsed.page,
+            genre: parsed.type === "all" ? undefined : parsed.genre,
+            yearFrom: parsed.yearFrom,
+            yearTo: parsed.yearTo,
+            rating: parsed.rating,
+            sort: parsed.sort,
+            region: activeRegion,
+            providers: parsed.providers,
+            locale
+          })
         : { items: [], page: 1, totalPages: 1 };
     const discoveryItems =
       parsed.q.trim().length === 0
-        ? await filterMediaForViewerAge(popularStartingPoints.items)
+        ? await filterMediaForViewerAge(browseResult.items)
         : [];
 
     const isEnglish = locale === "en";
@@ -221,8 +300,10 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
           previous: "Previous",
           next: "Next",
           pageInfo: "This view combines up to 60 titles per page.",
-          popularInfo: "Popular starting points, 60 titles per page.",
+          browseInfo: "Browse results, up to 60 titles per page.",
           filteredInfo: "Streaming filters applied to the current page.",
+          browseTitle: "Browse results",
+          browseSubtitle: "Use filters on the left or type a title to search directly.",
           filteredResults: `${sortedResults.length.toLocaleString("en-US")} filtered results on this page`
         }
       : {
@@ -231,8 +312,10 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
           previous: "Zurück",
           next: "Weiter",
           pageInfo: "Diese Ansicht bündelt bis zu 60 Titel pro Seite.",
-          popularInfo: "Beliebte Einstiege, 60 Titel pro Seite.",
+          browseInfo: "Gefilterte Ergebnisse, bis zu 60 Titel pro Seite.",
           filteredInfo: "Streaming-Filter auf diese Seite angewendet.",
+          browseTitle: "Stöbern und filtern",
+          browseSubtitle: "Nutze links die Filter oder suche direkt nach einem Titel.",
           filteredResults: `${sortedResults.length.toLocaleString("de-DE")} gefilterte Treffer auf dieser Seite`
         };
     const resultsLabel = parsed.providers.length
@@ -240,7 +323,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
       : isEnglish
         ? `${searchResult.totalResults.toLocaleString("en-US")} results`
         : `${searchResult.totalResults.toLocaleString("de-DE")} Treffer`;
-    const popularVisiblePages = getVisiblePages(popularStartingPoints.page, popularStartingPoints.totalPages);
+    const browseVisiblePages = getVisiblePages(browseResult.page, browseResult.totalPages);
 
     return (
       <AppShell>
@@ -256,6 +339,10 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
             initialQuery={parsed.q}
             initialType={parsed.type}
             initialSort={parsed.sort}
+            initialGenre={parsed.genre}
+            initialYearFrom={parsed.yearFrom}
+            initialYearTo={parsed.yearTo}
+            initialRating={parsed.rating}
             initialRegion={activeRegion}
             initialProviders={parsed.providers}
           />
@@ -263,10 +350,16 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
           <div className="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)] lg:items-start">
             <SearchSidebarFilters
               query={parsed.q}
+              movieGenres={genreMaps.movieList}
+              tvGenres={genreMaps.tvList}
               availableRegions={availableRegions}
               initial={{
                 type: parsed.type,
                 sort: parsed.sort,
+                genre: parsed.genre,
+                yearFrom: parsed.yearFrom,
+                yearTo: parsed.yearTo,
+                rating: parsed.rating,
                 region: activeRegion,
                 providers: parsed.providers
               }}
@@ -332,33 +425,33 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
               ) : (
                 <>
                   <SectionHeader
-                    title={dictionary.searchPage.discoverTitle}
-                    subtitle={`${dictionary.searchPage.discoverSubtitle} · ${pageText.page} ${popularStartingPoints.page} ${pageText.of} ${popularStartingPoints.totalPages} · ${parsed.providers.length ? pageText.filteredInfo : pageText.popularInfo}`}
+                    title={pageText.browseTitle}
+                    subtitle={`${pageText.browseSubtitle} · ${pageText.page} ${browseResult.page} ${pageText.of} ${browseResult.totalPages} · ${parsed.providers.length ? pageText.filteredInfo : pageText.browseInfo}`}
                   />
                   <MediaGrid items={discoveryItems} />
-                  {popularStartingPoints.totalPages > 1 ? (
+                  {browseResult.totalPages > 1 ? (
                     <div className="flex flex-col gap-3 rounded-[1.5rem] border border-border/50 bg-card/50 p-4 sm:flex-row sm:items-center sm:justify-between">
                       <div className="text-sm text-muted-foreground">
-                        {pageText.page} {popularStartingPoints.page} {pageText.of} {popularStartingPoints.totalPages}
+                        {pageText.page} {browseResult.page} {pageText.of} {browseResult.totalPages}
                       </div>
                       <div className="flex flex-wrap items-center gap-2">
-                        <Button asChild variant="outline" size="sm" disabled={popularStartingPoints.page <= 1}>
+                        <Button asChild variant="outline" size="sm" disabled={browseResult.page <= 1}>
                           <Link
-                            aria-disabled={popularStartingPoints.page <= 1}
-                            href={buildSearchHref({ ...parsed, page: Math.max(1, popularStartingPoints.page - 1), region: activeRegion })}
+                            aria-disabled={browseResult.page <= 1}
+                            href={buildSearchHref({ ...parsed, page: Math.max(1, browseResult.page - 1), region: activeRegion })}
                           >
                             {pageText.previous}
                           </Link>
                         </Button>
-                        {popularVisiblePages.map(page => (
-                          <Button key={page} asChild variant={page === popularStartingPoints.page ? "default" : "outline"} size="sm">
+                        {browseVisiblePages.map(page => (
+                          <Button key={page} asChild variant={page === browseResult.page ? "default" : "outline"} size="sm">
                             <Link href={buildSearchHref({ ...parsed, page, region: activeRegion })}>{page}</Link>
                           </Button>
                         ))}
-                        <Button asChild variant="outline" size="sm" disabled={popularStartingPoints.page >= popularStartingPoints.totalPages}>
+                        <Button asChild variant="outline" size="sm" disabled={browseResult.page >= browseResult.totalPages}>
                           <Link
-                            aria-disabled={popularStartingPoints.page >= popularStartingPoints.totalPages}
-                            href={buildSearchHref({ ...parsed, page: Math.min(popularStartingPoints.totalPages, popularStartingPoints.page + 1), region: activeRegion })}
+                            aria-disabled={browseResult.page >= browseResult.totalPages}
+                            href={buildSearchHref({ ...parsed, page: Math.min(browseResult.totalPages, browseResult.page + 1), region: activeRegion })}
                           >
                             {pageText.next}
                           </Link>

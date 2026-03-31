@@ -46,9 +46,29 @@ export const searchParamsSchema = z.object({
   q: z.string().trim().default(""),
   type: z.enum(["all", "movie", "tv"]).default("all"),
   sort: z.enum(["popularity", "rating", "release_date"]).default("popularity"),
+  genre: optionalPositiveIntParam,
+  yearFrom: optionalYearParam,
+  yearTo: optionalYearParam,
+  rating: optionalNumberParam.refine(
+    value => value === undefined || (value >= 0 && value <= 10),
+    "Expected a rating between 0 and 10"
+  ),
   page: z.coerce.number().int().min(1).default(1),
   region: optionalRegionParam,
   providers: optionalPositiveIntArrayParam
+}).transform(value => {
+  const yearFrom = value.yearFrom;
+  const yearTo = value.yearTo;
+
+  if (yearFrom !== undefined && yearTo !== undefined && yearFrom > yearTo) {
+    return {
+      ...value,
+      yearFrom: yearTo,
+      yearTo: yearFrom
+    };
+  }
+
+  return value;
 });
 
 export const discoverParamsSchema = z
