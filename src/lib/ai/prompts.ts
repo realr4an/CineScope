@@ -59,6 +59,10 @@ const COPY = {
     titleA: "Titel A",
     titleB: "Titel B",
     fitInstruction: "Nutze vor allem Atmosphäre, Themen, Erzähltempo, Charakterfokus und Ähnlichkeiten zu positiv bewerteten Titeln.",
+    fitCounterInstruction:
+      "Nenne auch kurz, was gegen den Titel sprechen könnte, wenn es Spannungen zu negativ bewerteten oder unbewerteten Sehgewohnheiten gibt.",
+    fitDataInstruction:
+      "Wenn die Nutzerdaten dünn sind, sage das klar und vorsichtig. Wenige Signale bedeuten niedrigere Sicherheit.",
     extraQuestion: "Zusätzliche Nutzerfrage:",
     targetTitle: "Zieltitel:",
     priorityInstruction1: "gib eine vollständige Reihenfolge für alle bereitgestellten Titel zurück",
@@ -133,6 +137,10 @@ const COPY = {
     titleA: "Title A",
     titleB: "Title B",
     fitInstruction: "Focus on atmosphere, themes, pacing, character focus, and similarities to positively rated titles.",
+    fitCounterInstruction:
+      "Also briefly mention what may not fit if there is tension with negatively rated or only weakly supported watch history.",
+    fitDataInstruction:
+      "If the user data is thin, say so clearly and cautiously. Few signals mean lower confidence.",
     extraQuestion: "Additional user question:",
     targetTitle: "Target title:",
     priorityInstruction1: "return a complete order for all provided titles",
@@ -316,9 +324,17 @@ export function fitPrompt(input: {
 ${text.fitIntro}
 ${baseGuardrails(locale)}
 ${text.outputJson}
-{"summary":"string","reasons":["string","string"],"caveat":"string optional"}
+{"summary":"string","reasons":["string","string"],"counterpoints":["string optional"],"caveat":"string optional","confidence":"low|medium|high optional","dataNote":"string optional"}
 
 ${text.fitInstruction}
+${text.fitCounterInstruction}
+${text.fitDataInstruction}
+
+${text.rules}
+- focus on actual overlap or mismatch with the user's known watch history
+- if evidence is weak, reduce confidence and explain that briefly
+- do not pretend certainty when there are only a few watched or liked titles
+- counterpoints should stay constructive and specific, not generic
 
 ${formatFeedback(input.feedback, locale) ? `${text.userContext}\n${formatFeedback(input.feedback, locale)}\n` : ""}
 ${input.userPrompt ? `${text.extraQuestion}\n${input.userPrompt}\n` : ""}

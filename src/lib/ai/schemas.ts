@@ -70,7 +70,10 @@ export const aiCompareResponseSchema = z.object({
 export const aiFitResponseSchema = z.object({
   summary: z.string().min(1),
   reasons: z.array(z.string().min(1)).min(2).max(5),
-  caveat: z.string().optional()
+  counterpoints: z.array(z.string().min(1)).min(1).max(3).optional(),
+  caveat: z.string().optional(),
+  confidence: z.enum(["low", "medium", "high"]).optional(),
+  dataNote: z.string().optional()
 });
 
 export const aiPriorityResponseSchema = z.object({

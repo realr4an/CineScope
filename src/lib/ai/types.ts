@@ -64,7 +64,10 @@ export interface AICompareResponse {
 export interface AIFitResponse {
   summary: string;
   reasons: string[];
+  counterpoints?: string[];
   caveat?: string;
+  confidence?: "low" | "medium" | "high";
+  dataNote?: string;
 }
 
 export interface AIPriorityResponse {
