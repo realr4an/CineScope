@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import { SearchControls } from "@/features/search/search-controls";
 import { filterMediaForViewerAge } from "@/lib/age-gate/server";
 import { getServerDictionary } from "@/lib/i18n/server";
-import { getMinimumRatingForStars, matchesStarRatings } from "@/lib/media-rating";
 import { getDiscoverResults, getGenreMaps } from "@/lib/tmdb/discover";
 import { searchMediaWithFallback } from "@/lib/tmdb/search";
 import { getServerPreferredWatchRegion } from "@/lib/tmdb/watch-provider-preference.server";
@@ -24,6 +23,9 @@ import type { WatchRegion } from "@/types/watch-providers";
 type SearchPageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
+
+type SearchSortKey = "popularity" | "rating" | "release_date";
+type SearchSortDirection = "asc" | "desc";
 
 function resolveRegionCode(regionCode: string, availableRegions: WatchRegion[]) {
   const normalized = regionCode.toUpperCase();
@@ -42,12 +44,12 @@ function resolveRegionCode(regionCode: string, availableRegions: WatchRegion[]) 
 function buildSearchHref(input: {
   q: string;
   type: "all" | "movie" | "tv";
-  sort: "popularity" | "rating" | "release_date";
+  sort: SearchSortKey;
+  direction: SearchSortDirection;
   genre?: number;
   yearFrom?: number;
   yearTo?: number;
   rating?: number;
-  ratings: number[];
   page: number;
   region: string;
   providers: number[];
@@ -58,6 +60,7 @@ function buildSearchHref(input: {
   }
   params.set("type", input.type);
   params.set("sort", input.sort);
+  params.set("direction", input.direction);
   params.set("page", String(input.page));
   params.set("region", input.region);
   if (input.type !== "all" && input.genre) {
@@ -71,9 +74,6 @@ function buildSearchHref(input: {
   }
   if (input.rating !== undefined) {
     params.set("rating", String(input.rating));
-  }
-  for (const selectedRating of input.ratings) {
-    params.append("ratings", String(selectedRating));
   }
   for (const providerId of input.providers) {
     params.append("providers", String(providerId));
@@ -110,7 +110,6 @@ function filterSearchItems(
     yearFrom?: number;
     yearTo?: number;
     rating?: number;
-    ratings: number[];
   }
 ) {
   const effectiveYearTo = input.yearTo ?? input.yearFrom;
@@ -121,10 +120,6 @@ function filterSearchItems(
     }
 
     if (input.rating !== undefined && item.rating < input.rating) {
-      return false;
-    }
-
-    if (!matchesStarRatings(item.rating, input.ratings)) {
       return false;
     }
 
@@ -150,17 +145,20 @@ function filterSearchItems(
 
 function mapSearchSortToDiscoverSort(
   mediaType: "movie" | "tv",
-  sort: "popularity" | "rating" | "release_date"
+  sort: SearchSortKey,
+  direction: SearchSortDirection
 ) {
   if (sort === "rating") {
-    return "vote_average.desc";
+    return `vote_average.${direction}`;
   }
 
   if (sort === "release_date") {
-    return mediaType === "movie" ? "primary_release_date.desc" : "first_air_date.desc";
+    return mediaType === "movie"
+      ? `primary_release_date.${direction}`
+      : `first_air_date.${direction}`;
   }
 
-  return "popularity.desc";
+  return `popularity.${direction}`;
 }
 
 async function getBrowseResults(input: {
@@ -170,23 +168,21 @@ async function getBrowseResults(input: {
   yearFrom?: number;
   yearTo?: number;
   rating?: number;
-  ratings: number[];
-  sort: "popularity" | "rating" | "release_date";
+  sort: SearchSortKey;
+  direction: SearchSortDirection;
   region: string;
   providers: number[];
   locale: "de" | "en";
 }) {
-  const minimumRating = input.rating ?? getMinimumRatingForStars(input.ratings);
-
   if (input.type === "movie" || input.type === "tv") {
     return getDiscoverResults({
       mediaType: input.type,
       genre: input.genre,
       yearFrom: input.yearFrom,
       yearTo: input.yearTo,
-      rating: minimumRating,
+      rating: input.rating,
       page: input.page,
-      sort: mapSearchSortToDiscoverSort(input.type, input.sort),
+      sort: mapSearchSortToDiscoverSort(input.type, input.sort, input.direction),
       region: input.region,
       providers: input.providers,
       locale: input.locale
@@ -198,9 +194,9 @@ async function getBrowseResults(input: {
       mediaType: "movie",
       yearFrom: input.yearFrom,
       yearTo: input.yearTo,
-      rating: minimumRating,
+      rating: input.rating,
       page: input.page,
-      sort: mapSearchSortToDiscoverSort("movie", input.sort),
+      sort: mapSearchSortToDiscoverSort("movie", input.sort, input.direction),
       region: input.region,
       providers: input.providers,
       locale: input.locale
@@ -209,9 +205,9 @@ async function getBrowseResults(input: {
       mediaType: "tv",
       yearFrom: input.yearFrom,
       yearTo: input.yearTo,
-      rating: minimumRating,
+      rating: input.rating,
       page: input.page,
-      sort: mapSearchSortToDiscoverSort("tv", input.sort),
+      sort: mapSearchSortToDiscoverSort("tv", input.sort, input.direction),
       region: input.region,
       providers: input.providers,
       locale: input.locale
@@ -234,11 +230,11 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
     q: rawSearchParams.q,
     type: rawSearchParams.type,
     sort: rawSearchParams.sort,
+    direction: rawSearchParams.direction,
     genre: rawSearchParams.genre,
     yearFrom: rawSearchParams.yearFrom,
     yearTo: rawSearchParams.yearTo,
     rating: rawSearchParams.rating,
-    ratings: rawSearchParams.ratings,
     page: rawSearchParams.page,
     region: requestedRegion,
     providers: rawSearchParams.providers ?? rawSearchParams.provider
@@ -270,8 +266,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
       genre: parsed.type === "all" ? undefined : parsed.genre,
       yearFrom: parsed.yearFrom,
       yearTo: parsed.yearTo,
-      rating: parsed.rating,
-      ratings: parsed.ratings
+      rating: parsed.rating
     });
     const providerFilteredResults = parsed.providers.length
       ? await filterMediaByWatchProvider(filteredSearchItems, activeRegion, parsed.providers)
@@ -279,15 +274,17 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
     const safeResults = await filterMediaForViewerAge(providerFilteredResults);
 
     const sortedResults = [...safeResults].sort((left, right) => {
+      const directionMultiplier = parsed.direction === "asc" ? 1 : -1;
+
       if (parsed.sort === "rating") {
-        return right.rating - left.rating;
+        return (left.rating - right.rating) * directionMultiplier;
       }
 
       if (parsed.sort === "release_date") {
-        return (right.releaseDate ?? "").localeCompare(left.releaseDate ?? "");
+        return (left.releaseDate ?? "").localeCompare(right.releaseDate ?? "") * directionMultiplier;
       }
 
-      return right.voteCount - left.voteCount;
+      return (left.voteCount - right.voteCount) * directionMultiplier;
     });
 
     const browseResult =
@@ -299,8 +296,8 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
             yearFrom: parsed.yearFrom,
             yearTo: parsed.yearTo,
             rating: parsed.rating,
-            ratings: parsed.ratings,
             sort: parsed.sort,
+            direction: parsed.direction,
             region: activeRegion,
             providers: parsed.providers,
             locale
@@ -313,8 +310,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
               genre: parsed.type === "all" ? undefined : parsed.genre,
               yearFrom: parsed.yearFrom,
               yearTo: parsed.yearTo,
-              rating: parsed.rating,
-              ratings: parsed.ratings
+              rating: parsed.rating
             })
           )
         : [];
@@ -372,11 +368,11 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
               query: parsed.q,
               type: parsed.type,
               sort: parsed.sort,
+              direction: parsed.direction,
               genre: parsed.genre,
               yearFrom: parsed.yearFrom,
               yearTo: parsed.yearTo,
               rating: parsed.rating,
-              ratings: parsed.ratings,
               region: activeRegion,
               providers: parsed.providers
             }}

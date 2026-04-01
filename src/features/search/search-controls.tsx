@@ -21,6 +21,7 @@ function buildSearchHref(input: SearchDraftState) {
 
   params.set("type", input.type);
   params.set("sort", input.sort);
+  params.set("direction", input.direction);
   params.set("page", "1");
   params.set("region", input.region);
 
@@ -38,10 +39,6 @@ function buildSearchHref(input: SearchDraftState) {
 
   if (input.rating !== undefined) {
     params.set("rating", String(input.rating));
-  }
-
-  for (const selectedRating of input.ratings) {
-    params.append("ratings", String(selectedRating));
   }
 
   for (const providerId of input.providers) {
@@ -79,11 +76,11 @@ export function SearchControls({
       query: draft.query,
       type: "all",
       sort: "popularity",
+      direction: "desc",
       genre: undefined,
       yearFrom: undefined,
       yearTo: undefined,
       rating: undefined,
-      ratings: [],
       region: draft.region,
       providers: []
     }),
