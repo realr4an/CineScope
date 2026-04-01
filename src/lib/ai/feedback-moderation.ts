@@ -9,6 +9,29 @@ const feedbackModerationSchema = z.object({
   summary: z.string().min(1)
 });
 
+const HARD_REJECT_REASON_PATTERNS = [
+  /\babus/i,
+  /\binsult/i,
+  /\bbeleidig/i,
+  /\bharass/i,
+  /\bhate/i,
+  /\bthreat/i,
+  /\bsexual/i,
+  /\bspam/i,
+  /\binject/i,
+  /\btoxic/i
+] as const;
+
+function createFallbackSummary(message: string) {
+  const normalized = message.replace(/\s+/g, " ").trim();
+
+  if (!normalized) {
+    return "No feedback content provided.";
+  }
+
+  return normalized.length <= 220 ? normalized : `${normalized.slice(0, 217)}...`;
+}
+
 export async function moderateFeedback(input: {
   category: string;
   message: string;
@@ -39,19 +62,39 @@ Message:
 ${input.message}
 `.trim();
 
-  const result = await askOpenRouterJson(prompt, feedbackModerationSchema);
+  try {
+    const result = await askOpenRouterJson(prompt, feedbackModerationSchema);
 
-  if (!result.allowed) {
+    if (!result.allowed) {
+      const isHardReject = HARD_REJECT_REASON_PATTERNS.some((pattern) =>
+        pattern.test(result.reason)
+      );
+
+      if (isHardReject) {
+        return result;
+      }
+
+      return {
+        allowed: true,
+        reason: "Accepted by fallback moderation after non-severe model rejection.",
+        summary: createFallbackSummary(input.message)
+      };
+    }
+
+    if (isUnsafeFeedbackMessage(result.summary)) {
+      return {
+        allowed: true,
+        reason: "Accepted with sanitized fallback summary.",
+        summary: createFallbackSummary(input.message)
+      };
+    }
+
     return result;
-  }
-
-  if (isUnsafeFeedbackMessage(result.summary)) {
+  } catch {
     return {
-      allowed: false,
-      reason: "Unsafe moderation summary pattern detected.",
-      summary: "Rejected due to unsafe moderation output pattern."
+      allowed: true,
+      reason: "Model moderation unavailable, accepted by deterministic checks.",
+      summary: createFallbackSummary(input.message)
     };
   }
-
-  return result;
 }

@@ -12,7 +12,7 @@ const feedbackSchema = z.object({
   email: z.string().email().optional().or(z.literal("")),
   displayName: z.string().trim().max(80).optional().or(z.literal("")),
   category: z.enum(["bug", "idea", "ui", "content", "other"]),
-  message: z.string().trim().min(10).max(2000),
+  message: z.string().trim().min(3).max(2000),
   pagePath: z.string().trim().max(200).optional().or(z.literal(""))
 });
 

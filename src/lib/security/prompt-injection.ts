@@ -21,10 +21,54 @@ const WEAK_INJECTION_PATTERNS = [
 ] as const;
 
 const FEEDBACK_ABUSE_PATTERNS = [
-  /\b(?:kill|die|rape|nazi)\b/i,
+  /\b(?:kill|die|rape|nazi|hitler)\b/i,
+  /\b(?:fuck\s*you|go\s*kill\s*yourself|kys)\b/i,
+  /\b(?:du\s+bist|you\s+are)\s+(?:ein\s+)?(?:idiot|dumm|behindert|abschaum|trash|worthless|stupid)\b/i,
+  /\b(?:arschloch|hurensohn|fotze|wixxer|spast|idiot|bastard|asshole|bitch|motherfucker|retard)\b/i,
   /https?:\/\/\S+/gi,
   /(?:buy now|free money|crypto giveaway|telegram @)/i
 ] as const;
+
+const FEEDBACK_OBFUSCATED_ABUSE_TERMS = [
+  "arschloch",
+  "hurensohn",
+  "fotze",
+  "wixxer",
+  "spast",
+  "idiot",
+  "bastard",
+  "fick",
+  "ficken",
+  "asshole",
+  "motherfucker",
+  "bitch",
+  "retard",
+  "nigger",
+  "kys"
+] as const;
+
+const LEET_REPLACEMENTS: Record<string, string> = {
+  "0": "o",
+  "1": "i",
+  "3": "e",
+  "4": "a",
+  "5": "s",
+  "7": "t",
+  "8": "b",
+  "@": "a",
+  "$": "s",
+  "!": "i"
+};
+
+function normalizeForAbuseDetection(input: string) {
+  const lowered = input.toLowerCase();
+  const leetNormalized = lowered.replace(/[0134578@$!]/g, (char) => LEET_REPLACEMENTS[char] ?? char);
+
+  return leetNormalized
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "");
+}
 
 export function findPromptInjectionSignal(input: string) {
   const normalized = input.trim();
@@ -75,5 +119,11 @@ export function isUnsafeFeedbackMessage(input: string) {
     return true;
   }
 
-  return FEEDBACK_ABUSE_PATTERNS.some((pattern, index) => index !== 1 && pattern.test(trimmed));
+  if (FEEDBACK_ABUSE_PATTERNS.some((pattern, index) => index !== 4 && pattern.test(trimmed))) {
+    return true;
+  }
+
+  const normalized = normalizeForAbuseDetection(trimmed);
+
+  return FEEDBACK_OBFUSCATED_ABUSE_TERMS.some((term) => normalized.includes(term));
 }
