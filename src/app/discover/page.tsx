@@ -355,6 +355,10 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
       locale
     });
     const safeItems = await filterMediaForViewerAge(discoverResult.items);
+    const strictGenreItems =
+      parsedFilters.genre !== undefined
+        ? safeItems.filter(item => item.genres.some(genre => genre.id === parsedFilters.genre))
+        : safeItems;
     const totalPages = Math.max(1, Math.min(discoverResult.totalPages, 167));
     const visiblePages = getVisiblePages(discoverResult.page, totalPages);
 
@@ -473,8 +477,8 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
             <div className="space-y-4">
               <SectionHeader title={text.discoverLabel} subtitle={text.discoverSubtitle} />
 
-              {safeItems.length ? (
-                <MediaGrid items={safeItems} />
+              {strictGenreItems.length ? (
+                <MediaGrid items={strictGenreItems} />
               ) : (
                 <EmptyState title={text.noResultsTitle} description={text.noResultsDescription} />
               )}
