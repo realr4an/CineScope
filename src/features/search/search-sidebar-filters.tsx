@@ -37,7 +37,8 @@ export function SearchSidebarFilters({
   value,
   onChange,
   onReset,
-  isPending
+  isPending,
+  typeOptions = ["all", "movie", "tv"]
 }: {
   movieGenres: Genre[];
   tvGenres: Genre[];
@@ -46,6 +47,7 @@ export function SearchSidebarFilters({
   onChange: (nextValue: SearchDraftState) => void;
   onReset: () => void;
   isPending: boolean;
+  typeOptions?: Array<"all" | "movie" | "tv">;
 }) {
   const { dictionary, locale } = useLanguage();
   const providerType = value.type === "all" ? "all" : value.type;
@@ -118,11 +120,15 @@ export function SearchSidebarFilters({
       <div className="space-y-3">
         <p className="text-sm font-medium">{text.mediaType}</p>
         <div className="grid gap-2">
-          {([
-            ["all", dictionary.searchForm.all],
-            ["movie", dictionary.searchForm.movies],
-            ["tv", dictionary.searchForm.series]
-          ] as const).map(([nextType, label]) => (
+          {typeOptions.map(nextType => {
+            const label =
+              nextType === "all"
+                ? dictionary.searchForm.all
+                : nextType === "movie"
+                  ? dictionary.searchForm.movies
+                  : dictionary.searchForm.series;
+
+            return (
             <button
               key={nextType}
               type="button"
@@ -142,7 +148,8 @@ export function SearchSidebarFilters({
             >
               {label}
             </button>
-          ))}
+            );
+          })}
         </div>
       </div>
 

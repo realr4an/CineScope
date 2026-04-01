@@ -3,7 +3,18 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Heart, LogIn, Moon, RefreshCw, Search, Sparkles, Sun, Tv2, User2 } from "lucide-react";
+import {
+  Heart,
+  ListFilter,
+  LogIn,
+  Moon,
+  RefreshCw,
+  Search,
+  Sparkles,
+  Sun,
+  Tv2,
+  User2
+} from "lucide-react";
 import { useTheme } from "next-themes";
 
 import { Button } from "@/components/ui/button";
@@ -26,6 +37,7 @@ export function Header() {
   const navItems = [
     { href: "/", label: dictionary.nav.discover, icon: Tv2 },
     { href: "/search", label: dictionary.nav.search, icon: Search },
+    { href: "/discover", label: dictionary.nav.categories, icon: ListFilter },
     { href: "/ai", label: dictionary.nav.ai, icon: Sparkles },
     { href: "/watchlist", label: dictionary.nav.watchlist, icon: Heart }
   ];
