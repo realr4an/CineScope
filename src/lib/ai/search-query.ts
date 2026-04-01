@@ -6,6 +6,7 @@ import { askOpenRouterJson } from "@/lib/ai/openrouter";
 import { searchQueryInterpretationPrompt } from "@/lib/ai/prompts";
 import { aiSearchInterpretationSchema } from "@/lib/ai/schemas";
 import { isOpenRouterConfigured } from "@/lib/env";
+import { containsPromptInjection } from "@/lib/security/prompt-injection";
 
 const SEARCH_QUERY_CACHE_SECONDS = 60 * 60 * 24 * 30;
 
@@ -45,6 +46,10 @@ function buildLocalVariants(query: string) {
 
 async function getAIQueryVariants(query: string, mediaType: "all" | "movie" | "tv") {
   if (!isOpenRouterConfigured()) {
+    return [] as string[];
+  }
+
+  if (containsPromptInjection([query])) {
     return [] as string[];
   }
 

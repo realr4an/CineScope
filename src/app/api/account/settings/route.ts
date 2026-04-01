@@ -2,8 +2,9 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { normalizeBirthDate } from "@/lib/age-gate";
-import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { checkRateLimit } from "@/lib/security/rate-limit";
+import { getRateLimitIdentityKey, getRequestIp, isSameOriginRequest } from "@/lib/security/request";
 
 const accountSettingsSchema = z.object({
   displayName: z.string().trim().max(80).optional().or(z.literal("")),
@@ -15,6 +16,10 @@ const accountSettingsSchema = z.object({
 });
 
 export async function POST(request: Request) {
+  if (!isSameOriginRequest(request)) {
+    return NextResponse.json({ error: "Cross-origin requests are not allowed." }, { status: 403 });
+  }
+
   try {
     const supabase = await createSupabaseServerClient();
 
@@ -33,11 +38,29 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Nicht angemeldet." }, { status: 401 });
     }
 
+    const ip = getRequestIp(request);
+    const rateLimit = checkRateLimit(
+      getRateLimitIdentityKey("api-account-settings", ip, user.id),
+      20,
+      60_000
+    );
+
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: "Zu viele Anfragen. Bitte warte kurz." },
+        {
+          status: 429,
+          headers: {
+            "Retry-After": String(rateLimit.retryAfterSeconds)
+          }
+        }
+      );
+    }
+
     const payload = accountSettingsSchema.parse(await request.json());
-    const admin = createSupabaseAdminClient();
 
     const [profileResult, preferenceResult] = await Promise.all([
-      (admin.from("profiles") as any).upsert(
+      (supabase.from("profiles") as any).upsert(
         {
           id: user.id,
           display_name: payload.displayName || null,
@@ -45,7 +68,7 @@ export async function POST(request: Request) {
         },
         { onConflict: "id" }
       ),
-      (admin.from("user_preferences") as any).upsert(
+      (supabase.from("user_preferences") as any).upsert(
         {
           user_id: user.id,
           preferred_region: payload.preferredRegion.toUpperCase()

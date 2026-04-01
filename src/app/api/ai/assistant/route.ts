@@ -31,6 +31,9 @@ import {
 } from "@/lib/ai/schemas";
 import { getLocaleFromCookieHeader } from "@/lib/i18n/request";
 import type { Locale } from "@/lib/i18n/types";
+import { containsPromptInjection } from "@/lib/security/prompt-injection";
+import { checkRateLimit } from "@/lib/security/rate-limit";
+import { getRateLimitIdentityKey, getRequestIp, isSameOriginRequest } from "@/lib/security/request";
 
 function getText(locale: Locale) {
   return locale === "en"
@@ -39,14 +42,20 @@ function getText(locale: Locale) {
         blocked: "This title is not available for the stored age.",
         unresolvedOne: "At least one of the titles could not be resolved reliably.",
         invalidInput: "The AI request is invalid.",
-        aiActionFailed: "AI action failed"
+        aiActionFailed: "AI action failed",
+        forbiddenOrigin: "Cross-origin requests are not allowed.",
+        rateLimited: "Too many AI requests. Please try again in a moment.",
+        unsafePrompt: "The request contains unsafe instruction patterns."
       }
     : {
         unresolved: "Der Titel konnte nicht sicher aufgelöst werden.",
         blocked: "Dieser Titel ist für das hinterlegte Alter nicht verfügbar.",
         unresolvedOne: "Mindestens einer der Titel konnte nicht sicher aufgelöst werden.",
         invalidInput: "Die KI-Anfrage ist ungültig.",
-        aiActionFailed: "KI-Aktion fehlgeschlagen"
+        aiActionFailed: "KI-Aktion fehlgeschlagen",
+        forbiddenOrigin: "Cross-Origin-Anfragen sind nicht erlaubt.",
+        rateLimited: "Zu viele KI-Anfragen. Bitte versuche es gleich erneut.",
+        unsafePrompt: "Die Anfrage enthält unsichere Instruktionsmuster."
       };
 }
 
@@ -118,8 +127,31 @@ async function ensureResolvedMediaAllowed(
 }
 
 export async function POST(request: Request) {
+  if (!isSameOriginRequest(request)) {
+    return NextResponse.json({ error: "Cross-origin requests are not allowed." }, { status: 403 });
+  }
+
   const locale = getLocaleFromCookieHeader(request.headers.get("cookie"));
   const text = getText(locale);
+  const ip = getRequestIp(request);
+  const rateLimit = checkRateLimit(
+    getRateLimitIdentityKey("api-ai-assistant", ip),
+    40,
+    60_000
+  );
+
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      { error: text.rateLimited },
+      {
+        status: 429,
+        headers: {
+          "Retry-After": String(rateLimit.retryAfterSeconds)
+        }
+      }
+    );
+  }
+
   const body = await request.json().catch(() => null);
   const parsed = aiActionSchema.safeParse(body);
 
@@ -129,6 +161,40 @@ export async function POST(request: Request) {
       { error: formatValidationError(flattened.fieldErrors, flattened.formErrors, text.invalidInput) },
       { status: 400 }
     );
+  }
+
+  const hasUnsafePrompt = (() => {
+    switch (parsed.data.mode) {
+      case "assistant":
+        return containsPromptInjection([
+          parsed.data.prompt,
+          parsed.data.timeBudget,
+          parsed.data.mood,
+          ...(parsed.data.conversation ?? []).map(message => message.content),
+          ...(parsed.data.referenceTitles ?? []).map(reference => reference.query)
+        ]);
+      case "compare":
+        return containsPromptInjection([parsed.data.left.query, parsed.data.right.query]);
+      case "fit":
+        return containsPromptInjection([
+          parsed.data.title.query,
+          parsed.data.userPrompt,
+          ...parsed.data.feedback.map(item => item.title)
+        ]);
+      case "priority":
+        return containsPromptInjection([
+          parsed.data.context,
+          ...parsed.data.feedback.map(item => item.title)
+        ]);
+      case "title_insights":
+        return containsPromptInjection([parsed.data.title.query]);
+      case "person_insights":
+        return false;
+    }
+  })();
+
+  if (hasUnsafePrompt) {
+    return NextResponse.json({ error: text.unsafePrompt }, { status: 400 });
   }
 
   try {

@@ -1,10 +1,17 @@
-﻿import type { NextApiRequest, NextApiResponse } from "next";
+import type { NextApiRequest, NextApiResponse } from "next";
 import type { ZodError } from "zod";
 
 import { summarySchema } from "@/lib/ai/schemas";
 import { generateSpoilerFreeSummary } from "@/lib/ai/summary";
 import { normalizeLocale } from "@/lib/i18n/request";
 import { LANGUAGE_COOKIE } from "@/lib/i18n/types";
+import { containsPromptInjection } from "@/lib/security/prompt-injection";
+import { checkRateLimit } from "@/lib/security/rate-limit";
+import {
+  getNextApiRequestIp,
+  getRateLimitIdentityKey,
+  isSameOriginNextApiRequest
+} from "@/lib/security/request";
 
 function formatValidationError(
   error: ZodError<{
@@ -24,7 +31,7 @@ function formatValidationError(
   return (
     fieldMessages[0] ??
     flattened.formErrors[0] ??
-    (locale === "en" ? "Invalid summary input." : "Ungültige Zusammenfassungsdaten.")
+    (locale === "en" ? "Invalid summary input." : "Ungueltige Zusammenfassungsdaten.")
   );
 }
 
@@ -37,11 +44,17 @@ export default async function handler(
     locale === "en"
       ? {
           methodNotAllowed: "Method not allowed",
-          fallbackError: "Summary failed"
+          fallbackError: "Summary failed",
+          forbiddenOrigin: "Cross-origin requests are not allowed.",
+          rateLimited: "Too many summary requests. Please try again shortly.",
+          unsafePrompt: "The request contains unsafe instruction patterns."
         }
       : {
           methodNotAllowed: "Methode nicht erlaubt",
-          fallbackError: "Zusammenfassung fehlgeschlagen"
+          fallbackError: "Zusammenfassung fehlgeschlagen",
+          forbiddenOrigin: "Cross-Origin-Anfragen sind nicht erlaubt.",
+          rateLimited: "Zu viele Zusammenfassungsanfragen. Bitte versuche es gleich erneut.",
+          unsafePrompt: "Die Anfrage enthaelt unsichere Instruktionsmuster."
         };
 
   if (request.method !== "POST") {
@@ -49,10 +62,30 @@ export default async function handler(
     return response.status(405).json({ error: text.methodNotAllowed });
   }
 
+  if (!isSameOriginNextApiRequest(request)) {
+    return response.status(403).json({ error: text.forbiddenOrigin });
+  }
+
+  const ip = getNextApiRequestIp(request);
+  const rateLimit = checkRateLimit(
+    getRateLimitIdentityKey("api-ai-summary", ip),
+    40,
+    60_000
+  );
+
+  if (!rateLimit.allowed) {
+    response.setHeader("Retry-After", String(rateLimit.retryAfterSeconds));
+    return response.status(429).json({ error: text.rateLimited });
+  }
+
   const parsed = summarySchema.safeParse(request.body);
 
   if (!parsed.success) {
     return response.status(400).json({ error: formatValidationError(parsed.error, locale) });
+  }
+
+  if (containsPromptInjection([parsed.data.title, parsed.data.overview, ...parsed.data.genres])) {
+    return response.status(400).json({ error: text.unsafePrompt });
   }
 
   try {

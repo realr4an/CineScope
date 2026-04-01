@@ -3,47 +3,30 @@ import "server-only";
 import { cache } from "react";
 
 import { normalizeBirthDate } from "@/lib/age-gate";
-import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Viewer } from "@/types/auth";
 import type { FeedbackEntry } from "@/types/feedback";
 import type { WatchlistItem } from "@/types/media";
 
 async function loadViewerData(userId: string) {
-  try {
-    const admin = createSupabaseAdminClient();
-    const [{ data: profile }, { data: preferences }] = await Promise.all([
-      (admin.from("profiles") as any)
-        .select("birth_date, display_name, is_admin")
-        .eq("id", userId)
-        .maybeSingle(),
-      (admin.from("user_preferences") as any)
-        .select("preferred_region")
-        .eq("user_id", userId)
-        .maybeSingle()
-    ]);
+  const supabase = await createSupabaseServerClient();
 
-    return { profile, preferences };
-  } catch {
-    const supabase = await createSupabaseServerClient();
-
-    if (!supabase) {
-      return { profile: null, preferences: null };
-    }
-
-    const [{ data: profile }, { data: preferences }] = await Promise.all([
-      (supabase.from("profiles") as any)
-        .select("birth_date, display_name, is_admin")
-        .eq("id", userId)
-        .maybeSingle(),
-      (supabase.from("user_preferences") as any)
-        .select("preferred_region")
-        .eq("user_id", userId)
-        .maybeSingle()
-    ]);
-
-    return { profile, preferences };
+  if (!supabase) {
+    return { profile: null, preferences: null };
   }
+
+  const [{ data: profile }, { data: preferences }] = await Promise.all([
+    (supabase.from("profiles") as any)
+      .select("birth_date, display_name, is_admin")
+      .eq("id", userId)
+      .maybeSingle(),
+    (supabase.from("user_preferences") as any)
+      .select("preferred_region")
+      .eq("user_id", userId)
+      .maybeSingle()
+  ]);
+
+  return { profile, preferences };
 }
 
 export const getViewer = cache(async () => {
@@ -121,30 +104,15 @@ export const getFeedbackEntriesForAdmin = cache(async (): Promise<FeedbackEntry[
     return [];
   }
 
-  let data: any[] | null = null;
-  let error: any = null;
+  const supabase = await createSupabaseServerClient();
 
-  try {
-    const admin = createSupabaseAdminClient();
-    const result = await (admin.from("feedback_entries") as any)
-      .select("*")
-      .order("created_at", { ascending: false });
-    data = result.data;
-    error = result.error;
-  } catch {
-    const supabase = await createSupabaseServerClient();
-
-    if (!supabase) {
-      return [];
-    }
-
-    const result = await (supabase.from("feedback_entries") as any)
-      .select("*")
-      .order("created_at", { ascending: false });
-
-    data = result.data;
-    error = result.error;
+  if (!supabase) {
+    return [];
   }
+
+  const { data, error } = await (supabase.from("feedback_entries") as any)
+    .select("*")
+    .order("created_at", { ascending: false });
 
   if (error || !data) {
     return [];

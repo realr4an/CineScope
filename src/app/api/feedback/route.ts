@@ -4,6 +4,9 @@ import { z } from "zod";
 import { moderateFeedback } from "@/lib/ai/feedback-moderation";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { isUnsafeFeedbackMessage } from "@/lib/security/prompt-injection";
+import { checkRateLimit } from "@/lib/security/rate-limit";
+import { getRateLimitIdentityKey, getRequestIp, isSameOriginRequest } from "@/lib/security/request";
 
 const feedbackSchema = z.object({
   email: z.string().email().optional().or(z.literal("")),
@@ -14,8 +17,43 @@ const feedbackSchema = z.object({
 });
 
 export async function POST(request: Request) {
+  if (!isSameOriginRequest(request)) {
+    return NextResponse.json({ error: "Cross-origin requests are not allowed." }, { status: 403 });
+  }
+
+  const ip = getRequestIp(request);
+  const rateLimit = checkRateLimit(
+    getRateLimitIdentityKey("api-feedback-submit", ip),
+    8,
+    60_000
+  );
+
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      { error: "Zu viele Feedback-Anfragen. Bitte warte kurz." },
+      {
+        status: 429,
+        headers: {
+          "Retry-After": String(rateLimit.retryAfterSeconds)
+        }
+      }
+    );
+  }
+
   try {
     const payload = feedbackSchema.parse(await request.json());
+
+    if (isUnsafeFeedbackMessage(payload.message)) {
+      return NextResponse.json(
+        {
+          approved: false,
+          message:
+            "Dein Feedback konnte in dieser Form nicht übernommen werden. Bitte formuliere es sachlich und app-bezogen."
+        },
+        { status: 400 }
+      );
+    }
+
     const supabase = await createSupabaseServerClient();
     const authResult = supabase
       ? await supabase.auth.getUser()
