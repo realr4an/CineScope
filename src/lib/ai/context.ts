@@ -2,7 +2,7 @@ import "server-only";
 
 import { getMovieDetail } from "@/lib/tmdb/movies";
 import { getPersonDetail } from "@/lib/tmdb/people";
-import { searchMedia } from "@/lib/tmdb/search";
+import { searchMediaWithFallback } from "@/lib/tmdb/search";
 import { getTvDetail } from "@/lib/tmdb/tv";
 import type { AIPersonContext, AITitleContext } from "@/lib/ai/types";
 import type { Locale } from "@/lib/i18n/types";
@@ -42,7 +42,7 @@ export async function resolveMediaAIContext(input: {
   locale?: Locale;
 }) {
   const locale = input.locale ?? "de";
-  const results = await searchMedia({
+  const results = await searchMediaWithFallback({
     query: input.query,
     mediaType: input.mediaType ?? "all",
     locale

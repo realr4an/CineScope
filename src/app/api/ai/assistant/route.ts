@@ -216,6 +216,30 @@ function getRequestedSeasonCount(input: {
   return null;
 }
 
+function extractLikelyTitleQuery(input: string) {
+  const normalized = input.trim();
+
+  if (!normalized) {
+    return null;
+  }
+
+  const patterns = [
+    /(?:mehr\s+über|infos?\s+zu|info\s+zu|was\s+wei[sß]t\s+du\s+über)\s+["„“]?(.+?)["“”]?(?:\s+(?:wissen|erfahren))?\s*[.!?]?$/i,
+    /(?:tell\s+me\s+more\s+about|more\s+about|info\s+about|what\s+about)\s+["“”]?(.+?)["“”]?\s*[.!?]?$/i
+  ] as const;
+
+  for (const pattern of patterns) {
+    const match = normalized.match(pattern);
+    const candidate = match?.[1]?.trim();
+
+    if (candidate) {
+      return candidate.replace(/^[\s"'`„“]+|[\s"'`“”]+$/g, "").trim();
+    }
+  }
+
+  return null;
+}
+
 async function ensureResolvedMediaAllowed(
   input: {
     query: string;
@@ -466,13 +490,47 @@ export async function POST(request: Request) {
           prompt: parsed.data.prompt,
           conversation: parsed.data.conversation
         });
-        const references = (
-          await Promise.all(
-            parsed.data.referenceTitles.map(reference => ensureResolvedMediaAllowed(reference, locale))
-          )
-        )
+        const explicitReferenceResults = await Promise.all(
+          parsed.data.referenceTitles.map(reference => ensureResolvedMediaAllowed(reference, locale))
+        );
+        const references = explicitReferenceResults
           .filter(result => result.resolved)
           .map(result => result.resolved!.context);
+
+        if (references.length < 3) {
+          const inferredCandidates = [
+            extractLikelyTitleQuery(parsed.data.prompt),
+            ...parsed.data.conversation
+              .slice(-2)
+              .map(message => extractLikelyTitleQuery(message.content))
+          ].filter((value): value is string => !!value);
+
+          for (const query of inferredCandidates) {
+            if (references.length >= 3) {
+              break;
+            }
+
+            const alreadyReferenced = references.some(
+              reference => reference.title.toLowerCase() === query.toLowerCase()
+            );
+
+            if (alreadyReferenced) {
+              continue;
+            }
+
+            const resolved = await ensureResolvedMediaAllowed(
+              {
+                query,
+                mediaType: "all"
+              },
+              locale
+            );
+
+            if (resolved.resolved) {
+              references.push(resolved.resolved.context);
+            }
+          }
+        }
 
         const data = await askOpenRouterJson(
           assistantPrompt(

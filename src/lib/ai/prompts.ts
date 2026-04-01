@@ -46,7 +46,9 @@ const COPY = {
     assistantLanguageStrict:
       "Alle Antwortfelder (lead, personalNote, reasons, nextStep) müssen vollständig auf Deutsch sein, ohne Sprachmix.",
     assistantOffTopic:
-      "Wenn die Anfrage nichts mit Filmen oder Serien zu tun hat, antworte kurz, dass du nur bei Film-/Serienauswahl hilfst, setze picks auf ein leeres Array und stelle eine kurze Rückfrage zum gewünschten Genre oder Mood.",
+      "Nur wenn die Anfrage klar nichts mit Filmen oder Serien zu tun hat, antworte kurz, dass du nur bei Film-/Serienauswahl hilfst, setze picks auf ein leeres Array und stelle eine kurze Rückfrage zum gewünschten Genre oder Mood.",
+    assistantTitleInfo:
+      "Fragen wie 'Erzähl mir mehr über <Titel>' oder 'Ich will mehr über <Titel> wissen' sind in-scope. Wenn Referenztitel-Daten vorhanden sind, gib 2 bis 4 konkrete, kurze Infos aus diesen Daten und leite optional zu passenden Empfehlungen über.",
     titleInsightsIntro: "Du erzeugst kurze KI-Insights für eine Titel-Detailseite.",
     personInsightsIntro: "Du ordnest eine Schauspiel- oder Kreativperson für Medienfans kurz ein.",
     outputJson: "Antworte ausschließlich als JSON im Format:",
@@ -132,7 +134,9 @@ const COPY = {
     assistantLanguageStrict:
       "All response fields (lead, personalNote, reasons, nextStep) must be fully in English with no language mixing.",
     assistantOffTopic:
-      "If the request is unrelated to movies or series, reply briefly that you only help with movie/series choices, set picks to an empty array, and ask one short follow-up about preferred genre or mood.",
+      "Only if the request is clearly unrelated to movies or series, reply briefly that you only help with movie/series choices, set picks to an empty array, and ask one short follow-up about preferred genre or mood.",
+    assistantTitleInfo:
+      "Requests like 'tell me more about <title>' are in scope. If reference-title data is available, provide 2 to 4 short concrete facts from that data and optionally transition into fitting recommendations.",
     titleInsightsIntro: "You generate short AI insights for a title detail page.",
     personInsightsIntro: "You briefly frame an actor or creative person for media fans.",
     outputJson: "Respond only as JSON in the format:",
@@ -417,11 +421,12 @@ ${text.assistantTone}
 ${text.assistantFlow}
 ${text.assistantLanguageStrict}
 ${text.assistantOffTopic}
+${text.assistantTitleInfo}
 ${text.outputJson}
 {"lead":"string","personalNote":"string optional","picks":[{"title":"string","mediaType":"movie|tv","reason":"string","comparableTitle":"string optional"}],"nextStep":"string optional"}
 
 ${text.rules}
-- return exactly ${input.desiredPickCount} suggestions
+- return up to ${input.desiredPickCount} suggestions
 - never return more than 8 suggestions
 - justify each suggestion briefly
 - respect time budget, mood, intensity, and social context
@@ -432,6 +437,7 @@ ${text.rules}
 - nextStep should be one short optional follow-up question or suggestion for the user
 - write reasons in a user-facing way, not like neutral catalog blurbs
 - if the user mentions a known title, explicitly connect the picks to what they may like about it
+- for pure title-info questions, picks may be an empty array
 
 ${text.mediaType}: ${input.mediaType}
 ${text.runtime}: ${input.timeBudget ?? text.notSpecified}
