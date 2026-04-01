@@ -97,6 +97,75 @@ async function getJson<T>(input: RequestInfo | URL) {
   return data as T;
 }
 
+async function saveProfileSettings(
+  supabase: ReturnType<typeof createSupabaseBrowserClient>,
+  input: {
+    userId: string;
+    displayName: string | null;
+    birthDate: string;
+  }
+) {
+  const updateResult = await (supabase.from("profiles") as any)
+    .update({
+      display_name: input.displayName,
+      birth_date: input.birthDate
+    })
+    .eq("id", input.userId)
+    .select("id")
+    .maybeSingle();
+
+  if (updateResult.error) {
+    throw updateResult.error;
+  }
+
+  if (updateResult.data) {
+    return;
+  }
+
+  const insertResult = await (supabase.from("profiles") as any).insert({
+    id: input.userId,
+    display_name: input.displayName,
+    birth_date: input.birthDate
+  });
+
+  if (insertResult.error) {
+    throw insertResult.error;
+  }
+}
+
+async function saveUserPreferences(
+  supabase: ReturnType<typeof createSupabaseBrowserClient>,
+  input: {
+    userId: string;
+    preferredRegion: string;
+  }
+) {
+  const updateResult = await (supabase.from("user_preferences") as any)
+    .update({
+      preferred_region: input.preferredRegion
+    })
+    .eq("user_id", input.userId)
+    .select("id")
+    .maybeSingle();
+
+  if (updateResult.error) {
+    throw updateResult.error;
+  }
+
+  if (updateResult.data) {
+    return;
+  }
+
+  const insertResult = await (supabase.from("user_preferences") as any).insert({
+    user_id: input.userId,
+    preferred_region: input.preferredRegion
+  });
+
+  if (insertResult.error) {
+    throw insertResult.error;
+  }
+}
+
 export function AccountSettingsForm({ viewer }: { viewer: Viewer }) {
   const router = useRouter();
   const { locale } = useLanguage();
@@ -275,26 +344,21 @@ export function AccountSettingsForm({ viewer }: { viewer: Viewer }) {
     setSaving(true);
     const supabase = createSupabaseBrowserClient();
 
-    const [profileResult, preferenceResult] = await Promise.all([
-      (supabase.from("profiles") as any).upsert(
-        {
-          id: viewer.id,
-          display_name: displayName.trim() || null,
-          birth_date: birthDate
-        },
-        { onConflict: "id" }
-      ),
-      (supabase.from("user_preferences") as any).upsert(
-        {
-          user_id: viewer.id,
-          preferred_region: selectedRegion
-        },
-        { onConflict: "user_id" }
-      )
-    ]);
-
-    if (profileResult.error || preferenceResult.error) {
-      toast.error(text.failure);
+    try {
+      await Promise.all([
+        saveProfileSettings(supabase, {
+          userId: viewer.id,
+          displayName: displayName.trim() || null,
+          birthDate
+        }),
+        saveUserPreferences(supabase, {
+          userId: viewer.id,
+          preferredRegion: selectedRegion
+        })
+      ]);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : text.failure;
+      toast.error(message || text.failure);
       setSaving(false);
       return;
     }
