@@ -313,6 +313,126 @@ function buildFallbackPriorityGroups(titles: AITitleContext[], locale: Locale) {
   };
 }
 
+function normalizeTitleForLookup(value: string | null | undefined) {
+  if (!value) {
+    return "";
+  }
+
+  return value
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function buildMediaKey(mediaType: "movie" | "tv", tmdbId: number) {
+  return `${mediaType}:${tmdbId}`;
+}
+
+function dedupeAndNormalizePriorityGroups(
+  groups: Array<{
+    label: string;
+    description?: string;
+    items: Array<{
+      title: string;
+      mediaType: "movie" | "tv";
+      reason: string;
+      tmdbId?: number;
+      href?: string;
+    }>;
+  }>,
+  titles: AITitleContext[],
+  locale: Locale
+) {
+  const allowedByKey = new Map(
+    titles.map(title => [buildMediaKey(title.mediaType, title.tmdbId), title])
+  );
+  const titleToKey = new Map<string, string>();
+
+  for (const title of titles) {
+    const key = buildMediaKey(title.mediaType, title.tmdbId);
+    const normalizedMain = normalizeTitleForLookup(title.title);
+
+    if (normalizedMain) {
+      titleToKey.set(`${title.mediaType}:${normalizedMain}`, key);
+    }
+
+    const normalizedOriginal = normalizeTitleForLookup(title.originalTitle);
+    if (normalizedOriginal) {
+      titleToKey.set(`${title.mediaType}:${normalizedOriginal}`, key);
+    }
+  }
+
+  const seen = new Set<string>();
+  const normalizedGroups = groups
+    .map(group => {
+      const items = group.items
+        .map(item => {
+          const directKey =
+            typeof item.tmdbId === "number" ? buildMediaKey(item.mediaType, item.tmdbId) : null;
+          const fallbackKey = titleToKey.get(
+            `${item.mediaType}:${normalizeTitleForLookup(item.title)}`
+          );
+          const key = directKey && allowedByKey.has(directKey) ? directKey : fallbackKey;
+
+          if (!key || seen.has(key)) {
+            return null;
+          }
+
+          const context = allowedByKey.get(key);
+          if (!context) {
+            return null;
+          }
+
+          seen.add(key);
+
+          return {
+            ...item,
+            title: context.title,
+            mediaType: context.mediaType,
+            tmdbId: context.tmdbId,
+            href: `/${context.mediaType}/${context.tmdbId}`
+          };
+        })
+        .filter(Boolean) as Array<{
+        title: string;
+        mediaType: "movie" | "tv";
+        reason: string;
+        tmdbId: number;
+        href: string;
+      }>;
+
+      return {
+        ...group,
+        items
+      };
+    })
+    .filter(group => group.items.length > 0);
+
+  const missing = titles.filter(
+    title => !seen.has(buildMediaKey(title.mediaType, title.tmdbId))
+  );
+
+  if (missing.length) {
+    normalizedGroups.push({
+      label: locale === "en" ? "Other picks" : "Weitere Vorschläge",
+      items: missing.map(title => ({
+        title: title.title,
+        mediaType: title.mediaType,
+        reason:
+          locale === "en"
+            ? "Added to keep every watchlist title represented exactly once."
+            : "Hinzugefügt, damit jeder Watchlist-Titel genau einmal enthalten ist.",
+        tmdbId: title.tmdbId,
+        href: `/${title.mediaType}/${title.tmdbId}`
+      }))
+    });
+  }
+
+  return normalizedGroups;
+}
+
 function formatValidationError(
   fieldErrors: Record<string, string[] | undefined>,
   formErrors: string[],
@@ -751,12 +871,13 @@ export async function POST(request: Request) {
               items: await resolveAIPicks(group.items, locale)
             }))
           );
+          const dedupedGroups = dedupeAndNormalizePriorityGroups(groups, titles, locale);
 
           return NextResponse.json({
             mode: "priority_groups",
             data: {
               ...data,
-              groups
+              groups: dedupedGroups
             }
           });
         } catch (error) {
