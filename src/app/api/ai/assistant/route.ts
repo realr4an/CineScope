@@ -38,6 +38,7 @@ import { containsPromptInjection } from "@/lib/security/prompt-injection";
 import { checkRateLimit } from "@/lib/security/rate-limit";
 import { getRateLimitIdentityKey, getRequestIp, isSameOriginRequest } from "@/lib/security/request";
 import { ZodError } from "zod";
+import type { AITitleContext } from "@/lib/ai/types";
 
 const MAX_ASSISTANT_SUGGESTIONS = 8;
 
@@ -242,6 +243,74 @@ function parseLeadCount(input: string) {
   }
 
   return null;
+}
+
+function getYearFromDate(value: string | null | undefined) {
+  if (!value) {
+    return Number.MAX_SAFE_INTEGER;
+  }
+
+  const year = Number(value.slice(0, 4));
+  return Number.isFinite(year) ? year : Number.MAX_SAFE_INTEGER;
+}
+
+function buildFallbackPriorityGroups(titles: AITitleContext[], locale: Locale) {
+  const mediaTypeLabel =
+    locale === "en"
+      ? { movie: "Movies", tv: "Series", mixed: "Mixed picks" }
+      : { movie: "Filme", tv: "Serien", mixed: "Gemischte Auswahl" };
+  const fallbackReason =
+    locale === "en"
+      ? "Sorted in a sensible order based on genre and release year."
+      : "Sinnvoll nach Genre und Erscheinungsjahr sortiert.";
+  const summary =
+    locale === "en"
+      ? "AI grouping was unavailable for this request. A deterministic watchlist grouping is shown instead."
+      : "Die KI-Gruppierung war für diese Anfrage nicht verfügbar. Stattdessen wird eine stabile, regelbasierte Gruppierung angezeigt.";
+  const sorted = [...titles].sort((left, right) => {
+    const yearDelta = getYearFromDate(left.releaseDate) - getYearFromDate(right.releaseDate);
+    if (yearDelta !== 0) {
+      return yearDelta;
+    }
+
+    return left.title.localeCompare(right.title);
+  });
+  const groupsByLabel = new Map<
+    string,
+    Array<{
+      title: string;
+      mediaType: "movie" | "tv";
+      reason: string;
+      tmdbId: number;
+      href: string;
+    }>
+  >();
+
+  for (const title of sorted) {
+    const label =
+      title.genres[0]?.trim() ||
+      (title.mediaType === "movie" ? mediaTypeLabel.movie : mediaTypeLabel.tv) ||
+      mediaTypeLabel.mixed;
+    const current = groupsByLabel.get(label) ?? [];
+    current.push({
+      title: title.title,
+      mediaType: title.mediaType,
+      reason: fallbackReason,
+      tmdbId: title.tmdbId,
+      href: `/${title.mediaType}/${title.tmdbId}`
+    });
+    groupsByLabel.set(label, current);
+  }
+
+  const groups = Array.from(groupsByLabel.entries()).map(([label, items]) => ({
+    label,
+    items
+  }));
+
+  return {
+    summary,
+    groups
+  };
 }
 
 function formatValidationError(
@@ -663,32 +732,42 @@ export async function POST(request: Request) {
 
       case "priority_groups": {
         const titles = await getManyMediaAIContexts(parsed.data.items, locale);
-        const data = await askOpenRouterJson(
-          priorityGroupsPrompt(
-            {
-              titles,
-              feedback: parsed.data.feedback,
-              context: parsed.data.context
-            },
-            locale
-          ),
-          aiPriorityGroupsResponseSchema
-        );
+        try {
+          const data = await askOpenRouterJson(
+            priorityGroupsPrompt(
+              {
+                titles,
+                feedback: parsed.data.feedback,
+                context: parsed.data.context
+              },
+              locale
+            ),
+            aiPriorityGroupsResponseSchema
+          );
 
-        const groups = await Promise.all(
-          data.groups.map(async group => ({
-            ...group,
-            items: await resolveAIPicks(group.items, locale)
-          }))
-        );
+          const groups = await Promise.all(
+            data.groups.map(async group => ({
+              ...group,
+              items: await resolveAIPicks(group.items, locale)
+            }))
+          );
 
-        return NextResponse.json({
-          mode: "priority_groups",
-          data: {
-            ...data,
-            groups
-          }
-        });
+          return NextResponse.json({
+            mode: "priority_groups",
+            data: {
+              ...data,
+              groups
+            }
+          });
+        } catch (error) {
+          console.warn("[api/ai/assistant] priority_groups fallback:", error);
+
+          const fallback = buildFallbackPriorityGroups(titles, locale);
+          return NextResponse.json({
+            mode: "priority_groups",
+            data: fallback
+          });
+        }
       }
 
       case "assistant": {

@@ -151,13 +151,13 @@ export const aiActionSchema = z.discriminatedUnion("mode", [
   }),
   z.object({
     mode: z.literal("priority"),
-    items: z.array(selectedMediaSchema).min(2).max(50),
+    items: z.array(selectedMediaSchema).min(2).max(120),
     feedback: z.array(feedbackSchema).max(50).default([]),
     context: z.string().trim().max(200).optional()
   }),
   z.object({
     mode: z.literal("priority_groups"),
-    items: z.array(selectedMediaSchema).min(2).max(50),
+    items: z.array(selectedMediaSchema).min(2).max(120),
     feedback: z.array(feedbackSchema).max(50).default([]),
     context: z.string().trim().max(260).optional()
   }),
