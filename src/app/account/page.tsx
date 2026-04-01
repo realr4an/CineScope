@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { Mail, ShieldCheck, SlidersHorizontal } from "lucide-react";
 
 import { AppShell } from "@/components/layout/app-shell";
@@ -48,7 +49,10 @@ export default async function AccountPage() {
             "These values are reused across where-to-watch, search and discovery flows.",
           securityTitle: "Security",
           securityDescription: "Update your password without leaving the app.",
-          notSet: "Not set"
+          notSet: "Not set",
+          adminTitle: "Admin",
+          adminDescription: "Open the feedback inbox reserved for admin accounts.",
+          adminLink: "Open feedback inbox"
         }
       : {
           title: "Account-Einstellungen",
@@ -64,7 +68,10 @@ export default async function AccountPage() {
             "Diese Werte werden in Where-to-watch-, Such- und Discover-Ansichten wiederverwendet.",
           securityTitle: "Sicherheit",
           securityDescription: "Aktualisiere dein Passwort direkt in der App.",
-          notSet: "Nicht gesetzt"
+          notSet: "Nicht gesetzt",
+          adminTitle: "Admin",
+          adminDescription: "Öffne das Feedback-Postfach für Admin-Konten.",
+          adminLink: "Feedback-Postfach öffnen"
         };
 
   return (
@@ -129,6 +136,21 @@ export default async function AccountPage() {
             </div>
             <PasswordChangeForm />
           </div>
+
+          {viewer.isAdmin ? (
+            <div className="rounded-[2rem] border border-border/50 bg-card/50 p-6">
+              <div className="space-y-2">
+                <h2 className="text-xl font-semibold">{text.adminTitle}</h2>
+                <p className="text-sm text-muted-foreground">{text.adminDescription}</p>
+                <Link
+                  href="/admin/feedback"
+                  className="inline-flex items-center rounded-xl border border-border/50 px-4 py-2 text-sm font-medium transition-colors hover:border-primary/40 hover:text-primary"
+                >
+                  {text.adminLink}
+                </Link>
+              </div>
+            </div>
+          ) : null}
         </div>
       </div>
     </AppShell>

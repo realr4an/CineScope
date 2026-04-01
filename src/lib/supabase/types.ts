@@ -9,17 +9,20 @@ export interface Database {
           display_name: string | null;
           avatar_url: string | null;
           birth_date: string | null;
+          is_admin: boolean;
         };
         Insert: {
           id: string;
           display_name?: string | null;
           avatar_url?: string | null;
           birth_date?: string | null;
+          is_admin?: boolean;
         };
         Update: {
           display_name?: string | null;
           avatar_url?: string | null;
           birth_date?: string | null;
+          is_admin?: boolean;
         };
         Relationships: [];
       };
@@ -80,6 +83,37 @@ export interface Database {
           vote_average?: number | null;
           watched?: boolean;
           liked?: boolean | null;
+        };
+        Relationships: [];
+      };
+      feedback_entries: {
+        Row: {
+          id: string;
+          user_id: string | null;
+          email: string | null;
+          display_name: string | null;
+          category: string;
+          message: string;
+          page_path: string | null;
+          moderation_summary: string | null;
+          created_at: string;
+        };
+        Insert: {
+          user_id?: string | null;
+          email?: string | null;
+          display_name?: string | null;
+          category: string;
+          message: string;
+          page_path?: string | null;
+          moderation_summary?: string | null;
+        };
+        Update: {
+          email?: string | null;
+          display_name?: string | null;
+          category?: string;
+          message?: string;
+          page_path?: string | null;
+          moderation_summary?: string | null;
         };
         Relationships: [];
       };

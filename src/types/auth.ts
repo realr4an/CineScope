@@ -4,4 +4,5 @@ export interface Viewer {
   displayName: string | null;
   birthDate: string | null;
   preferredRegion: string | null;
+  isAdmin: boolean;
 }

@@ -16,8 +16,12 @@ create table if not exists public.profiles (
   updated_at timestamptz not null default timezone('utc', now()),
   display_name text,
   avatar_url text,
-  birth_date date
+  birth_date date,
+  is_admin boolean not null default false
 );
+
+alter table public.profiles
+  add column if not exists is_admin boolean not null default false;
 
 create trigger profiles_set_updated_at
 before update on public.profiles
@@ -82,11 +86,39 @@ create table if not exists public.ai_chat_messages (
   created_at timestamptz not null default timezone('utc', now())
 );
 
+create table if not exists public.feedback_entries (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references auth.users(id) on delete set null,
+  email text,
+  display_name text,
+  category text not null,
+  message text not null,
+  page_path text,
+  moderation_summary text,
+  created_at timestamptz not null default timezone('utc', now())
+);
+
 alter table public.profiles enable row level security;
 alter table public.watchlist_items enable row level security;
 alter table public.user_preferences enable row level security;
 alter table public.ai_chat_sessions enable row level security;
 alter table public.ai_chat_messages enable row level security;
+alter table public.feedback_entries enable row level security;
+
+create or replace function public.is_admin_user()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.profiles
+    where id = auth.uid()
+      and is_admin = true
+  );
+$$;
 
 create policy "profiles_select_own"
 on public.profiles
@@ -159,6 +191,11 @@ with check (
       and sessions.user_id = auth.uid()
   )
 );
+
+create policy "feedback_entries_admin_select"
+on public.feedback_entries
+for select
+using (public.is_admin_user());
 
 create or replace function public.handle_new_user()
 returns trigger
