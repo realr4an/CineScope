@@ -70,6 +70,10 @@ const COPY = {
     priorityInstruction3: "wenn die Titel erkennbar zu einer Reihe oder Franchise gehören, liefere eine klare Watch Order",
     priorityInstruction4: "erkläre je Titel kurz, warum er genau an dieser Position steht",
     priorityInstruction5: "wenn es unterschiedliche sinnvolle Wege gäbe, entscheide dich für einen klaren Hauptpfad und erwähne die Logik kurz in der summary",
+    priorityInstruction6:
+      "berücksichtige die Watchlist-Signale des Nutzers und priorisiere vor allem ungesehene Titel, die gut zu positiv bewerteten Titeln passen",
+    priorityInstruction7:
+      "bereits gesehene oder negativ bewertete Titel gehören normalerweise weiter nach unten, außer ein Rewatch wäre klar sinnvoll",
     candidates: "Kandidaten:",
     notSpecified: "nicht angegeben",
     mood: "Stimmung",
@@ -148,6 +152,10 @@ const COPY = {
     priorityInstruction3: "if the titles clearly belong to a series or franchise, provide a clear watch order",
     priorityInstruction4: "briefly explain for each title why it belongs in that position",
     priorityInstruction5: "if multiple sensible approaches exist, choose one clear main path and mention the logic briefly in the summary",
+    priorityInstruction6:
+      "use the user's watchlist signals and prioritize mostly unwatched titles that best match what they liked",
+    priorityInstruction7:
+      "already watched or disliked titles should usually appear lower unless a rewatch clearly makes sense",
     candidates: "Candidates:",
     notSpecified: "not specified",
     mood: "Mood",
@@ -346,6 +354,7 @@ ${formatTitleContext(input.title, locale)}
 export function priorityPrompt(input: {
   titles: AITitleContext[];
   context?: string;
+  feedback?: RecommendationFeedbackItem[];
 }, locale: Locale = "de") {
   const text = copyFor(locale);
   return `
@@ -360,10 +369,23 @@ ${text.rules}
 - ${text.priorityInstruction3}
 - ${text.priorityInstruction4}
 - ${text.priorityInstruction5}
+- ${text.priorityInstruction6}
+- ${text.priorityInstruction7}
 
+${input.feedback?.length ? `${text.userContext}\n${formatFeedback(input.feedback, locale)}\n` : ""}
 ${input.context ? `${text.userContext}\n${input.context}\n` : ""}
 ${text.candidates}
-${input.titles.map(title => `- ${title.title} (${title.mediaType})`).join("\n")}
+${input.titles
+  .map(title => {
+    const typeLabel = title.mediaType === "movie" ? text.movie : text.series;
+    const genres = title.genres.slice(0, 3).join(", ") || text.unknown;
+    const release = title.releaseDate ?? text.unknown;
+    const seasons =
+      title.mediaType === "tv" ? `, ${text.seasons}: ${title.numberOfSeasons ?? text.unknown}` : "";
+
+    return `- ${title.title} (${typeLabel}, ${text.release}: ${release}, ${text.genres}: ${genres}${seasons})`;
+  })
+  .join("\n")}
 `.trim();
 }
 

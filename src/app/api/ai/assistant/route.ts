@@ -209,6 +209,7 @@ export async function POST(request: Request) {
           priorityPrompt(
             {
               titles,
+              feedback: parsed.data.feedback,
               context: parsed.data.context
             },
             locale

@@ -1,10 +1,11 @@
-﻿"use client";
+"use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { CheckSquare, Heart, Square, Trash2 } from "lucide-react";
+import { CheckSquare, Heart, RefreshCw, Sparkles, Square, Trash2 } from "lucide-react";
 
 import { AIWatchlistPriorityPanel, MAX_PRIORITY_SELECTIONS } from "@/features/ai/watchlist-priority-panel";
+import { postAIAction } from "@/features/ai/client";
 import { EmptyState } from "@/components/states/state-components";
 import { FilterChips } from "@/components/shared/ui-components";
 import { Button } from "@/components/ui/button";
@@ -19,6 +20,29 @@ import type { WatchlistItem } from "@/types/media";
 const FALLBACK_POSTER = "https://placehold.co/500x750/181414/f5f5f4?text=CineScope";
 
 type WatchlistFilter = "all" | "watched" | "liked" | "disliked";
+type AutoPriorityResponse = {
+  mode: "priority";
+  data: {
+    summary: string;
+    order: Array<{
+      title: string;
+      mediaType: "movie" | "tv";
+      reason: string;
+      tmdbId?: number;
+      href?: string;
+    }>;
+  };
+};
+
+const AUTO_PRIORITY_DEBOUNCE_MS = 350;
+
+function buildWatchlistKey(item: { tmdbId?: number; mediaType: "movie" | "tv"; title?: string }) {
+  if (typeof item.tmdbId === "number") {
+    return `${item.mediaType}:${item.tmdbId}`;
+  }
+
+  return `${item.mediaType}:${item.title?.trim().toLowerCase() ?? ""}`;
+}
 
 function StatusBadge({
   label,
@@ -144,9 +168,42 @@ function WatchlistCard({
 
 export function WatchlistPageContent() {
   const { items } = useWatchlist();
-  const { dictionary } = useLanguage();
+  const { dictionary, locale } = useLanguage();
   const [filter, setFilter] = useState<WatchlistFilter>("all");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [priorityRefreshKey, setPriorityRefreshKey] = useState(0);
+  const [autoPriorityState, setAutoPriorityState] = useState<{
+    loading: boolean;
+    error: string | null;
+    summary: string | null;
+    orderKeys: string[];
+  }>({
+    loading: items.length >= 2,
+    error: null,
+    summary: null,
+    orderKeys: []
+  });
+
+  const autoSortText =
+    locale === "en"
+      ? {
+          title: "AI watchlist order",
+          description:
+            "Your watchlist is automatically arranged by what you are most likely to want next, based on watched and liked signals.",
+          loading: "Refreshing the personalized order...",
+          reload: "Refresh order",
+          fallback: "The watchlist is currently shown in its saved order because the AI sort is unavailable.",
+          tooSmall: "Add at least two titles to get an automatic watch order."
+        }
+      : {
+          title: "KI-Sortierung deiner Watchlist",
+          description:
+            "Deine Watchlist wird automatisch danach sortiert, was für dich als Nächstes am sinnvollsten wirkt, basierend auf gesehenen und bewerteten Titeln.",
+          loading: "Die persönliche Reihenfolge wird aktualisiert...",
+          reload: "Reihenfolge aktualisieren",
+          fallback: "Die Watchlist wird aktuell in der gespeicherten Reihenfolge angezeigt, weil die KI-Sortierung nicht verfügbar ist.",
+          tooSmall: "Füge mindestens zwei Titel hinzu, damit eine automatische Reihenfolge entsteht."
+        };
 
   const filterOptions = [
     { label: dictionary.watchlist.all, value: "all" as const },
@@ -155,18 +212,122 @@ export function WatchlistPageContent() {
     { label: dictionary.watchlist.disliked, value: "disliked" as const }
   ];
 
+  useEffect(() => {
+    if (items.length < 2) {
+      setAutoPriorityState({
+        loading: false,
+        error: null,
+        summary: null,
+        orderKeys: []
+      });
+      return;
+    }
+
+    let cancelled = false;
+    const timer = window.setTimeout(async () => {
+      setAutoPriorityState(current => ({
+        ...current,
+        loading: true,
+        error: null
+      }));
+
+      try {
+        const response = await postAIAction<AutoPriorityResponse>(
+          {
+            mode: "priority",
+            items: items.map(item => ({
+              tmdbId: item.tmdbId,
+              mediaType: item.mediaType
+            })),
+            feedback: items.map(item => ({
+              title: item.title,
+              mediaType: item.mediaType,
+              watched: item.watched,
+              liked: item.liked
+            })),
+            context:
+              locale === "en"
+                ? "Sort this personal watchlist by what this user should most likely watch next."
+                : "Sortiere diese persönliche Watchlist danach, was dieser Nutzer am wahrscheinlichsten als Nächstes schauen sollte."
+          },
+          locale === "en"
+            ? "The AI watchlist order could not be loaded."
+            : "Die KI-Reihenfolge der Watchlist konnte nicht geladen werden."
+        );
+
+        if (cancelled) {
+          return;
+        }
+
+        setAutoPriorityState({
+          loading: false,
+          error: null,
+          summary: response.data.summary,
+          orderKeys: response.data.order.map(item => buildWatchlistKey(item))
+        });
+      } catch (priorityError) {
+        if (cancelled) {
+          return;
+        }
+
+        setAutoPriorityState(current => ({
+          ...current,
+          loading: false,
+          error:
+            priorityError instanceof Error
+              ? priorityError.message
+              : locale === "en"
+                ? "The AI watchlist order could not be loaded."
+                : "Die KI-Reihenfolge der Watchlist konnte nicht geladen werden."
+        }));
+      }
+    }, AUTO_PRIORITY_DEBOUNCE_MS);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [items, locale, priorityRefreshKey]);
+
+  const sortedItems = useMemo(() => {
+    if (!autoPriorityState.orderKeys.length) {
+      return items;
+    }
+
+    const orderMap = new Map(autoPriorityState.orderKeys.map((key, index) => [key, index]));
+
+    return [...items].sort((left, right) => {
+      const leftIndex = orderMap.get(buildWatchlistKey(left));
+      const rightIndex = orderMap.get(buildWatchlistKey(right));
+
+      if (leftIndex === undefined && rightIndex === undefined) {
+        return 0;
+      }
+
+      if (leftIndex === undefined) {
+        return 1;
+      }
+
+      if (rightIndex === undefined) {
+        return -1;
+      }
+
+      return leftIndex - rightIndex;
+    });
+  }, [autoPriorityState.orderKeys, items]);
+
   const filteredItems = useMemo(() => {
     switch (filter) {
       case "watched":
-        return items.filter(item => item.watched);
+        return sortedItems.filter(item => item.watched);
       case "liked":
-        return items.filter(item => item.liked === true);
+        return sortedItems.filter(item => item.liked === true);
       case "disliked":
-        return items.filter(item => item.liked === false);
+        return sortedItems.filter(item => item.liked === false);
       default:
-        return items;
+        return sortedItems;
     }
-  }, [filter, items]);
+  }, [filter, sortedItems]);
 
   const selectedItems = useMemo(
     () => items.filter(item => selectedIds.includes(item.id)),
@@ -202,6 +363,47 @@ export function WatchlistPageContent() {
   return (
     <div className="space-y-5">
       <AIWatchlistPriorityPanel selectedItems={selectedItems} onClearSelection={clearSelection} />
+
+      <div className="rounded-[1.5rem] border border-primary/20 bg-primary/10 p-4">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="space-y-2">
+            <div className="inline-flex items-center gap-2 rounded-full border border-primary/25 bg-background/40 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-primary">
+              <Sparkles className="size-3.5" />
+              {autoSortText.title}
+            </div>
+            <p className="text-sm text-foreground">{autoSortText.description}</p>
+            {items.length < 2 ? (
+              <p className="text-sm text-muted-foreground">{autoSortText.tooSmall}</p>
+            ) : autoPriorityState.loading ? (
+              <div className="inline-flex items-center gap-2 text-sm text-muted-foreground">
+                <RefreshCw className="size-4 animate-spin text-primary" />
+                {autoSortText.loading}
+              </div>
+            ) : autoPriorityState.error ? (
+              <p className="text-sm text-destructive">
+                {autoPriorityState.error} {autoSortText.fallback}
+              </p>
+            ) : autoPriorityState.summary ? (
+              <p className="text-sm text-muted-foreground">{autoPriorityState.summary}</p>
+            ) : null}
+          </div>
+
+          <Button
+            variant="outline"
+            size="sm"
+            className="sm:self-start"
+            disabled={items.length < 2 || autoPriorityState.loading}
+            onClick={() => setPriorityRefreshKey(current => current + 1)}
+          >
+            {autoPriorityState.loading ? (
+              <RefreshCw className="size-4 animate-spin" />
+            ) : (
+              <Sparkles className="size-4" />
+            )}
+            {autoSortText.reload}
+          </Button>
+        </div>
+      </div>
 
       <div className="rounded-[1.5rem] border border-border/50 bg-card/50 p-4">
         <div className="mb-3 flex items-center gap-2">

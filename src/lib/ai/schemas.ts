@@ -87,7 +87,7 @@ export const aiPriorityResponseSchema = z.object({
       })
     )
     .min(2)
-    .max(10)
+    .max(50)
 });
 
 export const aiAssistantResponseSchema = z.object({
@@ -131,7 +131,8 @@ export const aiActionSchema = z.discriminatedUnion("mode", [
   }),
   z.object({
     mode: z.literal("priority"),
-    items: z.array(selectedMediaSchema).min(2).max(10),
+    items: z.array(selectedMediaSchema).min(2).max(50),
+    feedback: z.array(feedbackSchema).max(50).default([]),
     context: z.string().trim().max(200).optional()
   }),
   z.object({
