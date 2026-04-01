@@ -68,7 +68,7 @@ export function SearchSidebarFilters({
           category: "Category",
           ascending: "Ascending",
           descending: "Descending",
-          chooseTypeFirst: "Select a specific media type to filter by category.",
+          chooseTypeFirst: "Select media type first",
           clearStreaming: "Clear all",
           noStreamingOptions: "No streaming services are available for this selection.",
           reset: "Reset filters"
@@ -83,7 +83,7 @@ export function SearchSidebarFilters({
           category: "Kategorie",
           ascending: "Aufsteigend",
           descending: "Absteigend",
-          chooseTypeFirst: "Wähle erst Film oder Serie, um nach Kategorien zu filtern.",
+          chooseTypeFirst: "Erst Medientyp wählen",
           clearStreaming: "Alle entfernen",
           noStreamingOptions: "Für diese Auswahl sind keine Streamingdienste verfügbar.",
           reset: "Filter zurücksetzen"
