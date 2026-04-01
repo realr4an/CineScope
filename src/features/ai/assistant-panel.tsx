@@ -249,7 +249,7 @@ export function AIAssistantPanel() {
     []
   );
 
-  const hydratedLocaleRef = useRef<string | null>(null);
+  const hydratedRef = useRef(false);
   const [messages, setMessages] = useState<ChatMessage[]>([introMessage]);
   const [prompt, setPrompt] = useState(defaultDraft.prompt);
   const [mediaType, setMediaType] = useState<"all" | "movie" | "tv">(defaultDraft.mediaType);
@@ -306,23 +306,15 @@ export function AIAssistantPanel() {
     setPrompt("");
   };
 
-  const draftStorageKey = `${DRAFT_STORAGE_KEY_BASE}-${locale}`;
-  const savedStorageKey = `${SAVED_STORAGE_KEY_BASE}-${locale}`;
-
   useEffect(() => {
-    if (hydratedLocaleRef.current === locale) {
+    if (hydratedRef.current) {
       return;
     }
 
     setStorageReady(false);
 
-    const draftSnapshot =
-      readStorageValue<DraftSnapshot>(draftStorageKey) ??
-      readStorageValue<DraftSnapshot>(DRAFT_STORAGE_KEY_BASE);
-    const storedChats =
-      readStorageValue<SavedChat[]>(savedStorageKey) ??
-      readStorageValue<SavedChat[]>(SAVED_STORAGE_KEY_BASE) ??
-      [];
+    const draftSnapshot = readStorageValue<DraftSnapshot>(DRAFT_STORAGE_KEY_BASE);
+    const storedChats = readStorageValue<SavedChat[]>(SAVED_STORAGE_KEY_BASE) ?? [];
 
     setSavedChats(storedChats);
     setSelectedSavedChatId(storedChats[0]?.id ?? "");
@@ -337,9 +329,9 @@ export function AIAssistantPanel() {
 
     setError(null);
     setLoading(false);
-    hydratedLocaleRef.current = locale;
+    hydratedRef.current = true;
     setStorageReady(true);
-  }, [defaultDraft, draftStorageKey, introMessage, locale, savedStorageKey]);
+  }, [defaultDraft, introMessage]);
 
   useEffect(() => {
     setMessages(current =>
@@ -359,9 +351,8 @@ export function AIAssistantPanel() {
       draft: getCurrentDraft()
     };
 
-    writeStorageValue(draftStorageKey, draftSnapshot);
+    writeStorageValue(DRAFT_STORAGE_KEY_BASE, draftSnapshot);
   }, [
-    draftStorageKey,
     messages,
     prompt,
     mediaType,
@@ -378,8 +369,8 @@ export function AIAssistantPanel() {
       return;
     }
 
-    writeStorageValue(savedStorageKey, savedChats);
-  }, [savedChats, savedStorageKey, storageReady]);
+    writeStorageValue(SAVED_STORAGE_KEY_BASE, savedChats);
+  }, [savedChats, storageReady]);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
