@@ -26,6 +26,16 @@ export default async function TvPage({ params }: TvPageProps) {
   const { dictionary, locale } = await getServerDictionary();
   const { id } = await params;
   const tmdbId = Number(id);
+  const languageText =
+    locale === "en"
+      ? {
+          title: "Available audio",
+          original: "Original"
+        }
+      : {
+          title: "Verfügbare Sprachen",
+          original: "Original"
+        };
 
   try {
     const [series, access, preferredRegion] = await Promise.all([
@@ -111,6 +121,28 @@ export default async function TvPage({ params }: TvPageProps) {
                   </div>
                   <div className="space-y-3">
                     <GenreList genres={series.genres} />
+                    {series.spokenLanguages.length ? (
+                      <div className="space-y-2">
+                        <div className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                          {languageText.title}
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {series.spokenLanguages.map(language => (
+                            <span
+                              key={language}
+                              className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-card/60 px-3 py-1 text-xs text-muted-foreground"
+                            >
+                              <span>{language}</span>
+                              {series.originalLanguage === language ? (
+                                <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-primary">
+                                  {languageText.original}
+                                </span>
+                              ) : null}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
                     {initialAI.insights?.vibeTags?.length ? (
                       <AITagList tags={initialAI.insights.vibeTags} showGeneratedLabel />
                     ) : null}
