@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { SearchForm } from "@/features/search/search-form";
@@ -11,6 +11,8 @@ import {
 import { savePreferredRegion } from "@/features/watch-providers/region-preference";
 import type { Genre } from "@/types/media";
 import type { WatchRegion } from "@/types/watch-providers";
+
+const SEARCH_DRAFT_STORAGE_KEY = "cine-search-controls-draft-v1";
 
 function buildSearchHref(input: SearchDraftState) {
   const params = new URLSearchParams();
@@ -48,6 +50,20 @@ function buildSearchHref(input: SearchDraftState) {
   return `/search?${params.toString()}`;
 }
 
+function isDefaultDraft(input: SearchDraftState) {
+  return (
+    input.query.trim().length === 0 &&
+    input.type === "all" &&
+    input.sort === "popularity" &&
+    input.direction === "desc" &&
+    input.genre === undefined &&
+    input.yearFrom === undefined &&
+    input.yearTo === undefined &&
+    input.rating === undefined &&
+    input.providers.length === 0
+  );
+}
+
 export function SearchControls({
   movieGenres,
   tvGenres,
@@ -66,10 +82,45 @@ export function SearchControls({
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const hydratedRef = useRef(false);
 
   useEffect(() => {
+    if (typeof window === "undefined") {
+      setDraft(initial);
+      return;
+    }
+
+    if (!hydratedRef.current) {
+      hydratedRef.current = true;
+
+      if (isDefaultDraft(initial)) {
+        try {
+          const rawValue = window.sessionStorage.getItem(SEARCH_DRAFT_STORAGE_KEY);
+          if (rawValue) {
+            const parsed = JSON.parse(rawValue) as SearchDraftState;
+            setDraft(parsed);
+            return;
+          }
+        } catch {
+          // ignore invalid storage content
+        }
+      }
+    }
+
     setDraft(initial);
   }, [initial]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    try {
+      window.sessionStorage.setItem(SEARCH_DRAFT_STORAGE_KEY, JSON.stringify(draft));
+    } catch {
+      // ignore storage write failures
+    }
+  }, [draft]);
 
   const resetState = useMemo<SearchDraftState>(
     () => ({

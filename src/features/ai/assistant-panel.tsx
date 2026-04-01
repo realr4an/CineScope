@@ -1,7 +1,17 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Bot, RefreshCw, SendHorizontal, SlidersHorizontal, User2 } from "lucide-react";
+import {
+  Bot,
+  FolderOpen,
+  MessageSquarePlus,
+  RefreshCw,
+  Save,
+  SendHorizontal,
+  SlidersHorizontal,
+  Trash2,
+  User2
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -38,8 +48,80 @@ type ChatMessage = {
   staticIntro?: boolean;
 };
 
+type ContextDraft = {
+  prompt: string;
+  mediaType: "all" | "movie" | "tv";
+  timeBudget: string;
+  mood: string;
+  intensity: "easy" | "balanced" | "intense";
+  socialContext: "solo" | "parents" | "friends" | "date" | "family" | "";
+  referenceTitles: string;
+};
+
+type SavedChat = {
+  id: string;
+  title: string;
+  createdAt: number;
+  updatedAt: number;
+  messages: ChatMessage[];
+  draft: ContextDraft;
+};
+
+type DraftSnapshot = {
+  messages: ChatMessage[];
+  draft: ContextDraft;
+};
+
+const DRAFT_STORAGE_KEY = "cine-ai-assistant-draft-v1";
+const SAVED_STORAGE_KEY = "cine-ai-assistant-saved-v1";
+const MAX_SAVED_CHATS = 12;
+
 function createId(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function sanitizeMessages(messages: ChatMessage[]) {
+  return messages
+    .filter(message => !message.pending && !message.staticIntro)
+    .map(({ pending, staticIntro, ...message }) => message);
+}
+
+function normalizeMessagesWithIntro(messages: ChatMessage[], introMessage: ChatMessage) {
+  const sanitized = sanitizeMessages(messages);
+
+  if (!sanitized.length) {
+    return [introMessage];
+  }
+
+  return [introMessage, ...sanitized];
+}
+
+function readStorageValue<T>(key: string) {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  try {
+    const rawValue = window.localStorage.getItem(key);
+    if (!rawValue) {
+      return null;
+    }
+    return JSON.parse(rawValue) as T;
+  } catch {
+    return null;
+  }
+}
+
+function writeStorageValue<T>(key: string, value: T) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    // ignore storage write failures
+  }
 }
 
 export function AIAssistantPanel() {
@@ -82,10 +164,19 @@ export function AIAssistantPanel() {
           typing: "Typing...",
           noAllowed: "No suitable titles could be safely resolved for the stored age yet.",
           clearContext: "Clear context",
+          clearChat: "New chat",
+          saveChat: "Save chat",
+          savedChats: "Saved chats",
+          loadChat: "Load",
+          deleteChat: "Delete",
+          saveSuccess: "Chat saved.",
+          loadSuccess: "Saved chat loaded.",
+          deleteSuccess: "Saved chat deleted.",
+          noChatToSave: "There is no conversation to save yet.",
           you: "You",
           ai: "AI",
-          fitLabel: "Why this fits",
-          nextLabel: "Next"
+          nextLabel: "Next",
+          updatedAt: "Updated"
         }
       : {
           quickPrompts: [
@@ -122,10 +213,19 @@ export function AIAssistantPanel() {
           typing: "Schreibt gerade...",
           noAllowed: "Für das hinterlegte Alter konnten aktuell keine passenden Titel sicher aufgelöst werden.",
           clearContext: "Kontext leeren",
+          clearChat: "Neuer Chat",
+          saveChat: "Chat speichern",
+          savedChats: "Gespeicherte Chats",
+          loadChat: "Laden",
+          deleteChat: "Löschen",
+          saveSuccess: "Chat gespeichert.",
+          loadSuccess: "Gespeicherter Chat geladen.",
+          deleteSuccess: "Gespeicherter Chat gelöscht.",
+          noChatToSave: "Es gibt noch keinen Chatverlauf zum Speichern.",
           you: "Du",
           ai: "KI",
-          fitLabel: "Warum das passt",
-          nextLabel: "Nächster Schritt"
+          nextLabel: "Nächster Schritt",
+          updatedAt: "Aktualisiert"
         };
 
   const introMessage = useMemo<ChatMessage>(
@@ -138,23 +238,122 @@ export function AIAssistantPanel() {
     [text.intro]
   );
 
+  const defaultDraft = useMemo<ContextDraft>(
+    () => ({
+      prompt: "",
+      mediaType: "all",
+      timeBudget: "",
+      mood: "",
+      intensity: "balanced",
+      socialContext: "",
+      referenceTitles: ""
+    }),
+    []
+  );
+
+  const hydratedRef = useRef(false);
   const [messages, setMessages] = useState<ChatMessage[]>([introMessage]);
-  const [prompt, setPrompt] = useState("");
-  const [mediaType, setMediaType] = useState<"all" | "movie" | "tv">("all");
-  const [timeBudget, setTimeBudget] = useState("");
-  const [mood, setMood] = useState("");
-  const [intensity, setIntensity] = useState<"easy" | "balanced" | "intense">("balanced");
-  const [socialContext, setSocialContext] = useState<"solo" | "parents" | "friends" | "date" | "family" | "">("");
-  const [referenceTitles, setReferenceTitles] = useState("");
+  const [prompt, setPrompt] = useState(defaultDraft.prompt);
+  const [mediaType, setMediaType] = useState<"all" | "movie" | "tv">(defaultDraft.mediaType);
+  const [timeBudget, setTimeBudget] = useState(defaultDraft.timeBudget);
+  const [mood, setMood] = useState(defaultDraft.mood);
+  const [intensity, setIntensity] = useState<"easy" | "balanced" | "intense">(defaultDraft.intensity);
+  const [socialContext, setSocialContext] = useState<
+    "solo" | "parents" | "friends" | "date" | "family" | ""
+  >(defaultDraft.socialContext);
+  const [referenceTitles, setReferenceTitles] = useState(defaultDraft.referenceTitles);
+  const [savedChats, setSavedChats] = useState<SavedChat[]>([]);
+  const [selectedSavedChatId, setSelectedSavedChatId] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const endRef = useRef<HTMLDivElement | null>(null);
 
+  const applyDraft = (draft: ContextDraft) => {
+    setPrompt(draft.prompt);
+    setMediaType(draft.mediaType);
+    setTimeBudget(draft.timeBudget);
+    setMood(draft.mood);
+    setIntensity(draft.intensity);
+    setSocialContext(draft.socialContext);
+    setReferenceTitles(draft.referenceTitles);
+  };
+
+  const getCurrentDraft = (): ContextDraft => ({
+    prompt,
+    mediaType,
+    timeBudget,
+    mood,
+    intensity,
+    socialContext,
+    referenceTitles
+  });
+
+  const resetContext = () => {
+    applyDraft({
+      prompt,
+      mediaType: "all",
+      timeBudget: "",
+      mood: "",
+      intensity: "balanced",
+      socialContext: "",
+      referenceTitles: ""
+    });
+  };
+
+  const resetConversation = () => {
+    setMessages([introMessage]);
+    setError(null);
+    setLoading(false);
+    setPrompt("");
+  };
+
+  useEffect(() => {
+    if (hydratedRef.current) {
+      return;
+    }
+
+    const draftSnapshot = readStorageValue<DraftSnapshot>(DRAFT_STORAGE_KEY);
+    const storedChats = readStorageValue<SavedChat[]>(SAVED_STORAGE_KEY) ?? [];
+
+    setSavedChats(storedChats);
+    setSelectedSavedChatId(storedChats[0]?.id ?? "");
+
+    if (draftSnapshot) {
+      setMessages(normalizeMessagesWithIntro(draftSnapshot.messages, introMessage));
+      applyDraft(draftSnapshot.draft);
+    }
+
+    hydratedRef.current = true;
+  }, [introMessage]);
+
   useEffect(() => {
     setMessages(current =>
-      current.length === 1 && current[0]?.staticIntro ? [introMessage] : current
+      current.length === 1 && current[0]?.staticIntro
+        ? [introMessage]
+        : [introMessage, ...sanitizeMessages(current)]
     );
   }, [introMessage]);
+
+  useEffect(() => {
+    if (!hydratedRef.current) {
+      return;
+    }
+
+    const draftSnapshot: DraftSnapshot = {
+      messages: sanitizeMessages(messages),
+      draft: getCurrentDraft()
+    };
+
+    writeStorageValue(DRAFT_STORAGE_KEY, draftSnapshot);
+  }, [messages, prompt, mediaType, timeBudget, mood, intensity, socialContext, referenceTitles]);
+
+  useEffect(() => {
+    if (!hydratedRef.current) {
+      return;
+    }
+
+    writeStorageValue(SAVED_STORAGE_KEY, savedChats);
+  }, [savedChats]);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -172,6 +371,63 @@ export function AIAssistantPanel() {
         })),
     [items]
   );
+
+  const saveCurrentChat = () => {
+    const snapshotMessages = sanitizeMessages(messages);
+
+    if (!snapshotMessages.length) {
+      toast.error(text.noChatToSave);
+      return;
+    }
+
+    const now = Date.now();
+    const lastUserMessage = [...snapshotMessages].reverse().find(message => message.role === "user");
+    const fallbackMessage = snapshotMessages[snapshotMessages.length - 1];
+    const titleSource = lastUserMessage?.content || fallbackMessage?.content || text.title;
+    const nextChat: SavedChat = {
+      id: createId("saved-chat"),
+      title: titleSource.slice(0, 80),
+      createdAt: now,
+      updatedAt: now,
+      messages: snapshotMessages,
+      draft: getCurrentDraft()
+    };
+
+    setSavedChats(current => [nextChat, ...current].slice(0, MAX_SAVED_CHATS));
+    setSelectedSavedChatId(nextChat.id);
+    toast.success(text.saveSuccess);
+  };
+
+  const loadSavedChat = () => {
+    if (!selectedSavedChatId) {
+      return;
+    }
+
+    const selected = savedChats.find(chat => chat.id === selectedSavedChatId);
+
+    if (!selected) {
+      return;
+    }
+
+    setMessages(normalizeMessagesWithIntro(selected.messages, introMessage));
+    applyDraft(selected.draft);
+    setError(null);
+    setLoading(false);
+    toast.success(text.loadSuccess);
+  };
+
+  const deleteSavedChat = () => {
+    if (!selectedSavedChatId) {
+      return;
+    }
+
+    setSavedChats(current => {
+      const nextChats = current.filter(chat => chat.id !== selectedSavedChatId);
+      setSelectedSavedChatId(nextChats[0]?.id ?? "");
+      return nextChats;
+    });
+    toast.success(text.deleteSuccess);
+  };
 
   const submit = async (nextPrompt?: string) => {
     const content = (nextPrompt ?? prompt).trim();
@@ -259,8 +515,26 @@ export function AIAssistantPanel() {
     }
   };
 
+  const actions = (
+    <div className="flex flex-wrap items-center gap-2">
+      <Button type="button" variant="outline" size="sm" onClick={saveCurrentChat}>
+        <Save className="size-4" />
+        <span>{text.saveChat}</span>
+      </Button>
+      <Button type="button" variant="outline" size="sm" onClick={resetConversation}>
+        <MessageSquarePlus className="size-4" />
+        <span>{text.clearChat}</span>
+      </Button>
+    </div>
+  );
+
   return (
-    <AIPanelShell title={text.title} description={text.description} className="overflow-hidden">
+    <AIPanelShell
+      title={text.title}
+      description={text.description}
+      actions={actions}
+      className="overflow-hidden"
+    >
       <div className="space-y-5">
         <div className="rounded-[1.75rem] border border-border/50 bg-background/45">
           <div className="max-h-[34rem] space-y-4 overflow-y-auto p-4 sm:p-5">
@@ -405,19 +679,7 @@ export function AIAssistantPanel() {
                     placeholder={text.referencePlaceholder}
                     className="h-11 rounded-xl border border-border/60 bg-background px-3 text-sm"
                   />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => {
-                      setMediaType("all");
-                      setTimeBudget("");
-                      setMood("");
-                      setIntensity("balanced");
-                      setSocialContext("");
-                      setReferenceTitles("");
-                    }}
-                    className="md:col-span-2 lg:col-span-3"
-                  >
+                  <Button type="button" variant="outline" onClick={resetContext} className="md:col-span-2 lg:col-span-3">
                     {text.clearContext}
                   </Button>
                 </div>
@@ -455,6 +717,37 @@ export function AIAssistantPanel() {
                   </div>
                 ) : null}
               </form>
+
+              {savedChats.length ? (
+                <div className="rounded-2xl border border-border/50 bg-background/40 p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-sm font-medium">{text.savedChats}</p>
+                    <span className="text-xs text-muted-foreground">{savedChats.length}</span>
+                  </div>
+                  <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+                    <select
+                      value={selectedSavedChatId}
+                      onChange={event => setSelectedSavedChatId(event.target.value)}
+                      className="h-10 flex-1 rounded-xl border border-border/60 bg-background px-3 text-sm"
+                    >
+                      {savedChats.map(chat => (
+                        <option key={chat.id} value={chat.id}>
+                          {chat.title} · {text.updatedAt}{" "}
+                          {new Date(chat.updatedAt).toLocaleString(locale === "en" ? "en-US" : "de-DE")}
+                        </option>
+                      ))}
+                    </select>
+                    <Button type="button" variant="outline" onClick={loadSavedChat} disabled={!selectedSavedChatId}>
+                      <FolderOpen className="size-4" />
+                      <span>{text.loadChat}</span>
+                    </Button>
+                    <Button type="button" variant="outline" onClick={deleteSavedChat} disabled={!selectedSavedChatId}>
+                      <Trash2 className="size-4" />
+                      <span>{text.deleteChat}</span>
+                    </Button>
+                  </div>
+                </div>
+              ) : null}
             </div>
           </div>
         </div>
