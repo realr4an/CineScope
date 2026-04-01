@@ -1,10 +1,9 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { checkRateLimit } from "@/lib/security/rate-limit";
 import { getRateLimitIdentityKey, getRequestIp, isSameOriginRequest } from "@/lib/security/request";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 const feedbackEntryIdSchema = z.string().uuid();
 
@@ -65,13 +64,31 @@ export async function DELETE(
       return NextResponse.json({ error: "Admin-Zugriff erforderlich." }, { status: 403 });
     }
 
-    const adminClient = createSupabaseAdminClient();
-    const { error } = await (adminClient.from("feedback_entries") as any)
+    const { data: deleted, error } = await (supabase.from("feedback_entries") as any)
       .delete()
-      .eq("id", parsedId);
+      .eq("id", parsedId)
+      .select("id")
+      .maybeSingle();
 
     if (error) {
+      if (/row-level security|permission denied/i.test(error.message)) {
+        return NextResponse.json(
+          {
+            error:
+              "Löschen ist durch RLS blockiert. Bitte ergänze die Policy feedback_entries_admin_delete in Supabase."
+          },
+          { status: 500 }
+        );
+      }
+
       throw new Error(error.message);
+    }
+
+    if (!deleted?.id) {
+      return NextResponse.json(
+        { error: "Feedback-Eintrag nicht gefunden oder bereits gelöscht." },
+        { status: 404 }
+      );
     }
 
     return NextResponse.json({ ok: true, id: parsedId });

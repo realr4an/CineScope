@@ -197,6 +197,13 @@ on public.feedback_entries
 for select
 using (public.is_admin_user());
 
+drop policy if exists "feedback_entries_admin_delete" on public.feedback_entries;
+
+create policy "feedback_entries_admin_delete"
+on public.feedback_entries
+for delete
+using (public.is_admin_user());
+
 create or replace function public.handle_new_user()
 returns trigger
 language plpgsql
