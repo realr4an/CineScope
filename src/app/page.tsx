@@ -64,9 +64,6 @@ export default async function HomePage() {
                     <Button asChild size="lg" variant="outline">
                       <Link href="/search">{dictionary.home.startSearch}</Link>
                     </Button>
-                    <Button asChild size="lg" variant="outline">
-                      <Link href="/discover">{dictionary.home.exploreCategories}</Link>
-                    </Button>
                   </div>
                   <div className="grid gap-3 sm:grid-cols-3">
                     {[
@@ -127,7 +124,7 @@ export default async function HomePage() {
               title: dictionary.home.popularMovies,
               subtitle: dictionary.home.popularMoviesSubtitle,
               items: safePopularMovies,
-              href: "/discover?mediaType=movie"
+              href: "/search?mediaType=movie"
             }}
           />
           <HorizontalMediaRow
@@ -136,7 +133,7 @@ export default async function HomePage() {
               title: dictionary.home.popularSeries,
               subtitle: dictionary.home.popularSeriesSubtitle,
               items: safePopularTv,
-              href: "/discover?mediaType=tv"
+              href: "/search?mediaType=tv"
             }}
           />
         </div>
