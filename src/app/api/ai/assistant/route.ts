@@ -11,6 +11,7 @@ import {
   resolveAIPicks,
   resolveAllowedAIPicks
 } from "@/lib/ai/formatters";
+import { getDiscoverResults } from "@/lib/tmdb/discover";
 import { askOpenRouterJson } from "@/lib/ai/openrouter";
 import {
   assistantPrompt,
@@ -80,7 +81,7 @@ function getText(locale: Locale) {
         maxSuggestionsNext:
           "Nenne mir Stimmung, Zeitbudget oder einen Referenztitel, dann schlage ich dir direkt eine Liste vor.",
         exactSuggestionsLead: (count: number) =>
-          `Hier sind ${count} Vorschlag${count === 1 ? "" : "e"}, die passen könnten.`,
+          `Hier sind ${count} Vorschläge, die passen könnten.`,
         partialSuggestionsLead: (count: number, requested: number) =>
           `Ich habe ${count} passende Titel gefunden (angefragt: ${requested}).`,
         partialSuggestionsNext:
@@ -92,6 +93,99 @@ function getText(locale: Locale) {
         rateLimited: "Zu viele KI-Anfragen. Bitte versuche es gleich erneut.",
         unsafePrompt: "Die Anfrage enthält unsichere Instruktionsmuster."
       };
+}
+
+function isAnimeIntent(input: {
+  prompt?: string;
+  conversation?: Array<{ content: string }>;
+}) {
+  const combined = [input.prompt ?? "", ...(input.conversation ?? []).map(message => message.content)]
+    .join(" \n ")
+    .toLowerCase();
+
+  return /\banime\b|\bmanga\b|studio ghibli|shonen|shōnen/.test(combined);
+}
+
+async function topUpAssistantPicks(input: {
+  picks: Array<{
+    title: string;
+    mediaType: "movie" | "tv";
+    reason: string;
+    comparableTitle?: string;
+    tmdbId?: number;
+    href?: string;
+  }>;
+  requestedPickCount: number;
+  mediaType: "all" | "movie" | "tv";
+  animeIntent: boolean;
+  locale: Locale;
+}) {
+  const missing = input.requestedPickCount - input.picks.length;
+  if (missing <= 0) {
+    return input.picks;
+  }
+
+  const seenIds = new Set(
+    input.picks
+      .map(pick => (typeof pick.tmdbId === "number" ? `${pick.mediaType}-${pick.tmdbId}` : null))
+      .filter(Boolean) as string[]
+  );
+  const seenTitles = new Set(input.picks.map(pick => pick.title.trim().toLowerCase()));
+
+  const candidateTypes: Array<"movie" | "tv"> =
+    input.mediaType === "all"
+      ? input.animeIntent
+        ? ["tv", "movie"]
+        : ["movie", "tv"]
+      : [input.mediaType];
+  const fallbackReason =
+    input.locale === "en"
+      ? "Strong current match from TMDB discovery."
+      : "Passender aktueller Treffer aus der TMDB-Discovery.";
+  const toppedUp = [...input.picks];
+
+  for (const mediaType of candidateTypes) {
+    if (toppedUp.length >= input.requestedPickCount) {
+      break;
+    }
+
+    const discover = await getDiscoverResults({
+      mediaType,
+      genre: input.animeIntent ? 16 : undefined,
+      page: 1,
+      sort: "popularity.desc",
+      locale: input.locale
+    });
+
+    for (const item of discover.items) {
+      if (toppedUp.length >= input.requestedPickCount) {
+        break;
+      }
+
+      const idKey = `${item.mediaType}-${item.tmdbId}`;
+      const titleKey = item.title.trim().toLowerCase();
+      if (seenIds.has(idKey) || seenTitles.has(titleKey)) {
+        continue;
+      }
+
+      const access = await getAgeAccessForMedia(item.mediaType, item.tmdbId);
+      if (!access.allowed) {
+        continue;
+      }
+
+      seenIds.add(idKey);
+      seenTitles.add(titleKey);
+      toppedUp.push({
+        title: item.title,
+        mediaType: item.mediaType,
+        reason: fallbackReason,
+        tmdbId: item.tmdbId,
+        href: `/${item.mediaType}/${item.tmdbId}`
+      });
+    }
+  }
+
+  return toppedUp;
 }
 
 function parseLeadCount(input: string) {
@@ -593,6 +687,10 @@ export async function POST(request: Request) {
           prompt: parsed.data.prompt,
           conversation: parsed.data.conversation
         });
+        const animeIntent = isAnimeIntent({
+          prompt: parsed.data.prompt,
+          conversation: parsed.data.conversation
+        });
         const explicitReferenceResults = await Promise.all(
           parsed.data.referenceTitles.map(reference => ensureResolvedMediaAllowed(reference, locale))
         );
@@ -654,7 +752,7 @@ export async function POST(request: Request) {
           aiAssistantResponseSchema
         );
         const resolvedPicks = await resolveAllowedAIPicks(data.picks, locale);
-        const picks = requestedSeasonCount
+        const picksAfterSeasonFilter = requestedSeasonCount
           ? await filterAIPicksBySeasonCount(
               resolvedPicks.filter(
                 (
@@ -668,7 +766,14 @@ export async function POST(request: Request) {
               locale
             )
           : resolvedPicks;
-        const limitedPicks = picks.slice(0, requestedPickCount);
+        const toppedUpPicks = await topUpAssistantPicks({
+          picks: picksAfterSeasonFilter,
+          requestedPickCount,
+          mediaType: parsed.data.mediaType,
+          animeIntent,
+          locale
+        });
+        const limitedPicks = toppedUpPicks.slice(0, requestedPickCount);
         const emptyPicksAfterFiltering = data.picks.length > 0 && limitedPicks.length === 0;
         const leadCount = parseLeadCount(data.lead);
         const leadCountMismatch = leadCount !== null && leadCount !== limitedPicks.length;
