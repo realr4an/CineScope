@@ -53,6 +53,12 @@ function getText(locale: Locale) {
         maxSuggestionsInfo: "I can suggest up to 8 titles at once.",
         maxSuggestionsNext:
           "Tell me your mood, available time, or a reference title and I will suggest a concrete list.",
+        exactSuggestionsLead: (count: number) =>
+          `Here ${count === 1 ? "is" : "are"} ${count} suggestion${count === 1 ? "" : "s"} that fit.`,
+        partialSuggestionsLead: (count: number, requested: number) =>
+          `I found ${count} suitable title${count === 1 ? "" : "s"} (requested: ${requested}).`,
+        partialSuggestionsNext:
+          "If you want, I can broaden the criteria and try to reach your requested amount.",
         noSafePicksLead: "I could not return suitable titles with the current restrictions.",
         noSafePicksNext:
           "Try broader criteria (for example another genre, less strict constraints, or a different mood).",
@@ -73,6 +79,12 @@ function getText(locale: Locale) {
         maxSuggestionsInfo: "Ich kann dir bis zu 8 Titel auf einmal vorschlagen.",
         maxSuggestionsNext:
           "Nenne mir Stimmung, Zeitbudget oder einen Referenztitel, dann schlage ich dir direkt eine Liste vor.",
+        exactSuggestionsLead: (count: number) =>
+          `Hier sind ${count} Vorschlag${count === 1 ? "" : "e"}, die passen könnten.`,
+        partialSuggestionsLead: (count: number, requested: number) =>
+          `Ich habe ${count} passende Titel gefunden (angefragt: ${requested}).`,
+        partialSuggestionsNext:
+          "Wenn du möchtest, erweitere ich die Kriterien und versuche, die gewünschte Anzahl zu erreichen.",
         noSafePicksLead: "Ich konnte mit den aktuellen Einschränkungen keine passenden Titel sicher zurückgeben.",
         noSafePicksNext:
           "Versuche breitere Kriterien, zum Beispiel ein anderes Genre, weniger strenge Vorgaben oder eine andere Stimmung.",
@@ -80,6 +92,48 @@ function getText(locale: Locale) {
         rateLimited: "Zu viele KI-Anfragen. Bitte versuche es gleich erneut.",
         unsafePrompt: "Die Anfrage enthält unsichere Instruktionsmuster."
       };
+}
+
+function parseLeadCount(input: string) {
+  const normalized = input.toLowerCase();
+  const digitMatch = normalized.match(/(?:^|\s)(\d{1,2})(?:\s|$)/);
+  if (digitMatch) {
+    return Number(digitMatch[1]);
+  }
+
+  const wordMap: Record<string, number> = {
+    one: 1,
+    two: 2,
+    three: 3,
+    four: 4,
+    five: 5,
+    six: 6,
+    seven: 7,
+    eight: 8,
+    nine: 9,
+    ten: 10,
+    eins: 1,
+    eine: 1,
+    einen: 1,
+    zwei: 2,
+    drei: 3,
+    vier: 4,
+    funf: 5,
+    fünf: 5,
+    sechs: 6,
+    sieben: 7,
+    acht: 8,
+    neun: 9,
+    zehn: 10
+  };
+
+  for (const [word, value] of Object.entries(wordMap)) {
+    if (new RegExp(`(^|\\s)${word}(\\s|$)`, "i").test(normalized)) {
+      return value;
+    }
+  }
+
+  return null;
 }
 
 function formatValidationError(
@@ -616,13 +670,28 @@ export async function POST(request: Request) {
           : resolvedPicks;
         const limitedPicks = picks.slice(0, requestedPickCount);
         const emptyPicksAfterFiltering = data.picks.length > 0 && limitedPicks.length === 0;
+        const leadCount = parseLeadCount(data.lead);
+        const leadCountMismatch = leadCount !== null && leadCount !== limitedPicks.length;
+        const partialResult = limitedPicks.length > 0 && limitedPicks.length < requestedPickCount;
+        const lead = emptyPicksAfterFiltering
+          ? text.noSafePicksLead
+          : partialResult
+            ? text.partialSuggestionsLead(limitedPicks.length, requestedPickCount)
+            : leadCountMismatch
+              ? text.exactSuggestionsLead(limitedPicks.length)
+              : data.lead;
+        const nextStep = emptyPicksAfterFiltering
+          ? text.noSafePicksNext
+          : partialResult
+            ? text.partialSuggestionsNext
+            : data.nextStep;
 
         return NextResponse.json({
           mode: "assistant",
           data: {
             ...data,
-            lead: emptyPicksAfterFiltering ? text.noSafePicksLead : data.lead,
-            nextStep: emptyPicksAfterFiltering ? text.noSafePicksNext : data.nextStep,
+            lead,
+            nextStep,
             picks: limitedPicks
           }
         });
