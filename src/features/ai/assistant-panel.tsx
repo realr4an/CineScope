@@ -90,6 +90,18 @@ function truncateWithEllipsis(value: string, maxLength: number) {
   return `${normalized.slice(0, Math.max(0, maxLength - 3)).trimEnd()}...`;
 }
 
+function buildConversationContent(message: ChatMessage) {
+  const base = message.content.trim();
+  const picks = message.picks?.map(pick => pick.title.trim()).filter(Boolean) ?? [];
+
+  if (!picks.length) {
+    return base;
+  }
+
+  const withPicks = `${base}\nSuggested titles: ${picks.join(" | ")}`;
+  return truncateWithEllipsis(withPicks, 460);
+}
+
 function sanitizeMessages(messages: ChatMessage[]) {
   return messages
     .filter(message => !message.pending && !message.staticIntro)
@@ -483,7 +495,7 @@ export function AIAssistantPanel() {
       .slice(-12)
       .map(message => ({
         role: message.role,
-        content: message.content
+        content: buildConversationContent(message)
       }));
 
     setMessages(current => [...current, userMessage, pendingMessage]);

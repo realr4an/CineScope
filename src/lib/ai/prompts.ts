@@ -505,6 +505,7 @@ ${text.rules}
 - write reasons in a user-facing way, not like neutral catalog blurbs
 - if the user mentions a known title, explicitly connect the picks to what they may like about it
 - for pure title-info questions, picks may be an empty array
+- if the user asks for new or different suggestions, avoid repeating titles already mentioned in the conversation
 
 ${text.mediaType}: ${input.mediaType}
 ${text.runtime}: ${input.timeBudget ?? text.notSpecified}

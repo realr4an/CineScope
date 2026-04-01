@@ -121,6 +121,69 @@ function isAnimeIntent(input: {
   return /\banime\b|\bmanga\b|studio ghibli|shonen|shōnen/.test(combined);
 }
 
+function isNoveltyRequest(input: {
+  prompt?: string;
+  conversation?: Array<{ content: string }>;
+}) {
+  const combined = [input.prompt ?? "", ...(input.conversation ?? []).map(message => message.content)]
+    .join(" \n ")
+    .toLowerCase();
+
+  return (
+    /\bneu(?:e|en|er|es)?\b/.test(combined) ||
+    /\bnew\b/.test(combined) ||
+    /noch nicht/.test(combined) ||
+    /something else|something new|andere|anderes|andere titel/.test(combined)
+  );
+}
+
+function normalizeAssistantTitleValue(value: string | null | undefined) {
+  if (!value) {
+    return "";
+  }
+
+  return value
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function extractPreviouslySuggestedTitles(
+  conversation: Array<{ role: "user" | "assistant"; content: string }>
+) {
+  const titles = new Set<string>();
+
+  for (const message of conversation) {
+    if (message.role !== "assistant") {
+      continue;
+    }
+
+    const markerMatch = message.content.match(/suggested titles:\s*(.+)$/im);
+    if (!markerMatch?.[1]) {
+      continue;
+    }
+
+    for (const rawTitle of markerMatch[1].split("|")) {
+      const normalized = normalizeAssistantTitleValue(rawTitle);
+      if (normalized) {
+        titles.add(normalized);
+      }
+    }
+  }
+
+  return titles;
+}
+
+function hasLatinCharacters(value: string) {
+  return /[a-z]/i.test(
+    value
+      .normalize("NFKD")
+      .replace(/[\u0300-\u036f]/g, "")
+  );
+}
+
 async function topUpAssistantPicks(input: {
   picks: Array<{
     title: string;
@@ -133,6 +196,8 @@ async function topUpAssistantPicks(input: {
   requestedPickCount: number;
   mediaType: "all" | "movie" | "tv";
   animeIntent: boolean;
+  noveltyRequested: boolean;
+  blockedTitles: Set<string>;
   locale: Locale;
 }) {
   const missing = input.requestedPickCount - input.picks.length;
@@ -145,7 +210,12 @@ async function topUpAssistantPicks(input: {
       .map(pick => (typeof pick.tmdbId === "number" ? `${pick.mediaType}-${pick.tmdbId}` : null))
       .filter(Boolean) as string[]
   );
-  const seenTitles = new Set(input.picks.map(pick => pick.title.trim().toLowerCase()));
+  const seenTitles = new Set(input.picks.map(pick => normalizeAssistantTitleValue(pick.title)));
+  for (const blockedTitle of input.blockedTitles) {
+    if (blockedTitle) {
+      seenTitles.add(blockedTitle);
+    }
+  }
 
   const candidateTypes: Array<"movie" | "tv"> =
     input.mediaType === "all"
@@ -159,44 +229,56 @@ async function topUpAssistantPicks(input: {
       : "Passender aktueller Treffer aus der TMDB-Discovery.";
   const toppedUp = [...input.picks];
 
+  const candidatePages = input.noveltyRequested ? [2, 3, 4, 1] : [1, 2];
+
   for (const mediaType of candidateTypes) {
     if (toppedUp.length >= input.requestedPickCount) {
       break;
     }
 
-    const discover = await getDiscoverResults({
-      mediaType,
-      genre: input.animeIntent ? 16 : undefined,
-      page: 1,
-      sort: "popularity.desc",
-      locale: input.locale
-    });
-
-    for (const item of discover.items) {
+    for (const page of candidatePages) {
       if (toppedUp.length >= input.requestedPickCount) {
         break;
       }
 
-      const idKey = `${item.mediaType}-${item.tmdbId}`;
-      const titleKey = item.title.trim().toLowerCase();
-      if (seenIds.has(idKey) || seenTitles.has(titleKey)) {
-        continue;
-      }
-
-      const access = await getAgeAccessForMedia(item.mediaType, item.tmdbId);
-      if (!access.allowed) {
-        continue;
-      }
-
-      seenIds.add(idKey);
-      seenTitles.add(titleKey);
-      toppedUp.push({
-        title: item.title,
-        mediaType: item.mediaType,
-        reason: fallbackReason,
-        tmdbId: item.tmdbId,
-        href: `/${item.mediaType}/${item.tmdbId}`
+      const discover = await getDiscoverResults({
+        mediaType,
+        genre: input.animeIntent ? 16 : undefined,
+        page,
+        sort: "vote_count.desc",
+        locale: input.locale
       });
+
+      for (const item of discover.items) {
+        if (toppedUp.length >= input.requestedPickCount) {
+          break;
+        }
+
+        const idKey = `${item.mediaType}-${item.tmdbId}`;
+        const normalizedTitle = normalizeAssistantTitleValue(item.title);
+        if (seenIds.has(idKey) || seenTitles.has(normalizedTitle)) {
+          continue;
+        }
+
+        if ((input.locale === "de" || input.locale === "en") && !hasLatinCharacters(item.title)) {
+          continue;
+        }
+
+        const access = await getAgeAccessForMedia(item.mediaType, item.tmdbId);
+        if (!access.allowed) {
+          continue;
+        }
+
+        seenIds.add(idKey);
+        seenTitles.add(normalizedTitle);
+        toppedUp.push({
+          title: item.title,
+          mediaType: item.mediaType,
+          reason: fallbackReason,
+          tmdbId: item.tmdbId,
+          href: `/${item.mediaType}/${item.tmdbId}`
+        });
+      }
     }
   }
 
@@ -912,6 +994,10 @@ export async function POST(request: Request) {
           prompt: parsed.data.prompt,
           conversation: parsed.data.conversation
         });
+        const noveltyRequested = isNoveltyRequest({
+          prompt: parsed.data.prompt,
+          conversation: parsed.data.conversation
+        });
         const { requestedPickCount, requestedRaw, cappedBySystem } = getRequestedPickCount({
           prompt: parsed.data.prompt,
           conversation: parsed.data.conversation
@@ -980,10 +1066,23 @@ export async function POST(request: Request) {
           ),
           aiAssistantResponseSchema
         );
+        const blockedTitles = noveltyRequested
+          ? new Set<string>([
+              ...extractPreviouslySuggestedTitles(parsed.data.conversation),
+              ...parsed.data.feedback
+                .filter(item => item.watched)
+                .map(item => normalizeAssistantTitleValue(item.title))
+            ])
+          : new Set<string>();
         const resolvedPicks = await resolveAllowedAIPicks(data.picks, locale);
+        const noveltyFilteredPicks = noveltyRequested
+          ? resolvedPicks.filter(
+              pick => !blockedTitles.has(normalizeAssistantTitleValue(pick.title))
+            )
+          : resolvedPicks;
         const picksAfterSeasonFilter = requestedSeasonCount
           ? await filterAIPicksBySeasonCount(
-              resolvedPicks.filter(
+              noveltyFilteredPicks.filter(
                 (
                   pick
                 ): pick is (typeof resolvedPicks)[number] & {
@@ -994,12 +1093,14 @@ export async function POST(request: Request) {
               requestedSeasonCount,
               locale
             )
-          : resolvedPicks;
+          : noveltyFilteredPicks;
         const toppedUpPicks = await topUpAssistantPicks({
           picks: picksAfterSeasonFilter,
           requestedPickCount,
           mediaType: parsed.data.mediaType,
           animeIntent,
+          noveltyRequested,
+          blockedTitles,
           locale
         });
         const limitedPicks = toppedUpPicks.slice(0, requestedPickCount);
