@@ -287,7 +287,7 @@ function parseRequestedCount(input: string) {
   };
 
   const shortNumericRequestMatch = normalized.match(
-    /^(?:[a-zäöüß.,!? ]{0,20})?(\d{1,2})(?:\s*(?:bitte|please|mehr|noch|titel|filme?|serien?|movies?|series?|picks?|vorschl[aä]ge?))?[.!? ]*$/i
+    /^(?:[a-zäöüß.,!? ]{0,20})?(\d{1,2})(?:\s*(?:bitte|please|mehr|noch|titel|filme?|serien?|movies?|series?|anime|animes?|shows?|picks?|vorschl[aä]ge?))?[.!? ]*$/i
   );
 
   if (shortNumericRequestMatch) {
@@ -303,7 +303,7 @@ function parseRequestedCount(input: string) {
   }
 
   const nounDigitMatch = normalized.match(
-    /(?:^|\s)(\d{1,2})\s*(?:filme?|series?|movies?|serien?|titel|title|vorschl[aä]ge?|picks?)(?:\s|$)/
+    /(?:^|\s)(\d{1,2})\s*(?:filme?|series?|movies?|serien?|anime|animes?|shows?|titel|title|vorschl[aä]ge?|picks?)(?:\s|$)/
   );
 
   if (nounDigitMatch) {
