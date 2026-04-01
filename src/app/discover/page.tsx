@@ -265,36 +265,38 @@ function ActiveGenreSection({
 
       <div className="mt-6 space-y-3">
         <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">{text.genreLabel}</p>
-        <div className="flex flex-wrap gap-2">
-          <Link
-            href={buildGenreResetHref({ type: mediaType, ...baseFilters })}
-            className={cn(
-              "rounded-full border px-3 py-1.5 text-sm transition-colors",
-              selectedGenre === undefined
-                ? "border-primary bg-primary/15 text-primary"
-                : "border-border/50 bg-background/60 text-muted-foreground hover:border-primary/40 hover:text-foreground"
-            )}
-          >
-            {text.resetGenre}
-          </Link>
-          {genres.map(genre => (
+        <div className="max-h-56 overflow-y-auto rounded-2xl border border-border/40 bg-background/35 p-3 pr-2">
+          <div className="flex flex-wrap gap-2">
             <Link
-              key={genre.id}
-              href={buildGenrePickHref({
-                type: mediaType,
-                genre: genre.id,
-                ...baseFilters
-              })}
+              href={buildGenreResetHref({ type: mediaType, ...baseFilters })}
               className={cn(
                 "rounded-full border px-3 py-1.5 text-sm transition-colors",
-                selectedGenre === genre.id
+                selectedGenre === undefined
                   ? "border-primary bg-primary/15 text-primary"
                   : "border-border/50 bg-background/60 text-muted-foreground hover:border-primary/40 hover:text-foreground"
               )}
             >
-              {genre.name}
+              {text.resetGenre}
             </Link>
-          ))}
+            {genres.map(genre => (
+              <Link
+                key={genre.id}
+                href={buildGenrePickHref({
+                  type: mediaType,
+                  genre: genre.id,
+                  ...baseFilters
+                })}
+                className={cn(
+                  "rounded-full border px-3 py-1.5 text-sm transition-colors",
+                  selectedGenre === genre.id
+                    ? "border-primary bg-primary/15 text-primary"
+                    : "border-border/50 bg-background/60 text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                )}
+              >
+                {genre.name}
+              </Link>
+            ))}
+          </div>
         </div>
       </div>
     </section>
@@ -340,26 +342,21 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
     const activeRegionName =
       availableRegions.find(region => region.regionCode === activeRegion)?.regionName ??
       activeRegion;
-    const hasGenreSelected = parsedFilters.genre !== undefined;
-    const discoverResult = hasGenreSelected
-      ? await getDiscoverResults({
-          mediaType,
-          genre: parsedFilters.genre,
-          yearFrom: parsedFilters.yearFrom,
-          yearTo: parsedFilters.yearTo,
-          rating: parsedFilters.rating,
-          page: parsedFilters.page,
-          sort: mapSearchSortToDiscoverSort(mediaType, parsedFilters.sort, parsedFilters.direction),
-          region: activeRegion,
-          providers: parsedFilters.providers,
-          locale
-        })
-      : null;
-    const safeItems = discoverResult
-      ? await filterMediaForViewerAge(discoverResult.items)
-      : [];
-    const totalPages = discoverResult ? Math.max(1, Math.min(discoverResult.totalPages, 167)) : 1;
-    const visiblePages = discoverResult ? getVisiblePages(discoverResult.page, totalPages) : [];
+    const discoverResult = await getDiscoverResults({
+      mediaType,
+      genre: parsedFilters.genre,
+      yearFrom: parsedFilters.yearFrom,
+      yearTo: parsedFilters.yearTo,
+      rating: parsedFilters.rating,
+      page: parsedFilters.page,
+      sort: mapSearchSortToDiscoverSort(mediaType, parsedFilters.sort, parsedFilters.direction),
+      region: activeRegion,
+      providers: parsedFilters.providers,
+      locale
+    });
+    const safeItems = await filterMediaForViewerAge(discoverResult.items);
+    const totalPages = Math.max(1, Math.min(discoverResult.totalPages, 167));
+    const visiblePages = getVisiblePages(discoverResult.page, totalPages);
 
     const text =
       locale === "en"
@@ -369,24 +366,17 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
               "Pick a genre first, then refine results with year, rating, sorting, and streaming filters.",
             activeMediaType: mediaType === "movie" ? "Movies" : "Series",
             activeRegion: `Region: ${activeRegionName}`,
-            activeGenre: selectedGenreName ? `Category: ${selectedGenreName}` : "Category: not selected",
-            totalResults: discoverResult
-              ? `${discoverResult.totalResults.toLocaleString("en-US")} discover results`
-              : "Choose a genre to load suggestions",
+            activeGenre: selectedGenreName ? `Category: ${selectedGenreName}` : "Category: All genres",
+            totalResults: `${discoverResult.totalResults.toLocaleString("en-US")} discover results`,
             discoverLabel: selectedGenreName ? `${selectedGenreName} picks` : "Genre suggestions",
-            discoverSubtitle: discoverResult
-              ? `Page ${discoverResult.page} of ${totalPages}. This page shows up to 60 titles.`
-              : "Select a genre above to start discovery. Filters will then narrow these picks.",
+            discoverSubtitle: `Page ${discoverResult.page} of ${totalPages}. This page shows up to 60 titles.`,
             page: "Page",
             of: "of",
             previous: "Previous",
             next: "Next",
             noResultsTitle: "No discover results for these filters",
             noResultsDescription:
-              "Try another category, wider year range, lower minimum score or a different country.",
-            pickGenreTitle: "Pick a genre to begin",
-            pickGenreDescription:
-              "This view is genre-first: choose a genre above, then use the filters on the left."
+              "Try another category, wider year range, lower minimum score or a different country."
           }
         : {
             spotlightTitle: "Genrebasierte Entdeckung",
@@ -394,24 +384,17 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
               "Waehle zuerst ein Genre, danach verfeinerst du mit Jahr, Rating, Sortierung und Streamingfiltern.",
             activeMediaType: mediaType === "movie" ? "Filme" : "Serien",
             activeRegion: `Land: ${activeRegionName}`,
-            activeGenre: selectedGenreName ? `Kategorie: ${selectedGenreName}` : "Kategorie: nicht gewaehlt",
-            totalResults: discoverResult
-              ? `${discoverResult.totalResults.toLocaleString("de-DE")} Discover-Treffer`
-              : "Waehle ein Genre, um Vorschlaege zu laden",
+            activeGenre: selectedGenreName ? `Kategorie: ${selectedGenreName}` : "Kategorie: Alle Genres",
+            totalResults: `${discoverResult.totalResults.toLocaleString("de-DE")} Discover-Treffer`,
             discoverLabel: selectedGenreName ? `${selectedGenreName} Vorschlaege` : "Genre-Vorschlaege",
-            discoverSubtitle: discoverResult
-              ? `Seite ${discoverResult.page} von ${totalPages}. Diese Seite zeigt bis zu 60 Titel.`
-              : "Waehle oben ein Genre, dann startet die Entdeckung. Die Filter links verfeinern danach die Auswahl.",
+            discoverSubtitle: `Seite ${discoverResult.page} von ${totalPages}. Diese Seite zeigt bis zu 60 Titel.`,
             page: "Seite",
             of: "von",
             previous: "Zurueck",
             next: "Weiter",
             noResultsTitle: "Keine Discover-Treffer fuer diese Filter",
             noResultsDescription:
-              "Probiere eine andere Kategorie, einen groesseren Zeitraum, ein niedrigeres Mindest-Rating oder ein anderes Land.",
-            pickGenreTitle: "Waehle zuerst ein Genre",
-            pickGenreDescription:
-              "Diese Ansicht ist genre-fokussiert: oben Genre auswaehlen, danach links mit Filtern weiter eingrenzen."
+              "Probiere eine andere Kategorie, einen groesseren Zeitraum, ein niedrigeres Mindest-Rating oder ein anderes Land."
           };
 
     return (
@@ -490,15 +473,13 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
             <div className="space-y-4">
               <SectionHeader title={text.discoverLabel} subtitle={text.discoverSubtitle} />
 
-              {!hasGenreSelected ? (
-                <EmptyState title={text.pickGenreTitle} description={text.pickGenreDescription} />
-              ) : safeItems.length ? (
+              {safeItems.length ? (
                 <MediaGrid items={safeItems} />
               ) : (
                 <EmptyState title={text.noResultsTitle} description={text.noResultsDescription} />
               )}
 
-              {discoverResult && totalPages > 1 ? (
+              {totalPages > 1 ? (
                 <div className="flex flex-col gap-3 rounded-[1.5rem] border border-border/50 bg-card/50 p-4 sm:flex-row sm:items-center sm:justify-between">
                   <div className="text-sm text-muted-foreground">
                     {text.page} {discoverResult.page} {text.of} {totalPages}
