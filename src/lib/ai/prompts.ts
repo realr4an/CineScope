@@ -426,7 +426,7 @@ ${text.outputJson}
 {"lead":"string","personalNote":"string optional","picks":[{"title":"string","mediaType":"movie|tv","reason":"string","comparableTitle":"string optional"}],"nextStep":"string optional"}
 
 ${text.rules}
-- return up to ${input.desiredPickCount} suggestions
+- return exactly ${input.desiredPickCount} suggestions (except true title-info requests where empty picks are allowed)
 - never return more than 8 suggestions
 - justify each suggestion briefly
 - respect time budget, mood, intensity, and social context

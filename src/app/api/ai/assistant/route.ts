@@ -136,6 +136,22 @@ function parseRequestedCount(input: string) {
     zehn: 10
   };
 
+  const shortNumericRequestMatch = normalized.match(
+    /^(?:[a-zäöüß.,!? ]{0,20})?(\d{1,2})(?:\s*(?:bitte|please|mehr|noch|titel|filme?|serien?|movies?|series?|picks?|vorschl[aä]ge?))?[.!? ]*$/i
+  );
+
+  if (shortNumericRequestMatch) {
+    return Number(shortNumericRequestMatch[1]);
+  }
+
+  const trailingPleaseMatch = normalized.match(
+    /(?:^|\s)(\d{1,2})(?=\s*(?:bitte|please)(?:\s|$))/i
+  );
+
+  if (trailingPleaseMatch) {
+    return Number(trailingPleaseMatch[1]);
+  }
+
   const nounDigitMatch = normalized.match(
     /(?:^|\s)(\d{1,2})\s*(?:filme?|series?|movies?|serien?|titel|title|vorschl[aä]ge?|picks?)(?:\s|$)/
   );
@@ -552,7 +568,18 @@ export async function POST(request: Request) {
         );
         const resolvedPicks = await resolveAllowedAIPicks(data.picks, locale);
         const picks = requestedSeasonCount
-          ? await filterAIPicksBySeasonCount(resolvedPicks, requestedSeasonCount, locale)
+          ? await filterAIPicksBySeasonCount(
+              resolvedPicks.filter(
+                (
+                  pick
+                ): pick is (typeof resolvedPicks)[number] & {
+                  tmdbId: number;
+                  mediaType: "tv";
+                } => pick.mediaType === "tv" && typeof pick.tmdbId === "number"
+              ),
+              requestedSeasonCount,
+              locale
+            )
           : resolvedPicks;
         const limitedPicks = picks.slice(0, requestedPickCount);
         const emptyPicksAfterFiltering = data.picks.length > 0 && limitedPicks.length === 0;
