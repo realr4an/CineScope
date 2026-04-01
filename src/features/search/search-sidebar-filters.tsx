@@ -38,7 +38,8 @@ export function SearchSidebarFilters({
   onChange,
   onReset,
   isPending,
-  typeOptions = ["all", "movie", "tv"]
+  typeOptions = ["all", "movie", "tv"],
+  primaryAction
 }: {
   movieGenres: Genre[];
   tvGenres: Genre[];
@@ -48,6 +49,10 @@ export function SearchSidebarFilters({
   onReset: () => void;
   isPending: boolean;
   typeOptions?: Array<"all" | "movie" | "tv">;
+  primaryAction?: {
+    label: string;
+    onClick: () => void;
+  };
 }) {
   const { dictionary, locale } = useLanguage();
   const providerType = value.type === "all" ? "all" : value.type;
@@ -396,9 +401,16 @@ export function SearchSidebarFilters({
         </div>
       </div>
 
-      <Button type="button" variant="outline" onClick={onReset} disabled={isPending} className="w-full">
-        {text.reset}
-      </Button>
+      <div className="grid gap-2">
+        {primaryAction ? (
+          <Button type="button" onClick={primaryAction.onClick} disabled={isPending} className="w-full">
+            {primaryAction.label}
+          </Button>
+        ) : null}
+        <Button type="button" variant="outline" onClick={onReset} disabled={isPending} className="w-full">
+          {text.reset}
+        </Button>
+      </div>
     </aside>
   );
 }

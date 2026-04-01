@@ -3,7 +3,6 @@
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
-import { Button } from "@/components/ui/button";
 import {
   SearchSidebarFilters,
   type SearchDraftState
@@ -92,20 +91,19 @@ export function DiscoverControls({
   };
 
   return (
-    <div className="space-y-3">
-      <SearchSidebarFilters
-        movieGenres={movieGenres}
-        tvGenres={tvGenres}
-        availableRegions={availableRegions}
-        value={draft}
-        onChange={setDraft}
-        onReset={resetDraft}
-        isPending={isPending}
-        typeOptions={["movie", "tv"]}
-      />
-      <Button type="button" onClick={apply} disabled={isPending} className="w-full">
-        {dictionary.discoverFilters.apply}
-      </Button>
-    </div>
+    <SearchSidebarFilters
+      movieGenres={movieGenres}
+      tvGenres={tvGenres}
+      availableRegions={availableRegions}
+      value={draft}
+      onChange={setDraft}
+      onReset={resetDraft}
+      isPending={isPending}
+      typeOptions={["movie", "tv"]}
+      primaryAction={{
+        label: dictionary.discoverFilters.apply,
+        onClick: apply
+      }}
+    />
   );
 }
