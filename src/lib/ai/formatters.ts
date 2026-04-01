@@ -25,6 +25,8 @@ export async function resolveAIPick<T extends { title: string; mediaType: MediaT
 
   return {
     ...pick,
+    title: resolved.context.title,
+    mediaType: resolved.context.mediaType,
     tmdbId: resolved.context.tmdbId,
     href: resolved.href
   };
@@ -48,10 +50,7 @@ export async function resolveAllowedAIPick<T extends { title: string; mediaType:
   });
 
   if (!resolved) {
-    return {
-      ...pick,
-      href: `/search?q=${encodeURIComponent(pick.title)}&type=${pick.mediaType}`
-    };
+    return null;
   }
 
   const access = await getAgeAccessForMedia(resolved.context.mediaType, resolved.context.tmdbId);
@@ -62,6 +61,8 @@ export async function resolveAllowedAIPick<T extends { title: string; mediaType:
 
   return {
     ...pick,
+    title: resolved.context.title,
+    mediaType: resolved.context.mediaType,
     tmdbId: resolved.context.tmdbId,
     href: resolved.href
   };

@@ -36,6 +36,7 @@ const COPY = {
     noIntro: "Keine Einleitung, kein Markdown, keine langen Essays.",
     factsOnly: "Nutze nur die bereitgestellten Daten und formuliere Unsicherheit vorsichtig.",
     cautious: "Wenn du etwas nicht sicher aus den Daten ableiten kannst, formuliere konservativ.",
+    exactTitles: "Verwende echte, exakt geschriebene Originaltitel oder offiziell geläufige TMDB-Titel. Keine freien Neuübersetzungen von Titeln.",
     curatorIntro: "Du bist ein präziser Film- und Serienkurator.",
     compareIntro: "Du vergleichst zwei Titel für Medienfans.",
     fitIntro: "Du erklärst kurz, warum ein Titel zu einem Nutzer passen könnte.",
@@ -137,6 +138,7 @@ const COPY = {
     noIntro: "No intro, no Markdown, no long essays.",
     factsOnly: "Use only the provided data and express uncertainty carefully.",
     cautious: "If you cannot infer something reliably from the data, phrase it conservatively.",
+    exactTitles: "Use real, exact official titles (TMDB-style naming). Do not invent translated title variants.",
     curatorIntro: "You are a precise movie and series curator.",
     compareIntro: "You compare two titles for media fans.",
     fitIntro: "You briefly explain why a title might fit a user.",
@@ -268,7 +270,7 @@ function formatFeedback(feedback: RecommendationFeedbackItem[], locale: Locale) 
 
 function baseGuardrails(locale: Locale) {
   const text = copyFor(locale);
-  return [text.concise, text.noIntro, text.factsOnly, text.cautious, text.languageInstruction].join("\n");
+  return [text.concise, text.noIntro, text.factsOnly, text.cautious, text.exactTitles, text.languageInstruction].join("\n");
 }
 
 export function recommendationPrompt(
