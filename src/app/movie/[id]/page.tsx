@@ -167,8 +167,6 @@ export default async function MoviePage({ params }: MoviePageProps) {
               <AITitlePanel
                 media={movie}
                 initialInsights={initialAI.insights}
-                initialFit={initialAI.fit}
-                hasProfileSignals={initialAI.hasFeedbackSignals}
               />
               <WhereToWatchSection
                 mediaType="movie"

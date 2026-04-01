@@ -174,8 +174,6 @@ export default async function TvPage({ params }: TvPageProps) {
               <AITitlePanel
                 media={series}
                 initialInsights={initialAI.insights}
-                initialFit={initialAI.fit}
-                hasProfileSignals={initialAI.hasFeedbackSignals}
               />
               <WhereToWatchSection
                 mediaType="tv"

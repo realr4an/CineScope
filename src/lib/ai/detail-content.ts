@@ -4,33 +4,14 @@ import { unstable_cache } from "next/cache";
 
 import { mapMediaDetailToAIContext } from "@/lib/ai/context";
 import { askOpenRouterJson } from "@/lib/ai/openrouter";
-import { fitPrompt, titleInsightsPrompt } from "@/lib/ai/prompts";
+import { titleInsightsPrompt } from "@/lib/ai/prompts";
 import { generateSpoilerFreeSummary } from "@/lib/ai/summary";
-import {
-  aiFitResponseSchema,
-  aiTitleInsightsResponseSchema
-} from "@/lib/ai/schemas";
-import { getWatchlistForViewer } from "@/lib/supabase/queries";
-import type {
-  AIFitResponse,
-  AIRecommendationFeedback,
-  AITitleInsightsResponse
-} from "@/lib/ai/types";
+import { aiTitleInsightsResponseSchema } from "@/lib/ai/schemas";
+import type { AIFitResponse, AITitleInsightsResponse } from "@/lib/ai/types";
 import type { Locale } from "@/lib/i18n/types";
-import type { MediaDetail, WatchlistItem } from "@/types/media";
+import type { MediaDetail } from "@/types/media";
 
 const AI_CACHE_SECONDS = 60 * 60 * 24 * 7;
-
-function mapWatchlistToFeedback(items: WatchlistItem[]): AIRecommendationFeedback[] {
-  return items
-    .filter(item => item.watched || item.liked !== null)
-    .map(item => ({
-      title: item.title,
-      mediaType: item.mediaType,
-      watched: item.watched,
-      liked: item.liked
-    }));
-}
 
 function getCachedSummary(media: MediaDetail, locale: Locale) {
   return unstable_cache(
@@ -62,27 +43,6 @@ function getCachedTitleInsights(media: MediaDetail, locale: Locale) {
   )();
 }
 
-async function getPersonalFit(
-  media: MediaDetail,
-  feedback: AIRecommendationFeedback[],
-  locale: Locale
-): Promise<AIFitResponse | null> {
-  if (!feedback.length) {
-    return null;
-  }
-
-  return askOpenRouterJson(
-    fitPrompt(
-      {
-        title: mapMediaDetailToAIContext(media),
-        feedback
-      },
-      locale
-    ),
-    aiFitResponseSchema
-  );
-}
-
 export async function getInitialDetailAI(
   media: MediaDetail,
   locale: Locale = "de"
@@ -92,27 +52,15 @@ export async function getInitialDetailAI(
   fit: AIFitResponse | null;
   hasFeedbackSignals: boolean;
 }> {
-  const [summaryResult, insightsResult, watchlistResult] = await Promise.allSettled([
+  const [summaryResult, insightsResult] = await Promise.allSettled([
     getCachedSummary(media, locale),
-    getCachedTitleInsights(media, locale),
-    getWatchlistForViewer()
+    getCachedTitleInsights(media, locale)
   ]);
-
-  const watchlist = watchlistResult.status === "fulfilled" ? watchlistResult.value : [];
-  const feedback = mapWatchlistToFeedback(watchlist);
-
-  const fitResult = await (async () => {
-    try {
-      return await getPersonalFit(media, feedback, locale);
-    } catch {
-      return null;
-    }
-  })();
 
   return {
     summary: summaryResult.status === "fulfilled" ? summaryResult.value : null,
     insights: insightsResult.status === "fulfilled" ? insightsResult.value : null,
-    fit: fitResult,
-    hasFeedbackSignals: feedback.length > 0
+    fit: null,
+    hasFeedbackSignals: false
   };
 }
