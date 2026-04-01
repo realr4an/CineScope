@@ -553,16 +553,16 @@ export function AIAssistantPanel() {
       actions={actions}
       className="overflow-hidden"
     >
-      <div className="space-y-5">
-        <div className="rounded-[1.75rem] border border-border/50 bg-background/45">
-          <div className="max-h-[34rem] space-y-4 overflow-y-auto p-4 sm:p-5">
+      <div className="min-w-0 space-y-5">
+        <div className="min-w-0 rounded-[1.75rem] border border-border/50 bg-background/45">
+          <div className="max-h-[34rem] space-y-4 overflow-x-hidden overflow-y-auto p-4 sm:p-5">
             {messages.map(message => (
               <div
                 key={message.id}
                 className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
               >
                 <div
-                  className={`max-w-[92%] space-y-3 sm:max-w-[80%] ${
+                  className={`min-w-0 max-w-[92%] space-y-3 sm:max-w-[80%] ${
                     message.role === "user" ? "items-end" : "items-start"
                   }`}
                 >
@@ -575,7 +575,7 @@ export function AIAssistantPanel() {
                     <span>{message.role === "user" ? text.you : text.ai}</span>
                   </div>
                   <div
-                    className={`rounded-[1.5rem] px-4 py-3 text-sm leading-6 ${
+                    className={`max-w-full rounded-[1.5rem] px-4 py-3 text-sm leading-6 ${
                       message.role === "user"
                         ? "bg-primary text-primary-foreground"
                         : message.pending
@@ -704,7 +704,7 @@ export function AIAssistantPanel() {
                 }}
                 className="space-y-3"
               >
-                <div className="flex gap-3">
+                <div className="flex flex-col gap-3 sm:flex-row">
                   <textarea
                     value={prompt}
                     onChange={event => setPrompt(event.target.value)}
@@ -717,7 +717,7 @@ export function AIAssistantPanel() {
                     placeholder={text.inputPlaceholder}
                     className="min-h-16 flex-1 resize-none rounded-[1.5rem] border border-border/60 bg-background/70 px-4 py-3 text-sm outline-none transition-colors focus:border-primary/40 focus:ring-2 focus:ring-primary/30"
                   />
-                  <Button type="submit" disabled={loading || !prompt.trim()} className="h-auto rounded-[1.5rem] px-4">
+                  <Button type="submit" disabled={loading || !prompt.trim()} className="h-auto w-full rounded-[1.5rem] px-4 sm:w-auto">
                     {loading ? <RefreshCw className="size-4 animate-spin" /> : <SendHorizontal className="size-4" />}
                     <span className="hidden sm:inline">{text.send}</span>
                   </Button>
@@ -736,11 +736,11 @@ export function AIAssistantPanel() {
                     <p className="text-sm font-medium">{text.savedChats}</p>
                     <span className="text-xs text-muted-foreground">{savedChats.length}</span>
                   </div>
-                  <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+                  <div className="mt-2 flex min-w-0 flex-col gap-2 sm:flex-row sm:flex-wrap">
                     <select
                       value={selectedSavedChatId}
                       onChange={event => setSelectedSavedChatId(event.target.value)}
-                      className="h-10 flex-1 rounded-xl border border-border/60 bg-background px-3 text-sm"
+                      className="h-10 min-w-0 flex-1 rounded-xl border border-border/60 bg-background px-3 text-sm"
                     >
                       {savedChats.map(chat => (
                         <option key={chat.id} value={chat.id}>
@@ -749,11 +749,11 @@ export function AIAssistantPanel() {
                         </option>
                       ))}
                     </select>
-                    <Button type="button" variant="outline" onClick={loadSavedChat} disabled={!selectedSavedChatId}>
+                    <Button type="button" variant="outline" onClick={loadSavedChat} disabled={!selectedSavedChatId} className="w-full sm:w-auto">
                       <FolderOpen className="size-4" />
                       <span>{text.loadChat}</span>
                     </Button>
-                    <Button type="button" variant="outline" onClick={deleteSavedChat} disabled={!selectedSavedChatId}>
+                    <Button type="button" variant="outline" onClick={deleteSavedChat} disabled={!selectedSavedChatId} className="w-full sm:w-auto">
                       <Trash2 className="size-4" />
                       <span>{text.deleteChat}</span>
                     </Button>

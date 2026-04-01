@@ -36,7 +36,7 @@ export function AIPanelShell({
   badgeLabel?: string;
 }) {
   return (
-    <div className={cn("rounded-[2rem] border border-border/50 bg-card/50 p-6", className)}>
+    <div className={cn("w-full min-w-0 rounded-[2rem] border border-border/50 bg-card/50 p-4 sm:p-6", className)}>
       <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex min-w-0 items-start gap-3">
           <div className="flex size-10 items-center justify-center rounded-xl bg-primary/20 text-primary">
@@ -104,12 +104,12 @@ export function AIPicksGrid({
   }
 
   return (
-    <div className="grid gap-3 md:grid-cols-2">
+    <div className="grid min-w-0 gap-3 md:grid-cols-2">
       {picks.map((pick, index) => (
         <Link
           key={`${pick.mediaType}-${pick.title}`}
           href={pick.href ?? `/search?q=${encodeURIComponent(pick.title)}&type=${pick.mediaType}`}
-          className="group rounded-[1.6rem] border border-border/50 bg-background/60 p-4 transition-colors hover:border-primary/40 hover:bg-background/80"
+          className="group min-w-0 max-w-full rounded-[1.6rem] border border-border/50 bg-background/60 p-4 transition-colors hover:border-primary/40 hover:bg-background/80"
         >
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-3">
@@ -124,14 +124,14 @@ export function AIPicksGrid({
             </div>
             <ExternalLink className="size-4 text-muted-foreground transition-colors group-hover:text-primary" />
           </div>
-          <h3 className="mt-2 text-lg font-semibold transition-colors group-hover:text-primary">
+          <h3 className="mt-2 break-words text-lg font-semibold transition-colors group-hover:text-primary">
             {pick.title}
           </h3>
           <div className="mt-3 rounded-xl border border-border/40 bg-card/50 px-3 py-2.5">
             <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-primary/90">
               {locale === "en" ? "Why it could fit" : "Warum es passen könnte"}
             </p>
-            <p className="mt-1 text-sm leading-6 text-muted-foreground">{pick.reason}</p>
+            <p className="mt-1 break-words text-sm leading-6 text-muted-foreground">{pick.reason}</p>
           </div>
           {pick.comparableTitle ? (
             <p className="mt-3 text-xs text-muted-foreground">
