@@ -106,7 +106,7 @@ export default async function HomePage() {
               title: dictionary.home.trendingMovies,
               subtitle: dictionary.home.trendingMoviesSubtitle,
               items: safeTrendingMovies,
-              href: "/search?type=movie"
+              href: "/collections/trending-movies"
             }}
           />
           <HorizontalMediaRow
@@ -115,7 +115,7 @@ export default async function HomePage() {
               title: dictionary.home.trendingSeries,
               subtitle: dictionary.home.trendingSeriesSubtitle,
               items: safeTrendingTv,
-              href: "/search?type=tv"
+              href: "/collections/trending-tv"
             }}
           />
           <HorizontalMediaRow
@@ -124,7 +124,7 @@ export default async function HomePage() {
               title: dictionary.home.popularMovies,
               subtitle: dictionary.home.popularMoviesSubtitle,
               items: safePopularMovies,
-              href: "/search?mediaType=movie"
+              href: "/collections/popular-movies"
             }}
           />
           <HorizontalMediaRow
@@ -133,7 +133,7 @@ export default async function HomePage() {
               title: dictionary.home.popularSeries,
               subtitle: dictionary.home.popularSeriesSubtitle,
               items: safePopularTv,
-              href: "/search?mediaType=tv"
+              href: "/collections/popular-tv"
             }}
           />
         </div>

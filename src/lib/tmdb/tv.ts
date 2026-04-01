@@ -11,9 +11,25 @@ import type {
 } from "@/lib/tmdb/types";
 
 export async function getTrendingTv(locale: Locale = "de") {
+  const response = await getTrendingTvPage(1, locale);
+  return response.items;
+}
+
+export async function getTrendingTvPage(page = 1, locale: Locale = "de") {
   const { tvGenres } = await getGenreMaps(locale);
-  const response = await fetchTmdb<TmdbPaginatedResponse<any>>("/trending/tv/week", undefined, undefined, locale);
-  return response.results.map(item => mapMediaListItem(item, "tv", tvGenres));
+  const response = await fetchTmdb<TmdbPaginatedResponse<any>>(
+    "/trending/tv/week",
+    { page },
+    undefined,
+    locale
+  );
+
+  return {
+    items: response.results.map(item => mapMediaListItem(item, "tv", tvGenres)),
+    page: response.page,
+    totalPages: response.total_pages,
+    totalResults: response.total_results
+  };
 }
 
 export async function getPopularTv(page = 1, locale: Locale = "de") {
