@@ -293,16 +293,6 @@ export function AIAssistantPanel() {
                   >
                     <p className="whitespace-pre-line break-words">{message.content}</p>
                   </div>
-                  {message.personalNote ? (
-                    <div className="rounded-[1.35rem] border border-primary/20 bg-primary/8 px-4 py-3 text-sm text-muted-foreground">
-                      <div className="mb-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
-                        {text.fitLabel}
-                      </div>
-                      <p className="whitespace-pre-line break-words leading-6">
-                        {message.personalNote}
-                      </p>
-                    </div>
-                  ) : null}
                   {message.picks ? (
                     message.picks.length ? (
                       <div className="w-full">
