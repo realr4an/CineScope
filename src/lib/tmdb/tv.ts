@@ -58,3 +58,19 @@ export async function getTvDetail(id: number, locale: Locale = "de") {
     ageCertification
   };
 }
+
+export async function getTvRecommendationContext(id: number, locale: Locale = "de") {
+  const { tvGenres } = await getGenreMaps(locale);
+  const [details, similar] = await Promise.all([
+    fetchTmdb<TmdbTvDetails>(`/tv/${id}`, undefined, undefined, locale),
+    fetchTmdb<TmdbPaginatedResponse<any>>(`/tv/${id}/similar`, undefined, undefined, locale)
+  ]);
+
+  return {
+    genres: (details.genres ?? []).map(genre => ({
+      id: genre.id,
+      name: genre.name
+    })),
+    similar: similar.results.map(item => mapMediaListItem(item, "tv", tvGenres))
+  };
+}

@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { ErrorState } from "@/components/states/state-components";
 import { filterMediaForViewerAge } from "@/lib/age-gate/server";
 import { getServerDictionary } from "@/lib/i18n/server";
+import { getHomePersonalizedRows } from "@/lib/recommendations/home-personalized";
+import { getWatchlistForViewer } from "@/lib/supabase/queries";
 import { getPopularMovies, getTrendingMovies } from "@/lib/tmdb/movies";
 import { getPopularTv, getTrendingTv } from "@/lib/tmdb/tv";
 
@@ -14,19 +16,34 @@ export default async function HomePage() {
   const { dictionary, locale } = await getServerDictionary();
 
   try {
-    const [trendingMovies, trendingTv, popularMoviesResponse, popularTvResponse] = await Promise.all([
+    const [trendingMovies, trendingTv, popularMoviesResponse, popularTvResponse, watchlist] = await Promise.all([
       getTrendingMovies(locale),
       getTrendingTv(locale),
       getPopularMovies(1, locale),
-      getPopularTv(1, locale)
+      getPopularTv(1, locale),
+      getWatchlistForViewer()
     ]);
+    const personalizedRows = await getHomePersonalizedRows({
+      watchlist,
+      locale,
+      limitPerType: 20
+    });
 
-    const [safeTrendingMovies, safeTrendingTv, safePopularMovies, safePopularTv] =
+    const [
+      safeTrendingMovies,
+      safeTrendingTv,
+      safePopularMovies,
+      safePopularTv,
+      safePersonalizedMovies,
+      safePersonalizedTv
+    ] =
       await Promise.all([
         filterMediaForViewerAge(trendingMovies),
         filterMediaForViewerAge(trendingTv),
         filterMediaForViewerAge(popularMoviesResponse.items),
-        filterMediaForViewerAge(popularTvResponse.items)
+        filterMediaForViewerAge(popularTvResponse.items),
+        filterMediaForViewerAge(personalizedRows.movies),
+        filterMediaForViewerAge(personalizedRows.tv)
       ]);
 
     const featured = safeTrendingMovies[0];
@@ -136,6 +153,26 @@ export default async function HomePage() {
               href: "/collections/popular-tv"
             }}
           />
+          {safePersonalizedMovies.length ? (
+            <HorizontalMediaRow
+              section={{
+                id: "recommended-movies",
+                title: dictionary.home.recommendedMovies,
+                subtitle: dictionary.home.recommendedMoviesSubtitle,
+                items: safePersonalizedMovies
+              }}
+            />
+          ) : null}
+          {safePersonalizedTv.length ? (
+            <HorizontalMediaRow
+              section={{
+                id: "recommended-tv",
+                title: dictionary.home.recommendedSeries,
+                subtitle: dictionary.home.recommendedSeriesSubtitle,
+                items: safePersonalizedTv
+              }}
+            />
+          ) : null}
         </div>
       </AppShell>
     );

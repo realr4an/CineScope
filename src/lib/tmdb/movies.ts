@@ -58,3 +58,19 @@ export async function getMovieDetail(id: number, locale: Locale = "de") {
     ageCertification
   };
 }
+
+export async function getMovieRecommendationContext(id: number, locale: Locale = "de") {
+  const { movieGenres } = await getGenreMaps(locale);
+  const [details, similar] = await Promise.all([
+    fetchTmdb<TmdbMovieDetails>(`/movie/${id}`, undefined, undefined, locale),
+    fetchTmdb<TmdbPaginatedResponse<any>>(`/movie/${id}/similar`, undefined, undefined, locale)
+  ]);
+
+  return {
+    genres: (details.genres ?? []).map(genre => ({
+      id: genre.id,
+      name: genre.name
+    })),
+    similar: similar.results.map(item => mapMediaListItem(item, "movie", movieGenres))
+  };
+}

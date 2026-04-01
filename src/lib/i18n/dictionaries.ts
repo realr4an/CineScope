@@ -54,6 +54,12 @@ export const dictionaries = {
       popularMoviesSubtitle: "Community-Favoriten mit hoher Reichweite",
       popularSeries: "Beliebte Serien",
       popularSeriesSubtitle: "Serien mit hoher Sichtbarkeit und Relevanz",
+      recommendedMovies: "Filme, die dir gefallen könnten",
+      recommendedMoviesSubtitle:
+        "Personalisierte Vorschläge basierend auf deiner Watchlist und deinen Bewertungen",
+      recommendedSeries: "Serien, die dir gefallen könnten",
+      recommendedSeriesSubtitle:
+        "Abgeleitet aus gesehenen, gemochten und nicht gemochten Titeln",
       errorTitle: "Startseite konnte nicht geladen werden"
     },
     searchPage: {
@@ -284,6 +290,12 @@ export const dictionaries = {
       popularMoviesSubtitle: "Community favorites with broad reach",
       popularSeries: "Popular series",
       popularSeriesSubtitle: "Highly visible and relevant shows",
+      recommendedMovies: "Movies you might like",
+      recommendedMoviesSubtitle:
+        "Personalized picks based on your watchlist and your ratings",
+      recommendedSeries: "Series you might like",
+      recommendedSeriesSubtitle:
+        "Derived from watched, liked, and disliked titles",
       errorTitle: "Could not load home page"
     },
     searchPage: {
