@@ -2,11 +2,11 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { moderateFeedback } from "@/lib/ai/feedback-moderation";
-import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { isUnsafeFeedbackMessage } from "@/lib/security/prompt-injection";
 import { checkRateLimit } from "@/lib/security/rate-limit";
 import { getRateLimitIdentityKey, getRequestIp, isSameOriginRequest } from "@/lib/security/request";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 const feedbackSchema = z.object({
   email: z.string().email().optional().or(z.literal("")),
@@ -16,17 +16,21 @@ const feedbackSchema = z.object({
   pagePath: z.string().trim().max(200).optional().or(z.literal(""))
 });
 
+const OFF_TOPIC_REASON_PATTERNS = [
+  /\boff[\s-]?topic\b/i,
+  /\bunrelated\b/i,
+  /\bnot\s+related\b/i,
+  /\bnot\s+about\b/i,
+  /\bkein(?:e|en|er)?\s+bezug\b/i
+] as const;
+
 export async function POST(request: Request) {
   if (!isSameOriginRequest(request)) {
     return NextResponse.json({ error: "Cross-origin requests are not allowed." }, { status: 403 });
   }
 
   const ip = getRequestIp(request);
-  const rateLimit = checkRateLimit(
-    getRateLimitIdentityKey("api-feedback-submit", ip),
-    8,
-    60_000
-  );
+  const rateLimit = checkRateLimit(getRateLimitIdentityKey("api-feedback-submit", ip), 8, 60_000);
 
   if (!rateLimit.allowed) {
     return NextResponse.json(
@@ -55,9 +59,7 @@ export async function POST(request: Request) {
     }
 
     const supabase = await createSupabaseServerClient();
-    const authResult = supabase
-      ? await supabase.auth.getUser()
-      : { data: { user: null } };
+    const authResult = supabase ? await supabase.auth.getUser() : { data: { user: null } };
     const user = authResult.data.user;
 
     const moderation = await moderateFeedback({
@@ -66,11 +68,14 @@ export async function POST(request: Request) {
     });
 
     if (!moderation.allowed) {
+      const isOffTopic = OFF_TOPIC_REASON_PATTERNS.some((pattern) => pattern.test(moderation.reason));
+
       return NextResponse.json(
         {
           approved: false,
-          message:
-            "Dein Feedback konnte in dieser Form nicht übernommen werden. Bitte formuliere es sachlich und app-bezogen."
+          message: isOffTopic
+            ? "Bitte sende Feedback mit klarem Bezug zur App (Funktionen, Inhalte, UX oder Fehler)."
+            : "Dein Feedback konnte in dieser Form nicht übernommen werden. Bitte formuliere es sachlich und app-bezogen."
         },
         { status: 400 }
       );
@@ -104,9 +109,7 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json(
-      {
-        error: error instanceof Error ? error.message : "Feedback konnte nicht gespeichert werden."
-      },
+      { error: error instanceof Error ? error.message : "Feedback konnte nicht gespeichert werden." },
       { status: 500 }
     );
   }
