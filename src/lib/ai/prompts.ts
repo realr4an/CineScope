@@ -40,6 +40,7 @@ const COPY = {
     compareIntro: "Du vergleichst zwei Titel für Medienfans.",
     fitIntro: "Du erklärst kurz, warum ein Titel zu einem Nutzer passen könnte.",
     priorityIntro: "Du hilfst bei der Reihenfolge mehrerer Titel.",
+    priorityGroupsIntro: "Du gruppierst eine persönliche Watchlist in sinnvolle Themen-Cluster.",
     assistantIntro: "Du bist ein fokussierter Auswahl-Assistent für Filme und Serien.",
     assistantTone: "Antworte wie ein natürlicher Chat-Assistent: freundlich, konkret, führend, aber nicht steif.",
     assistantFlow: "Greife den letzten Nutzerwunsch direkt auf und hilf mit dem nächsten sinnvollen Schritt.",
@@ -80,6 +81,18 @@ const COPY = {
       "berücksichtige die Watchlist-Signale des Nutzers und priorisiere vor allem ungesehene Titel, die gut zu positiv bewerteten Titeln passen",
     priorityInstruction7:
       "bereits gesehene oder negativ bewertete Titel gehören normalerweise weiter nach unten, außer ein Rewatch wäre klar sinnvoll",
+    priorityGroupsInstruction1:
+      "teile alle Kandidaten in sinnvolle Gruppen auf (z. B. Franchise, Anime, Krimi, Sci-Fi, Feel-good)",
+    priorityGroupsInstruction2:
+      "wenn mehrere Titel klar zu derselben Reihe gehören, nutze den Reihennamen als Gruppenlabel",
+    priorityGroupsInstruction3:
+      "jede Gruppe braucht ein kurzes Label und optional eine knappe Beschreibung",
+    priorityGroupsInstruction4:
+      "ordne die Titel innerhalb jeder Gruppe in einer sinnvollen Watch-Reihenfolge",
+    priorityGroupsInstruction5:
+      "jeder Kandidat darf genau einmal vorkommen, es dürfen keine Kandidaten fehlen",
+    priorityGroupsInstruction6:
+      "halte die Gruppen praktisch und nutzerorientiert, keine abstrakten Taxonomien",
     candidates: "Kandidaten:",
     notSpecified: "nicht angegeben",
     mood: "Stimmung",
@@ -128,6 +141,7 @@ const COPY = {
     compareIntro: "You compare two titles for media fans.",
     fitIntro: "You briefly explain why a title might fit a user.",
     priorityIntro: "You help decide the order of several titles.",
+    priorityGroupsIntro: "You cluster a personal watchlist into meaningful themed groups.",
     assistantIntro: "You are a focused movie and series decision assistant.",
     assistantTone: "Answer like a natural chat assistant: friendly, concrete, and gently guiding without sounding rigid.",
     assistantFlow: "Address the user's latest need directly and help with the next sensible step.",
@@ -168,6 +182,18 @@ const COPY = {
       "use the user's watchlist signals and prioritize mostly unwatched titles that best match what they liked",
     priorityInstruction7:
       "already watched or disliked titles should usually appear lower unless a rewatch clearly makes sense",
+    priorityGroupsInstruction1:
+      "group all candidates into meaningful clusters (for example franchise, anime, crime, sci-fi, comfort watch)",
+    priorityGroupsInstruction2:
+      "if multiple titles clearly belong to one saga/series, use that saga name as the group label",
+    priorityGroupsInstruction3:
+      "each group needs a short label and may include a short description",
+    priorityGroupsInstruction4:
+      "order titles inside each group in a sensible watch sequence",
+    priorityGroupsInstruction5:
+      "every candidate must appear exactly once and no candidate may be omitted",
+    priorityGroupsInstruction6:
+      "keep groups practical and user-friendly, avoid abstract taxonomies",
     candidates: "Candidates:",
     notSpecified: "not specified",
     mood: "Mood",
@@ -383,6 +409,45 @@ ${text.rules}
 - ${text.priorityInstruction5}
 - ${text.priorityInstruction6}
 - ${text.priorityInstruction7}
+
+${input.feedback?.length ? `${text.userContext}\n${formatFeedback(input.feedback, locale)}\n` : ""}
+${input.context ? `${text.userContext}\n${input.context}\n` : ""}
+${text.candidates}
+${input.titles
+  .map(title => {
+    const typeLabel = title.mediaType === "movie" ? text.movie : text.series;
+    const genres = title.genres.slice(0, 3).join(", ") || text.unknown;
+    const release = title.releaseDate ?? text.unknown;
+    const seasons =
+      title.mediaType === "tv" ? `, ${text.seasons}: ${title.numberOfSeasons ?? text.unknown}` : "";
+
+    return `- ${title.title} (${typeLabel}, ${text.release}: ${release}, ${text.genres}: ${genres}${seasons})`;
+  })
+  .join("\n")}
+`.trim();
+}
+
+export function priorityGroupsPrompt(input: {
+  titles: AITitleContext[];
+  context?: string;
+  feedback?: RecommendationFeedbackItem[];
+}, locale: Locale = "de") {
+  const text = copyFor(locale);
+  return `
+${text.priorityGroupsIntro}
+${baseGuardrails(locale)}
+${text.outputJson}
+{"summary":"string","groups":[{"label":"string","description":"string optional","items":[{"title":"string","mediaType":"movie|tv","reason":"string"}]}]}
+
+${text.rules}
+- ${text.priorityGroupsInstruction1}
+- ${text.priorityGroupsInstruction2}
+- ${text.priorityGroupsInstruction3}
+- ${text.priorityGroupsInstruction4}
+- ${text.priorityGroupsInstruction5}
+- ${text.priorityGroupsInstruction6}
+- nutze nur Kandidaten aus der Liste, keine neuen Titel
+- max. 8 Gruppen
 
 ${input.feedback?.length ? `${text.userContext}\n${formatFeedback(input.feedback, locale)}\n` : ""}
 ${input.context ? `${text.userContext}\n${input.context}\n` : ""}

@@ -90,6 +90,26 @@ export const aiPriorityResponseSchema = z.object({
     .max(50)
 });
 
+const aiPriorityItemSchema = z.object({
+  title: z.string().min(1),
+  mediaType: z.enum(["movie", "tv"]),
+  reason: z.string().min(1)
+});
+
+export const aiPriorityGroupsResponseSchema = z.object({
+  summary: z.string().min(1),
+  groups: z
+    .array(
+      z.object({
+        label: z.string().min(1).max(80),
+        description: z.string().min(1).max(220).optional(),
+        items: z.array(aiPriorityItemSchema).min(1).max(50)
+      })
+    )
+    .min(1)
+    .max(12)
+});
+
 export const aiAssistantResponseSchema = z.object({
   lead: z.string().min(1),
   personalNote: z.string().optional(),
@@ -134,6 +154,12 @@ export const aiActionSchema = z.discriminatedUnion("mode", [
     items: z.array(selectedMediaSchema).min(2).max(50),
     feedback: z.array(feedbackSchema).max(50).default([]),
     context: z.string().trim().max(200).optional()
+  }),
+  z.object({
+    mode: z.literal("priority_groups"),
+    items: z.array(selectedMediaSchema).min(2).max(50),
+    feedback: z.array(feedbackSchema).max(50).default([]),
+    context: z.string().trim().max(260).optional()
   }),
   z.object({
     mode: z.literal("assistant"),

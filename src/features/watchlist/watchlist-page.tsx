@@ -20,16 +20,20 @@ import type { WatchlistItem } from "@/types/media";
 const FALLBACK_POSTER = "https://placehold.co/500x750/181414/f5f5f4?text=CineScope";
 
 type WatchlistFilter = "all" | "watched" | "liked" | "disliked";
-type AutoPriorityResponse = {
-  mode: "priority";
+type AutoPriorityGroupsResponse = {
+  mode: "priority_groups";
   data: {
     summary: string;
-    order: Array<{
-      title: string;
-      mediaType: "movie" | "tv";
-      reason: string;
-      tmdbId?: number;
-      href?: string;
+    groups: Array<{
+      label: string;
+      description?: string;
+      items: Array<{
+        title: string;
+        mediaType: "movie" | "tv";
+        reason: string;
+        tmdbId?: number;
+        href?: string;
+      }>;
     }>;
   };
 };
@@ -176,27 +180,33 @@ export function WatchlistPageContent() {
     loading: boolean;
     error: string | null;
     summary: string | null;
+    groups: Array<{
+      label: string;
+      description?: string;
+      orderKeys: string[];
+    }>;
     orderKeys: string[];
   }>({
     loading: items.length >= 2,
     error: null,
     summary: null,
+    groups: [],
     orderKeys: []
   });
 
   const autoSortText =
     locale === "en"
       ? {
-          title: "AI watchlist order",
+          title: "AI grouped watchlist order",
           description:
-            "Your watchlist is automatically arranged by what you are most likely to want next, based on watched and liked signals.",
+            "Your watchlist is grouped into meaningful themes (for example franchises, anime, or moods) and ordered inside each group by what fits next.",
           loading: "Refreshing the personalized order...",
           reload: "Refresh order",
-          fallback: "The watchlist is currently shown in its saved order because the AI sort is unavailable.",
-          tooSmall: "Add at least two titles to get an automatic watch order."
+          fallback: "The watchlist is currently shown in its saved order because the AI grouping is unavailable.",
+          tooSmall: "Add at least two titles to get automatic AI grouping and order."
         }
       : {
-          title: "KI-Sortierung deiner Watchlist",
+          title: "KI-Gruppierung deiner Watchlist",
           description:
             "Deine Watchlist wird automatisch danach sortiert, was für dich als Nächstes am sinnvollsten wirkt, basierend auf gesehenen und bewerteten Titeln.",
           loading: "Die persönliche Reihenfolge wird aktualisiert...",
@@ -218,6 +228,7 @@ export function WatchlistPageContent() {
         loading: false,
         error: null,
         summary: null,
+        groups: [],
         orderKeys: []
       });
       return;
@@ -232,9 +243,9 @@ export function WatchlistPageContent() {
       }));
 
       try {
-        const response = await postAIAction<AutoPriorityResponse>(
+        const response = await postAIAction<AutoPriorityGroupsResponse>(
           {
-            mode: "priority",
+            mode: "priority_groups",
             items: items.map(item => ({
               tmdbId: item.tmdbId,
               mediaType: item.mediaType
@@ -247,11 +258,11 @@ export function WatchlistPageContent() {
             })),
             context:
               locale === "en"
-                ? "Sort this personal watchlist by what this user should most likely watch next."
+                ? "Group this personal watchlist into meaningful themes and order items in each group by what the user should watch next."
                 : "Sortiere diese persönliche Watchlist danach, was dieser Nutzer am wahrscheinlichsten als Nächstes schauen sollte."
           },
           locale === "en"
-            ? "The AI watchlist order could not be loaded."
+            ? "The AI watchlist grouping could not be loaded."
             : "Die KI-Reihenfolge der Watchlist konnte nicht geladen werden."
         );
 
@@ -259,11 +270,25 @@ export function WatchlistPageContent() {
           return;
         }
 
+        const groups = response.data.groups
+          .map(group => ({
+            label: group.label,
+            description: group.description,
+            orderKeys: group.items.map(item => buildWatchlistKey(item))
+          }))
+          .filter(group => group.orderKeys.length > 0);
+
+        const groupedKeys = groups.flatMap(group => group.orderKeys);
+        const missingKeys = items
+          .map(item => buildWatchlistKey(item))
+          .filter(key => !groupedKeys.includes(key));
+
         setAutoPriorityState({
           loading: false,
           error: null,
           summary: response.data.summary,
-          orderKeys: response.data.order.map(item => buildWatchlistKey(item))
+          groups,
+          orderKeys: [...groupedKeys, ...missingKeys]
         });
       } catch (priorityError) {
         if (cancelled) {
@@ -271,13 +296,15 @@ export function WatchlistPageContent() {
         }
 
         setAutoPriorityState(current => ({
-          ...current,
           loading: false,
+          summary: null,
+          groups: [],
+          orderKeys: [],
           error:
             priorityError instanceof Error
               ? priorityError.message
               : locale === "en"
-                ? "The AI watchlist order could not be loaded."
+                ? "The AI watchlist grouping could not be loaded."
                 : "Die KI-Reihenfolge der Watchlist konnte nicht geladen werden."
         }));
       }
@@ -328,6 +355,37 @@ export function WatchlistPageContent() {
         return sortedItems;
     }
   }, [filter, sortedItems]);
+
+  const groupedFilteredItems = useMemo(() => {
+    if (!autoPriorityState.groups.length) {
+      return [];
+    }
+
+    const itemByKey = new Map(sortedItems.map(item => [buildWatchlistKey(item), item]));
+    const allowedIds = new Set(filteredItems.map(item => item.id));
+    const sections = autoPriorityState.groups
+      .map(group => ({
+        label: group.label,
+        description: group.description,
+        items: group.orderKeys
+          .map(key => itemByKey.get(key))
+          .filter((item): item is WatchlistItem => !!item && allowedIds.has(item.id))
+      }))
+      .filter(section => section.items.length > 0);
+
+    const usedIds = new Set(sections.flatMap(section => section.items.map(item => item.id)));
+    const remainingItems = filteredItems.filter(item => !usedIds.has(item.id));
+
+    if (remainingItems.length) {
+      sections.push({
+        label: locale === "en" ? "Other picks" : "Weitere Vorschlaege",
+        description: undefined,
+        items: remainingItems
+      });
+    }
+
+    return sections;
+  }, [autoPriorityState.groups, filteredItems, locale, sortedItems]);
 
   const selectedItems = useMemo(
     () => items.filter(item => selectedIds.includes(item.id)),
@@ -416,17 +474,43 @@ export function WatchlistPageContent() {
       </div>
 
       {filteredItems.length ? (
-        <div className="space-y-4">
-          {filteredItems.map(item => (
-            <WatchlistCard
-              key={item.id}
-              item={item}
-              selected={selectedIds.includes(item.id)}
-              canSelectMore={selectedIds.length < MAX_PRIORITY_SELECTIONS}
-              onToggleSelect={() => toggleSelection(item.id)}
-            />
-          ))}
-        </div>
+        groupedFilteredItems.length ? (
+          <div className="space-y-6">
+            {groupedFilteredItems.map((section, index) => (
+              <section key={`${section.label}-${index}`} className="space-y-3">
+                <div className="rounded-[1.25rem] border border-border/50 bg-card/40 px-4 py-3">
+                  <h3 className="text-base font-semibold tracking-tight">{section.label}</h3>
+                  {section.description ? (
+                    <p className="mt-1 text-sm text-muted-foreground">{section.description}</p>
+                  ) : null}
+                </div>
+                <div className="space-y-4">
+                  {section.items.map(item => (
+                    <WatchlistCard
+                      key={item.id}
+                      item={item}
+                      selected={selectedIds.includes(item.id)}
+                      canSelectMore={selectedIds.length < MAX_PRIORITY_SELECTIONS}
+                      onToggleSelect={() => toggleSelection(item.id)}
+                    />
+                  ))}
+                </div>
+              </section>
+            ))}
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {filteredItems.map(item => (
+              <WatchlistCard
+                key={item.id}
+                item={item}
+                selected={selectedIds.includes(item.id)}
+                canSelectMore={selectedIds.length < MAX_PRIORITY_SELECTIONS}
+                onToggleSelect={() => toggleSelection(item.id)}
+              />
+            ))}
+          </div>
+        )
       ) : (
         <EmptyState
           title={dictionary.watchlist.noFilteredTitle}

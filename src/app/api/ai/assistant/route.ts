@@ -17,6 +17,7 @@ import {
   comparePrompt,
   fitPrompt,
   personInsightsPrompt,
+  priorityGroupsPrompt,
   priorityPrompt,
   titleInsightsPrompt
 } from "@/lib/ai/prompts";
@@ -26,6 +27,7 @@ import {
   aiCompareResponseSchema,
   aiFitResponseSchema,
   aiPersonInsightsResponseSchema,
+  aiPriorityGroupsResponseSchema,
   aiPriorityResponseSchema,
   aiTitleInsightsResponseSchema
 } from "@/lib/ai/schemas";
@@ -370,6 +372,7 @@ export async function POST(request: Request) {
           ...parsed.data.feedback.map(item => item.title)
         ]);
       case "priority":
+      case "priority_groups":
         return containsPromptInjection([
           parsed.data.context,
           ...parsed.data.feedback.map(item => item.title)
@@ -477,6 +480,36 @@ export async function POST(request: Request) {
           data: {
             ...data,
             order
+          }
+        });
+      }
+
+      case "priority_groups": {
+        const titles = await getManyMediaAIContexts(parsed.data.items, locale);
+        const data = await askOpenRouterJson(
+          priorityGroupsPrompt(
+            {
+              titles,
+              feedback: parsed.data.feedback,
+              context: parsed.data.context
+            },
+            locale
+          ),
+          aiPriorityGroupsResponseSchema
+        );
+
+        const groups = await Promise.all(
+          data.groups.map(async group => ({
+            ...group,
+            items: await resolveAIPicks(group.items, locale)
+          }))
+        );
+
+        return NextResponse.json({
+          mode: "priority_groups",
+          data: {
+            ...data,
+            groups
           }
         });
       }
