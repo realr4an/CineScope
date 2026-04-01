@@ -93,20 +93,14 @@ function CompareAutocompleteField({
   onChange,
   onSelect,
   selected,
-  type,
-  onTypeChange,
   placeholder,
-  disabledType = false,
   text
 }: {
   value: string;
   onChange: (value: string) => void;
   onSelect: (item: MediaListItem) => void;
   selected: MediaListItem | null;
-  type: "all" | "movie" | "tv";
-  onTypeChange: (value: "all" | "movie" | "tv") => void;
   placeholder: string;
-  disabledType?: boolean;
   text: {
     all: string;
     movie: string;
@@ -133,7 +127,7 @@ function CompareAutocompleteField({
       setLoading(true);
 
       try {
-        const results = await fetchSuggestions(query, type);
+        const results = await fetchSuggestions(query, "all");
 
         if (requestId.current !== currentRequestId) {
           return;
@@ -156,7 +150,7 @@ function CompareAutocompleteField({
     return () => {
       window.clearTimeout(timeout);
     };
-  }, [type, value]);
+  }, [value]);
 
   const visibleSuggestions = useMemo(() => (open ? suggestions : []), [open, suggestions]);
   const activeKey = selected ? `${selected.mediaType}-${selected.tmdbId}` : undefined;
@@ -187,16 +181,6 @@ function CompareAutocompleteField({
         {loading ? <RefreshCw className="absolute right-3 top-1/2 size-4 -translate-y-1/2 animate-spin text-muted-foreground" /> : null}
         <SuggestionList items={visibleSuggestions} activeKey={activeKey} onSelect={item => { onSelect(item); setOpen(false); }} mediaLabel={{ movie: text.movie, tv: text.tv }} />
       </div>
-      <select
-        value={type}
-        onChange={event => onTypeChange(event.target.value as "all" | "movie" | "tv")}
-        disabled={disabledType}
-        className="h-11 w-full rounded-xl border border-border/60 bg-background px-3 text-sm disabled:opacity-70"
-      >
-        <option value="all">{text.all}</option>
-        <option value="movie">{text.movie}</option>
-        <option value="tv">{text.tv}</option>
-      </select>
     </div>
   );
 }
@@ -230,9 +214,7 @@ export function AIComparePanel({ leftPreset }: { leftPreset?: { title: string; m
       };
 
   const [leftQuery, setLeftQuery] = useState(leftPreset?.title ?? "");
-  const [leftType, setLeftType] = useState<"all" | "movie" | "tv">(leftPreset?.mediaType ?? "all");
   const [rightQuery, setRightQuery] = useState("");
-  const [rightType, setRightType] = useState<"all" | "movie" | "tv">("all");
   const [leftSelection, setLeftSelection] = useState<MediaListItem | null>(null);
   const [rightSelection, setRightSelection] = useState<MediaListItem | null>(null);
   const [loading, setLoading] = useState(false);
@@ -251,8 +233,11 @@ export function AIComparePanel({ leftPreset }: { leftPreset?: { title: string; m
       const response = await postAIAction<CompareResponse>(
         {
           mode: "compare",
-          left: { query: leftSelection?.title ?? leftQuery, mediaType: leftSelection?.mediaType ?? leftType },
-          right: { query: rightSelection?.title ?? rightQuery, mediaType: rightSelection?.mediaType ?? rightType }
+          left: {
+            query: leftSelection?.title ?? leftQuery,
+            mediaType: leftSelection?.mediaType ?? leftPreset?.mediaType ?? "all"
+          },
+          right: { query: rightSelection?.title ?? rightQuery, mediaType: rightSelection?.mediaType ?? "all" }
         },
         text.loadError
       );
@@ -287,30 +272,22 @@ export function AIComparePanel({ leftPreset }: { leftPreset?: { title: string; m
               <CompareAutocompleteField
                 value={leftQuery}
                 onChange={value => { setLeftQuery(value); setLeftSelection(null); }}
-                onSelect={item => { setLeftQuery(item.title); setLeftType(item.mediaType); setLeftSelection(item); }}
+                onSelect={item => { setLeftQuery(item.title); setLeftSelection(item); }}
                 selected={leftSelection}
-                type={leftType}
-                onTypeChange={value => { setLeftType(value); setLeftSelection(null); }}
                 placeholder={text.first}
                 text={{ all: text.all, movie: text.movie, tv: text.tv }}
               />
             ) : (
               <div className="space-y-2">
                 <div className="rounded-xl border border-border/60 bg-background/70 px-3 py-3 text-sm">{leftPreset.title}</div>
-                <select value={leftType} onChange={event => setLeftType(event.target.value as "all" | "movie" | "tv")} className="h-11 w-full rounded-xl border border-border/60 bg-background px-3 text-sm">
-                  <option value="movie">{text.movie}</option>
-                  <option value="tv">{text.tv}</option>
-                </select>
               </div>
             )}
           </div>
           <CompareAutocompleteField
             value={rightQuery}
             onChange={value => { setRightQuery(value); setRightSelection(null); }}
-            onSelect={item => { setRightQuery(item.title); setRightType(item.mediaType); setRightSelection(item); }}
+            onSelect={item => { setRightQuery(item.title); setRightSelection(item); }}
             selected={rightSelection}
-            type={rightType}
-            onTypeChange={value => { setRightType(value); setRightSelection(null); }}
             placeholder={text.second}
             text={{ all: text.all, movie: text.movie, tv: text.tv }}
           />
