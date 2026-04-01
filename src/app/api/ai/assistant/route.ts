@@ -595,6 +595,14 @@ function parseRequestedCount(input: string) {
     return Number(nounDigitMatch[1]);
   }
 
+  const quantifiedNounDigitMatch = normalized.match(
+    /(?:^|\s)(\d{1,2})\s*(?:neue?n?|weitere?n?|more|extra|zus[aä]tzliche?n?|st[uü]ck|stücke|items?)?\s*(?:filme?|series?|movies?|serien?|anime|animes?|shows?|titel|title|vorschl[aä]ge?|picks?)(?:\s|$)/
+  );
+
+  if (quantifiedNounDigitMatch) {
+    return Number(quantifiedNounDigitMatch[1]);
+  }
+
   const requestDigitMatch = normalized.match(
     /(?:kannst\s+du|can\s+you|please|bitte|auch)\D{0,12}(\d{1,2})(?:\s|$)/
   );
@@ -616,7 +624,7 @@ function parseRequestedCount(input: string) {
 
 function getRequestedPickCount(input: {
   prompt?: string;
-  conversation?: Array<{ content: string }>;
+  conversation?: Array<{ role: "user" | "assistant"; content: string }>;
 }) {
   let requestedRaw = 5;
   const fromPrompt = input.prompt ? parseRequestedCount(input.prompt) : null;
@@ -630,7 +638,10 @@ function getRequestedPickCount(input: {
     };
   }
 
-  const recentConversation = (input.conversation ?? []).slice(-3).map(message => message.content);
+  const recentConversation = (input.conversation ?? [])
+    .filter(message => message.role === "user")
+    .slice(-3)
+    .map(message => message.content);
   for (const content of recentConversation.reverse()) {
     const parsed = parseRequestedCount(content);
     if (parsed !== null) {
@@ -652,9 +663,14 @@ function getRequestedPickCount(input: {
 
 function isSuggestionCapacityQuestion(input: {
   prompt?: string;
-  conversation?: Array<{ content: string }>;
+  conversation?: Array<{ role: "user" | "assistant"; content: string }>;
 }) {
-  const combined = [input.prompt ?? "", ...(input.conversation ?? []).map(message => message.content)]
+  const combined = [
+    input.prompt ?? "",
+    ...(input.conversation ?? [])
+      .filter(message => message.role === "user")
+      .map(message => message.content)
+  ]
     .join(" \n ")
     .toLowerCase();
 
@@ -666,9 +682,14 @@ function isSuggestionCapacityQuestion(input: {
 
 function getRequestedSeasonCount(input: {
   prompt?: string;
-  conversation?: Array<{ content: string }>;
+  conversation?: Array<{ role: "user" | "assistant"; content: string }>;
 }) {
-  const combined = [input.prompt ?? "", ...(input.conversation ?? []).map(message => message.content)]
+  const combined = [
+    input.prompt ?? "",
+    ...(input.conversation ?? [])
+      .filter(message => message.role === "user")
+      .map(message => message.content)
+  ]
     .join(" \n ")
     .toLowerCase();
 
