@@ -14,7 +14,7 @@ import {
 } from "@/lib/age-gate";
 import { useLanguage } from "@/features/i18n/language-provider";
 import { savePreferredRegion } from "@/features/watch-providers/region-preference";
-import { createSupabaseBrowserClient, isSupabaseConfigured } from "@/lib/supabase/client";
+import { isSupabaseConfigured } from "@/lib/supabase/client";
 import { DEFAULT_WATCH_REGION } from "@/lib/tmdb/watch-provider-preference";
 import type { Viewer } from "@/types/auth";
 import type { WatchRegion } from "@/types/watch-providers";
@@ -95,75 +95,6 @@ async function getJson<T>(input: RequestInfo | URL) {
   }
 
   return data as T;
-}
-
-async function saveProfileSettings(
-  supabase: ReturnType<typeof createSupabaseBrowserClient>,
-  input: {
-    userId: string;
-    displayName: string | null;
-    birthDate: string;
-  }
-) {
-  const updateResult = await (supabase.from("profiles") as any)
-    .update({
-      display_name: input.displayName,
-      birth_date: input.birthDate
-    })
-    .eq("id", input.userId)
-    .select("id")
-    .maybeSingle();
-
-  if (updateResult.error) {
-    throw updateResult.error;
-  }
-
-  if (updateResult.data) {
-    return;
-  }
-
-  const insertResult = await (supabase.from("profiles") as any).insert({
-    id: input.userId,
-    display_name: input.displayName,
-    birth_date: input.birthDate
-  });
-
-  if (insertResult.error) {
-    throw insertResult.error;
-  }
-}
-
-async function saveUserPreferences(
-  supabase: ReturnType<typeof createSupabaseBrowserClient>,
-  input: {
-    userId: string;
-    preferredRegion: string;
-  }
-) {
-  const updateResult = await (supabase.from("user_preferences") as any)
-    .update({
-      preferred_region: input.preferredRegion
-    })
-    .eq("user_id", input.userId)
-    .select("id")
-    .maybeSingle();
-
-  if (updateResult.error) {
-    throw updateResult.error;
-  }
-
-  if (updateResult.data) {
-    return;
-  }
-
-  const insertResult = await (supabase.from("user_preferences") as any).insert({
-    user_id: input.userId,
-    preferred_region: input.preferredRegion
-  });
-
-  if (insertResult.error) {
-    throw insertResult.error;
-  }
 }
 
 export function AccountSettingsForm({ viewer }: { viewer: Viewer }) {
@@ -342,22 +273,32 @@ export function AccountSettingsForm({ viewer }: { viewer: Viewer }) {
     }
 
     setSaving(true);
-    const supabase = createSupabaseBrowserClient();
 
     try {
-      await Promise.all([
-        saveProfileSettings(supabase, {
-          userId: viewer.id,
-          displayName: displayName.trim() || null,
-          birthDate
-        }),
-        saveUserPreferences(supabase, {
-          userId: viewer.id,
+      const response = await fetch("/api/account/settings", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          displayName: displayName.trim() || "",
+          birthDate,
           preferredRegion: selectedRegion
         })
-      ]);
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error ?? text.failure);
+      }
     } catch (error) {
-      const message = error instanceof Error ? error.message : text.failure;
+      const message =
+        error instanceof Error
+          ? error.message
+          : typeof error === "object" && error && "message" in error
+            ? String((error as { message?: unknown }).message)
+            : text.failure;
       toast.error(message || text.failure);
       setSaving(false);
       return;
