@@ -44,6 +44,8 @@ function getText(locale: Locale) {
         unresolvedOne: "At least one of the titles could not be resolved reliably.",
         invalidInput: "The AI request is invalid.",
         invalidPrompt: "Please provide a slightly more specific request.",
+        invalidConversation:
+          "The chat history is too long. Please try again and I will continue with recent messages.",
         aiActionFailed: "AI action failed",
         aiActionFailedFriendly: "The AI response could not be processed. Please try again.",
         maxSuggestionsInfo: "I can suggest up to 8 titles at once.",
@@ -62,6 +64,8 @@ function getText(locale: Locale) {
         unresolvedOne: "Mindestens einer der Titel konnte nicht sicher aufgelöst werden.",
         invalidInput: "Die KI-Anfrage ist ungültig.",
         invalidPrompt: "Bitte formuliere deine Anfrage etwas genauer.",
+        invalidConversation:
+          "Der Chatverlauf ist zu lang. Bitte versuche es erneut, ich nutze dann die letzten Nachrichten.",
         aiActionFailed: "KI-Aktion fehlgeschlagen",
         aiActionFailedFriendly: "Die KI-Antwort konnte nicht verarbeitet werden. Bitte versuche es erneut.",
         maxSuggestionsInfo: "Ich kann dir bis zu 8 Titel auf einmal vorschlagen.",
@@ -80,10 +84,15 @@ function formatValidationError(
   fieldErrors: Record<string, string[] | undefined>,
   formErrors: string[],
   fallback: string,
-  promptFallback: string
+  promptFallback: string,
+  conversationFallback: string
 ) {
   if (fieldErrors.prompt?.length) {
     return promptFallback;
+  }
+
+  if (fieldErrors.conversation?.length) {
+    return conversationFallback;
   }
 
   const firstFormError = formErrors.find(Boolean);
@@ -268,7 +277,22 @@ export async function POST(request: Request) {
     );
   }
 
-  const body = await request.json().catch(() => null);
+  const rawBody = await request.json().catch(() => null);
+  const body =
+    rawBody && typeof rawBody === "object"
+      ? (() => {
+          const sanitizedBody = { ...(rawBody as Record<string, unknown>) };
+
+          if (
+            sanitizedBody.mode === "assistant" &&
+            Array.isArray(sanitizedBody.conversation)
+          ) {
+            sanitizedBody.conversation = sanitizedBody.conversation.slice(-12);
+          }
+
+          return sanitizedBody;
+        })()
+      : rawBody;
   const parsed = aiActionSchema.safeParse(body);
 
   if (!parsed.success) {
@@ -279,7 +303,8 @@ export async function POST(request: Request) {
           flattened.fieldErrors,
           flattened.formErrors,
           text.invalidInput,
-          text.invalidPrompt
+          text.invalidPrompt,
+          text.invalidConversation
         )
       },
       { status: 400 }

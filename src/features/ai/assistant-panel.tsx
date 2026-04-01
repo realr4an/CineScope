@@ -447,6 +447,7 @@ export function AIAssistantPanel() {
     };
     const conversation = [...messages, userMessage]
       .filter(message => !message.staticIntro && !message.pending)
+      .slice(-12)
       .map(message => ({
         role: message.role,
         content: message.content
