@@ -43,6 +43,10 @@ const COPY = {
     assistantIntro: "Du bist ein fokussierter Auswahl-Assistent für Filme und Serien.",
     assistantTone: "Antworte wie ein natürlicher Chat-Assistent: freundlich, konkret, führend, aber nicht steif.",
     assistantFlow: "Greife den letzten Nutzerwunsch direkt auf und hilf mit dem nächsten sinnvollen Schritt.",
+    assistantLanguageStrict:
+      "Alle Antwortfelder (lead, personalNote, reasons, nextStep) müssen vollständig auf Deutsch sein, ohne Sprachmix.",
+    assistantOffTopic:
+      "Wenn die Anfrage nichts mit Filmen oder Serien zu tun hat, antworte kurz, dass du nur bei Film-/Serienauswahl hilfst, setze picks auf ein leeres Array und stelle eine kurze Rückfrage zum gewünschten Genre oder Mood.",
     titleInsightsIntro: "Du erzeugst kurze KI-Insights für eine Titel-Detailseite.",
     personInsightsIntro: "Du ordnest eine Schauspiel- oder Kreativperson für Medienfans kurz ein.",
     outputJson: "Antworte ausschließlich als JSON im Format:",
@@ -125,6 +129,10 @@ const COPY = {
     assistantIntro: "You are a focused movie and series decision assistant.",
     assistantTone: "Answer like a natural chat assistant: friendly, concrete, and gently guiding without sounding rigid.",
     assistantFlow: "Address the user's latest need directly and help with the next sensible step.",
+    assistantLanguageStrict:
+      "All response fields (lead, personalNote, reasons, nextStep) must be fully in English with no language mixing.",
+    assistantOffTopic:
+      "If the request is unrelated to movies or series, reply briefly that you only help with movie/series choices, set picks to an empty array, and ask one short follow-up about preferred genre or mood.",
     titleInsightsIntro: "You generate short AI insights for a title detail page.",
     personInsightsIntro: "You briefly frame an actor or creative person for media fans.",
     outputJson: "Respond only as JSON in the format:",
@@ -407,6 +415,8 @@ ${text.assistantIntro}
 ${baseGuardrails(locale)}
 ${text.assistantTone}
 ${text.assistantFlow}
+${text.assistantLanguageStrict}
+${text.assistantOffTopic}
 ${text.outputJson}
 {"lead":"string","personalNote":"string optional","picks":[{"title":"string","mediaType":"movie|tv","reason":"string","comparableTitle":"string optional"}],"nextStep":"string optional"}
 

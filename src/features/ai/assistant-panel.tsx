@@ -72,8 +72,8 @@ type DraftSnapshot = {
   draft: ContextDraft;
 };
 
-const DRAFT_STORAGE_KEY = "cine-ai-assistant-draft-v1";
-const SAVED_STORAGE_KEY = "cine-ai-assistant-saved-v1";
+const DRAFT_STORAGE_KEY_BASE = "cine-ai-assistant-draft-v1";
+const SAVED_STORAGE_KEY_BASE = "cine-ai-assistant-saved-v1";
 const MAX_SAVED_CHATS = 12;
 
 function createId(prefix: string) {
@@ -249,7 +249,7 @@ export function AIAssistantPanel() {
     []
   );
 
-  const hydratedRef = useRef(false);
+  const hydratedLocaleRef = useRef<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([introMessage]);
   const [prompt, setPrompt] = useState(defaultDraft.prompt);
   const [mediaType, setMediaType] = useState<"all" | "movie" | "tv">(defaultDraft.mediaType);
@@ -262,6 +262,7 @@ export function AIAssistantPanel() {
   const [referenceTitles, setReferenceTitles] = useState(defaultDraft.referenceTitles);
   const [savedChats, setSavedChats] = useState<SavedChat[]>([]);
   const [selectedSavedChatId, setSelectedSavedChatId] = useState("");
+  const [storageReady, setStorageReady] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const endRef = useRef<HTMLDivElement | null>(null);
@@ -305,13 +306,23 @@ export function AIAssistantPanel() {
     setPrompt("");
   };
 
+  const draftStorageKey = `${DRAFT_STORAGE_KEY_BASE}-${locale}`;
+  const savedStorageKey = `${SAVED_STORAGE_KEY_BASE}-${locale}`;
+
   useEffect(() => {
-    if (hydratedRef.current) {
+    if (hydratedLocaleRef.current === locale) {
       return;
     }
 
-    const draftSnapshot = readStorageValue<DraftSnapshot>(DRAFT_STORAGE_KEY);
-    const storedChats = readStorageValue<SavedChat[]>(SAVED_STORAGE_KEY) ?? [];
+    setStorageReady(false);
+
+    const draftSnapshot =
+      readStorageValue<DraftSnapshot>(draftStorageKey) ??
+      readStorageValue<DraftSnapshot>(DRAFT_STORAGE_KEY_BASE);
+    const storedChats =
+      readStorageValue<SavedChat[]>(savedStorageKey) ??
+      readStorageValue<SavedChat[]>(SAVED_STORAGE_KEY_BASE) ??
+      [];
 
     setSavedChats(storedChats);
     setSelectedSavedChatId(storedChats[0]?.id ?? "");
@@ -319,10 +330,16 @@ export function AIAssistantPanel() {
     if (draftSnapshot) {
       setMessages(normalizeMessagesWithIntro(draftSnapshot.messages, introMessage));
       applyDraft(draftSnapshot.draft);
+    } else {
+      setMessages([introMessage]);
+      applyDraft(defaultDraft);
     }
 
-    hydratedRef.current = true;
-  }, [introMessage]);
+    setError(null);
+    setLoading(false);
+    hydratedLocaleRef.current = locale;
+    setStorageReady(true);
+  }, [defaultDraft, draftStorageKey, introMessage, locale, savedStorageKey]);
 
   useEffect(() => {
     setMessages(current =>
@@ -333,7 +350,7 @@ export function AIAssistantPanel() {
   }, [introMessage]);
 
   useEffect(() => {
-    if (!hydratedRef.current) {
+    if (!storageReady) {
       return;
     }
 
@@ -342,16 +359,27 @@ export function AIAssistantPanel() {
       draft: getCurrentDraft()
     };
 
-    writeStorageValue(DRAFT_STORAGE_KEY, draftSnapshot);
-  }, [messages, prompt, mediaType, timeBudget, mood, intensity, socialContext, referenceTitles]);
+    writeStorageValue(draftStorageKey, draftSnapshot);
+  }, [
+    draftStorageKey,
+    messages,
+    prompt,
+    mediaType,
+    timeBudget,
+    mood,
+    intensity,
+    socialContext,
+    referenceTitles,
+    storageReady
+  ]);
 
   useEffect(() => {
-    if (!hydratedRef.current) {
+    if (!storageReady) {
       return;
     }
 
-    writeStorageValue(SAVED_STORAGE_KEY, savedChats);
-  }, [savedChats]);
+    writeStorageValue(savedStorageKey, savedChats);
+  }, [savedChats, savedStorageKey, storageReady]);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
