@@ -80,6 +80,16 @@ function createId(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+function truncateWithEllipsis(value: string, maxLength: number) {
+  const normalized = value.replace(/\s+/g, " ").trim();
+
+  if (normalized.length <= maxLength) {
+    return normalized;
+  }
+
+  return `${normalized.slice(0, Math.max(0, maxLength - 3)).trimEnd()}...`;
+}
+
 function sanitizeMessages(messages: ChatMessage[]) {
   return messages
     .filter(message => !message.pending && !message.staticIntro)
@@ -175,7 +185,7 @@ export function AIAssistantPanel() {
           you: "You",
           ai: "AI",
           nextLabel: "Next",
-          updatedAt: "Updated"
+          updatedAt: "Upd."
         }
       : {
           quickPrompts: [
@@ -223,7 +233,7 @@ export function AIAssistantPanel() {
           you: "Du",
           ai: "KI",
           nextLabel: "Nächster Schritt",
-          updatedAt: "Aktualisiert"
+          updatedAt: "Akt."
         };
 
   const introMessage = useMemo<ChatMessage>(
@@ -315,9 +325,13 @@ export function AIAssistantPanel() {
 
     const draftSnapshot = readStorageValue<DraftSnapshot>(DRAFT_STORAGE_KEY_BASE);
     const storedChats = readStorageValue<SavedChat[]>(SAVED_STORAGE_KEY_BASE) ?? [];
+    const normalizedStoredChats = storedChats.map(chat => ({
+      ...chat,
+      title: truncateWithEllipsis(chat.title, 36)
+    }));
 
-    setSavedChats(storedChats);
-    setSelectedSavedChatId(storedChats[0]?.id ?? "");
+    setSavedChats(normalizedStoredChats);
+    setSelectedSavedChatId(normalizedStoredChats[0]?.id ?? "");
 
     if (draftSnapshot) {
       setMessages(normalizeMessagesWithIntro(draftSnapshot.messages, introMessage));
@@ -403,7 +417,7 @@ export function AIAssistantPanel() {
     const titleSource = lastUserMessage?.content || fallbackMessage?.content || text.title;
     const nextChat: SavedChat = {
       id: createId("saved-chat"),
-      title: titleSource.slice(0, 80),
+      title: truncateWithEllipsis(titleSource, 36),
       createdAt: now,
       updatedAt: now,
       messages: snapshotMessages,
@@ -740,12 +754,12 @@ export function AIAssistantPanel() {
                     <select
                       value={selectedSavedChatId}
                       onChange={event => setSelectedSavedChatId(event.target.value)}
-                      className="h-10 min-w-0 flex-1 rounded-xl border border-border/60 bg-background px-3 text-sm"
+                      className="h-10 min-w-0 w-full flex-1 rounded-xl border border-border/60 bg-background px-3 text-sm"
                     >
                       {savedChats.map(chat => (
                         <option key={chat.id} value={chat.id}>
                           {chat.title} · {text.updatedAt}{" "}
-                          {new Date(chat.updatedAt).toLocaleString(locale === "en" ? "en-US" : "de-DE")}
+                          {new Date(chat.updatedAt).toLocaleDateString(locale === "en" ? "en-US" : "de-DE")}
                         </option>
                       ))}
                     </select>
