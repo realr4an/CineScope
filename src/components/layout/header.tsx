@@ -16,7 +16,7 @@ export function Header() {
   const pathname = usePathname();
   const { resolvedTheme, setTheme } = useTheme();
   const { locale, setLocale, dictionary, isSwitchingLocale } = useLanguage();
-  const { items, user } = useWatchlist();
+  const { user } = useWatchlist();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -61,11 +61,6 @@ export function Header() {
                 >
                   <Icon className="size-4" />
                   {item.label}
-                  {item.href === "/watchlist" && items.length ? (
-                    <span className="inline-flex size-5 items-center justify-center rounded-full bg-primary text-[10px] font-semibold text-primary-foreground">
-                      {items.length > 9 ? "9+" : items.length}
-                    </span>
-                  ) : null}
                 </Link>
               );
             })}
