@@ -162,7 +162,6 @@ export function AIAssistantPanel() {
             "Hi, I can help you decide what to watch. Tell me what mood, time budget, or occasion you have in mind, and I will guide you from there.",
           chipsLabel: "You can start with one of these prompts:",
           typing: "Typing...",
-          noAllowed: "No suitable titles could be safely resolved for the stored age yet.",
           clearContext: "Clear context",
           clearChat: "New chat",
           saveChat: "Save chat",
@@ -211,7 +210,6 @@ export function AIAssistantPanel() {
             "Hi, ich helfe dir beim Aussuchen. Sag mir einfach Stimmung, Zeitbudget oder Anlass, und ich führe dich Schritt für Schritt zu passenden Titeln.",
           chipsLabel: "Zum Einstieg kannst du auch direkt damit starten:",
           typing: "Schreibt gerade...",
-          noAllowed: "Für das hinterlegte Alter konnten aktuell keine passenden Titel sicher aufgelöst werden.",
           clearContext: "Kontext leeren",
           clearChat: "Neuer Chat",
           saveChat: "Chat speichern",
@@ -567,16 +565,10 @@ export function AIAssistantPanel() {
                   >
                     <p className="whitespace-pre-line break-words">{message.content}</p>
                   </div>
-                  {message.picks ? (
-                    message.picks.length ? (
-                      <div className="w-full">
-                        <AIPicksGrid picks={message.picks} />
-                      </div>
-                    ) : (
-                      <div className="rounded-2xl border border-border/50 bg-background/50 p-4 text-sm text-muted-foreground">
-                        {text.noAllowed}
-                      </div>
-                    )
+                  {message.picks && message.picks.length ? (
+                    <div className="w-full">
+                      <AIPicksGrid picks={message.picks} />
+                    </div>
                   ) : null}
                   {message.nextStep ? (
                     <div className="rounded-[1.35rem] border border-dashed border-border/60 bg-background/40 px-4 py-3 text-sm text-muted-foreground">

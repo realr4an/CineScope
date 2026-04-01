@@ -46,6 +46,12 @@ function getText(locale: Locale) {
         invalidPrompt: "Please provide a slightly more specific request.",
         aiActionFailed: "AI action failed",
         aiActionFailedFriendly: "The AI response could not be processed. Please try again.",
+        maxSuggestionsInfo: "I can suggest up to 8 titles at once.",
+        maxSuggestionsNext:
+          "Tell me your mood, available time, or a reference title and I will suggest a concrete list.",
+        noSafePicksLead: "I could not return suitable titles with the current restrictions.",
+        noSafePicksNext:
+          "Try broader criteria (for example another genre, less strict constraints, or a different mood).",
         forbiddenOrigin: "Cross-origin requests are not allowed.",
         rateLimited: "Too many AI requests. Please try again in a moment.",
         unsafePrompt: "The request contains unsafe instruction patterns."
@@ -58,6 +64,12 @@ function getText(locale: Locale) {
         invalidPrompt: "Bitte formuliere deine Anfrage etwas genauer.",
         aiActionFailed: "KI-Aktion fehlgeschlagen",
         aiActionFailedFriendly: "Die KI-Antwort konnte nicht verarbeitet werden. Bitte versuche es erneut.",
+        maxSuggestionsInfo: "Ich kann dir bis zu 8 Titel auf einmal vorschlagen.",
+        maxSuggestionsNext:
+          "Nenne mir Stimmung, Zeitbudget oder einen Referenztitel, dann schlage ich dir direkt eine Liste vor.",
+        noSafePicksLead: "Ich konnte mit den aktuellen Einschränkungen keine passenden Titel sicher zurückgeben.",
+        noSafePicksNext:
+          "Versuche breitere Kriterien, zum Beispiel ein anderes Genre, weniger strenge Vorgaben oder eine andere Stimmung.",
         forbiddenOrigin: "Cross-Origin-Anfragen sind nicht erlaubt.",
         rateLimited: "Zu viele KI-Anfragen. Bitte versuche es gleich erneut.",
         unsafePrompt: "Die Anfrage enthält unsichere Instruktionsmuster."
@@ -161,6 +173,20 @@ function getRequestedPickCount(input: {
   }
 
   return 5;
+}
+
+function isSuggestionCapacityQuestion(input: {
+  prompt?: string;
+  conversation?: Array<{ content: string }>;
+}) {
+  const combined = [input.prompt ?? "", ...(input.conversation ?? []).map(message => message.content)]
+    .join(" \n ")
+    .toLowerCase();
+
+  return (
+    /wie viele[^.!?\n]{0,40}(?:filme|serien|titel|vorschl[aä]ge)/.test(combined) ||
+    /how many[^.!?\n]{0,40}(?:movies|series|titles|suggestions|picks)/.test(combined)
+  );
 }
 
 function getRequestedSeasonCount(input: {
@@ -391,6 +417,22 @@ export async function POST(request: Request) {
       }
 
       case "assistant": {
+        if (
+          isSuggestionCapacityQuestion({
+            prompt: parsed.data.prompt,
+            conversation: parsed.data.conversation
+          })
+        ) {
+          return NextResponse.json({
+            mode: "assistant",
+            data: {
+              lead: text.maxSuggestionsInfo,
+              picks: [],
+              nextStep: text.maxSuggestionsNext
+            }
+          });
+        }
+
         const requestedSeasonCount = getRequestedSeasonCount({
           prompt: parsed.data.prompt,
           conversation: parsed.data.conversation
@@ -430,11 +472,14 @@ export async function POST(request: Request) {
           ? await filterAIPicksBySeasonCount(resolvedPicks, requestedSeasonCount, locale)
           : resolvedPicks;
         const limitedPicks = picks.slice(0, requestedPickCount);
+        const emptyPicksAfterFiltering = data.picks.length > 0 && limitedPicks.length === 0;
 
         return NextResponse.json({
           mode: "assistant",
           data: {
             ...data,
+            lead: emptyPicksAfterFiltering ? text.noSafePicksLead : data.lead,
+            nextStep: emptyPicksAfterFiltering ? text.noSafePicksNext : data.nextStep,
             picks: limitedPicks
           }
         });
