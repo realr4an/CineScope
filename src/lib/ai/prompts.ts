@@ -392,6 +392,7 @@ ${input.titles
 export function assistantPrompt(input: {
   prompt: string;
   mediaType: "all" | "movie" | "tv";
+  desiredPickCount: number;
   timeBudget?: string;
   mood?: string;
   intensity?: string;
@@ -410,7 +411,8 @@ ${text.outputJson}
 {"lead":"string","personalNote":"string optional","picks":[{"title":"string","mediaType":"movie|tv","reason":"string","comparableTitle":"string optional"}],"nextStep":"string optional"}
 
 ${text.rules}
-- 3 to 5 suggestions
+- return exactly ${input.desiredPickCount} suggestions
+- never return more than 8 suggestions
 - justify each suggestion briefly
 - respect time budget, mood, intensity, and social context
 - use reference titles deliberately when provided

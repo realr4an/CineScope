@@ -17,7 +17,22 @@ function normalizeError(payload: ErrorPayload, fallback: string) {
   }
 
   if (typeof payload.error === "string") {
-    return payload.error;
+    const trimmed = payload.error.trim();
+
+    if (!trimmed) {
+      return fallback;
+    }
+
+    const looksTechnical =
+      trimmed.startsWith("[") ||
+      trimmed.startsWith("{") ||
+      /zod|schema|validation|stack|openrouter request failed|unexpected token|json/i.test(trimmed);
+
+    if (looksTechnical) {
+      return fallback;
+    }
+
+    return trimmed;
   }
 
   const firstFormError = payload.error.formErrors?.find(Boolean);

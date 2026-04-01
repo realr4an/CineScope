@@ -34,6 +34,7 @@ import type { Locale } from "@/lib/i18n/types";
 import { containsPromptInjection } from "@/lib/security/prompt-injection";
 import { checkRateLimit } from "@/lib/security/rate-limit";
 import { getRateLimitIdentityKey, getRequestIp, isSameOriginRequest } from "@/lib/security/request";
+import { ZodError } from "zod";
 
 function getText(locale: Locale) {
   return locale === "en"
@@ -42,7 +43,9 @@ function getText(locale: Locale) {
         blocked: "This title is not available for the stored age.",
         unresolvedOne: "At least one of the titles could not be resolved reliably.",
         invalidInput: "The AI request is invalid.",
+        invalidPrompt: "Please provide a slightly more specific request.",
         aiActionFailed: "AI action failed",
+        aiActionFailedFriendly: "The AI response could not be processed. Please try again.",
         forbiddenOrigin: "Cross-origin requests are not allowed.",
         rateLimited: "Too many AI requests. Please try again in a moment.",
         unsafePrompt: "The request contains unsafe instruction patterns."
@@ -52,7 +55,9 @@ function getText(locale: Locale) {
         blocked: "Dieser Titel ist für das hinterlegte Alter nicht verfügbar.",
         unresolvedOne: "Mindestens einer der Titel konnte nicht sicher aufgelöst werden.",
         invalidInput: "Die KI-Anfrage ist ungültig.",
+        invalidPrompt: "Bitte formuliere deine Anfrage etwas genauer.",
         aiActionFailed: "KI-Aktion fehlgeschlagen",
+        aiActionFailedFriendly: "Die KI-Antwort konnte nicht verarbeitet werden. Bitte versuche es erneut.",
         forbiddenOrigin: "Cross-Origin-Anfragen sind nicht erlaubt.",
         rateLimited: "Zu viele KI-Anfragen. Bitte versuche es gleich erneut.",
         unsafePrompt: "Die Anfrage enthält unsichere Instruktionsmuster."
@@ -62,8 +67,13 @@ function getText(locale: Locale) {
 function formatValidationError(
   fieldErrors: Record<string, string[] | undefined>,
   formErrors: string[],
-  fallback: string
+  fallback: string,
+  promptFallback: string
 ) {
+  if (fieldErrors.prompt?.length) {
+    return promptFallback;
+  }
+
   const firstFormError = formErrors.find(Boolean);
   if (firstFormError) {
     return firstFormError;
@@ -71,6 +81,86 @@ function formatValidationError(
 
   const firstFieldError = Object.values(fieldErrors).flat().find(Boolean);
   return firstFieldError ?? fallback;
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function parseRequestedCount(input: string) {
+  const normalized = input.toLowerCase();
+  const wordToNumber: Record<string, number> = {
+    one: 1,
+    two: 2,
+    three: 3,
+    four: 4,
+    five: 5,
+    six: 6,
+    seven: 7,
+    eight: 8,
+    neun: 9,
+    ten: 10,
+    eins: 1,
+    eine: 1,
+    einen: 1,
+    zwei: 2,
+    drei: 3,
+    vier: 4,
+    funf: 5,
+    fünf: 5,
+    sechs: 6,
+    sieben: 7,
+    acht: 8,
+    neun_de: 9,
+    zehn: 10
+  };
+
+  const nounDigitMatch = normalized.match(
+    /(?:^|\s)(\d{1,2})\s*(?:filme?|series?|movies?|serien?|titel|title|vorschl[aä]ge?|picks?)(?:\s|$)/
+  );
+
+  if (nounDigitMatch) {
+    return Number(nounDigitMatch[1]);
+  }
+
+  const requestDigitMatch = normalized.match(
+    /(?:kannst\s+du|can\s+you|please|bitte|auch)\D{0,12}(\d{1,2})(?:\s|$)/
+  );
+
+  if (requestDigitMatch) {
+    return Number(requestDigitMatch[1]);
+  }
+
+  for (const [word, count] of Object.entries(wordToNumber)) {
+    const normalizedWord = word.replace("_de", "");
+    const matcher = new RegExp(`(^|\\s)${normalizedWord}(\\s|$)`, "i");
+    if (matcher.test(normalized)) {
+      return count;
+    }
+  }
+
+  return null;
+}
+
+function getRequestedPickCount(input: {
+  prompt?: string;
+  conversation?: Array<{ content: string }>;
+}) {
+  const fromPrompt = input.prompt ? parseRequestedCount(input.prompt) : null;
+
+  if (fromPrompt !== null) {
+    return clamp(fromPrompt, 1, 8);
+  }
+
+  const recentConversation = (input.conversation ?? []).slice(-3).map(message => message.content);
+  for (const content of recentConversation.reverse()) {
+    const parsed = parseRequestedCount(content);
+    if (parsed !== null) {
+      return clamp(parsed, 1, 8);
+    }
+  }
+
+  return 5;
 }
 
 function getRequestedSeasonCount(input: {
@@ -158,7 +248,14 @@ export async function POST(request: Request) {
   if (!parsed.success) {
     const flattened = parsed.error.flatten();
     return NextResponse.json(
-      { error: formatValidationError(flattened.fieldErrors, flattened.formErrors, text.invalidInput) },
+      {
+        error: formatValidationError(
+          flattened.fieldErrors,
+          flattened.formErrors,
+          text.invalidInput,
+          text.invalidPrompt
+        )
+      },
       { status: 400 }
     );
   }
@@ -298,6 +395,10 @@ export async function POST(request: Request) {
           prompt: parsed.data.prompt,
           conversation: parsed.data.conversation
         });
+        const requestedPickCount = getRequestedPickCount({
+          prompt: parsed.data.prompt,
+          conversation: parsed.data.conversation
+        });
         const references = (
           await Promise.all(
             parsed.data.referenceTitles.map(reference => ensureResolvedMediaAllowed(reference, locale))
@@ -311,6 +412,7 @@ export async function POST(request: Request) {
             {
               prompt: parsed.data.prompt,
               mediaType: parsed.data.mediaType,
+              desiredPickCount: requestedPickCount,
               timeBudget: parsed.data.timeBudget,
               mood: parsed.data.mood,
               intensity: parsed.data.intensity,
@@ -327,12 +429,13 @@ export async function POST(request: Request) {
         const picks = requestedSeasonCount
           ? await filterAIPicksBySeasonCount(resolvedPicks, requestedSeasonCount, locale)
           : resolvedPicks;
+        const limitedPicks = picks.slice(0, requestedPickCount);
 
         return NextResponse.json({
           mode: "assistant",
           data: {
             ...data,
-            picks
+            picks: limitedPicks
           }
         });
       }
@@ -378,9 +481,15 @@ export async function POST(request: Request) {
       }
     }
   } catch (error) {
+    if (error instanceof ZodError) {
+      return NextResponse.json({ error: text.aiActionFailedFriendly }, { status: 502 });
+    }
+
+    console.error("[api/ai/assistant] failed:", error);
+
     return NextResponse.json(
       {
-        error: error instanceof Error ? error.message : text.aiActionFailed
+        error: text.aiActionFailedFriendly
       },
       { status: 500 }
     );

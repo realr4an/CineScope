@@ -103,7 +103,7 @@ export const aiAssistantResponseSchema = z.object({
       })
     )
     .min(1)
-    .max(5),
+    .max(8),
   nextStep: z.string().optional()
 });
 
