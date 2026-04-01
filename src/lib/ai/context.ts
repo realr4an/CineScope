@@ -6,7 +6,106 @@ import { searchMediaWithFallback } from "@/lib/tmdb/search";
 import { getTvDetail } from "@/lib/tmdb/tv";
 import type { AIPersonContext, AITitleContext } from "@/lib/ai/types";
 import type { Locale } from "@/lib/i18n/types";
-import type { MediaType, MovieDetail, TvDetail } from "@/types/media";
+import type { MediaListItem, MediaType, MovieDetail, TvDetail } from "@/types/media";
+
+const MIN_CONFIDENT_MATCH_SCORE = 60;
+
+function normalizeTitleValue(value: string | null | undefined) {
+  if (!value) {
+    return "";
+  }
+
+  return value
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function extractYear(value: string) {
+  const match = value.match(/\b(19|20)\d{2}\b/);
+  return match ? Number(match[0]) : null;
+}
+
+function tokenize(value: string) {
+  return normalizeTitleValue(value)
+    .split(" ")
+    .filter(token => token.length >= 2);
+}
+
+function getTitleMatchScore(item: MediaListItem, rawQuery: string) {
+  const queryYear = extractYear(rawQuery);
+  const queryWithoutYear = rawQuery.replace(/\b(19|20)\d{2}\b/g, " ").trim();
+  const query = normalizeTitleValue(queryWithoutYear || rawQuery);
+  const queryTokens = tokenize(query);
+  const candidateTitles = [item.title, item.originalTitle].filter(Boolean) as string[];
+  let best = 0;
+
+  for (const title of candidateTitles) {
+    const candidate = normalizeTitleValue(title);
+
+    if (!candidate) {
+      continue;
+    }
+
+    let score = 0;
+
+    if (candidate === query) {
+      score += 130;
+    } else if (candidate.startsWith(query) || query.startsWith(candidate)) {
+      score += 90;
+    } else if (candidate.includes(query) || query.includes(candidate)) {
+      score += 65;
+    }
+
+    if (queryTokens.length) {
+      const candidateTokenSet = new Set(tokenize(candidate));
+      const overlap = queryTokens.filter(token => candidateTokenSet.has(token)).length;
+      score += Math.round((overlap / queryTokens.length) * 40);
+    }
+
+    if (queryYear && item.releaseDate) {
+      const releaseYear = Number(item.releaseDate.slice(0, 4));
+      score += releaseYear === queryYear ? 35 : -12;
+    }
+
+    best = Math.max(best, score);
+  }
+
+  if (best > 0) {
+    best += Math.min(8, Math.floor((item.voteCount ?? 0) / 2_500));
+  }
+
+  return best;
+}
+
+function pickBestResolvedMatch(items: MediaListItem[], query: string) {
+  if (!items.length) {
+    return null;
+  }
+
+  const scored = items
+    .map(item => ({
+      item,
+      score: getTitleMatchScore(item, query)
+    }))
+    .sort((left, right) => {
+      if (right.score !== left.score) {
+        return right.score - left.score;
+      }
+
+      return (right.item.voteCount ?? 0) - (left.item.voteCount ?? 0);
+    });
+
+  const best = scored[0];
+
+  if (!best || best.score < MIN_CONFIDENT_MATCH_SCORE) {
+    return null;
+  }
+
+  return best.item;
+}
 
 export function mapMediaDetailToAIContext(detail: MovieDetail | TvDetail): AITitleContext {
   return {
@@ -47,14 +146,7 @@ export async function resolveMediaAIContext(input: {
     mediaType: input.mediaType ?? "all",
     locale
   });
-
-  const normalizedQuery = input.query.toLowerCase().trim();
-  const match =
-    results.items.find(
-      result =>
-        result.title.toLowerCase() === normalizedQuery ||
-        result.originalTitle?.toLowerCase() === normalizedQuery
-    ) ?? results.items[0];
+  const match = pickBestResolvedMatch(results.items, input.query);
 
   if (!match) {
     return null;
