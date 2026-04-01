@@ -39,6 +39,8 @@ import { checkRateLimit } from "@/lib/security/rate-limit";
 import { getRateLimitIdentityKey, getRequestIp, isSameOriginRequest } from "@/lib/security/request";
 import { ZodError } from "zod";
 
+const MAX_ASSISTANT_SUGGESTIONS = 8;
+
 function getText(locale: Locale) {
   return locale === "en"
     ? {
@@ -54,6 +56,12 @@ function getText(locale: Locale) {
         maxSuggestionsInfo: "I can suggest up to 8 titles at once.",
         maxSuggestionsNext:
           "Tell me your mood, available time, or a reference title and I will suggest a concrete list.",
+        cappedSuggestionsLead: (requested: number, capped: number, returned: number) =>
+          returned < capped
+            ? `You requested ${requested} titles. I can return up to ${capped} per answer, and found ${returned} suitable titles right now.`
+            : `You requested ${requested} titles. I can return up to ${capped} titles per answer.`,
+        cappedSuggestionsNext:
+          "If you want more, ask for another batch and I will continue with additional suggestions.",
         exactSuggestionsLead: (count: number) =>
           `Here ${count === 1 ? "is" : "are"} ${count} suggestion${count === 1 ? "" : "s"} that fit.`,
         partialSuggestionsLead: (count: number, requested: number) =>
@@ -80,6 +88,12 @@ function getText(locale: Locale) {
         maxSuggestionsInfo: "Ich kann dir bis zu 8 Titel auf einmal vorschlagen.",
         maxSuggestionsNext:
           "Nenne mir Stimmung, Zeitbudget oder einen Referenztitel, dann schlage ich dir direkt eine Liste vor.",
+        cappedSuggestionsLead: (requested: number, capped: number, returned: number) =>
+          returned < capped
+            ? `Du hast ${requested} Titel angefragt. Pro Antwort sind maximal ${capped} möglich, und aktuell habe ich ${returned} passende Titel gefunden.`
+            : `Du hast ${requested} Titel angefragt. Pro Antwort sind maximal ${capped} möglich.`,
+        cappedSuggestionsNext:
+          "Wenn du mehr willst, frage nach der nächsten Runde, dann liefere ich weitere Vorschläge.",
         exactSuggestionsLead: (count: number) =>
           `Hier sind ${count} Vorschläge, die passen könnten.`,
         partialSuggestionsLead: (count: number, requested: number) =>
@@ -333,21 +347,36 @@ function getRequestedPickCount(input: {
   prompt?: string;
   conversation?: Array<{ content: string }>;
 }) {
+  let requestedRaw = 5;
   const fromPrompt = input.prompt ? parseRequestedCount(input.prompt) : null;
 
   if (fromPrompt !== null) {
-    return clamp(fromPrompt, 1, 8);
+    requestedRaw = fromPrompt;
+    return {
+      requestedRaw,
+      requestedPickCount: clamp(fromPrompt, 1, MAX_ASSISTANT_SUGGESTIONS),
+      cappedBySystem: fromPrompt > MAX_ASSISTANT_SUGGESTIONS
+    };
   }
 
   const recentConversation = (input.conversation ?? []).slice(-3).map(message => message.content);
   for (const content of recentConversation.reverse()) {
     const parsed = parseRequestedCount(content);
     if (parsed !== null) {
-      return clamp(parsed, 1, 8);
+      requestedRaw = parsed;
+      return {
+        requestedRaw,
+        requestedPickCount: clamp(parsed, 1, MAX_ASSISTANT_SUGGESTIONS),
+        cappedBySystem: parsed > MAX_ASSISTANT_SUGGESTIONS
+      };
     }
   }
 
-  return 5;
+  return {
+    requestedRaw,
+    requestedPickCount: 5,
+    cappedBySystem: false
+  };
 }
 
 function isSuggestionCapacityQuestion(input: {
@@ -683,7 +712,7 @@ export async function POST(request: Request) {
           prompt: parsed.data.prompt,
           conversation: parsed.data.conversation
         });
-        const requestedPickCount = getRequestedPickCount({
+        const { requestedPickCount, requestedRaw, cappedBySystem } = getRequestedPickCount({
           prompt: parsed.data.prompt,
           conversation: parsed.data.conversation
         });
@@ -780,6 +809,8 @@ export async function POST(request: Request) {
         const partialResult = limitedPicks.length > 0 && limitedPicks.length < requestedPickCount;
         const lead = emptyPicksAfterFiltering
           ? text.noSafePicksLead
+          : cappedBySystem
+            ? text.cappedSuggestionsLead(requestedRaw, requestedPickCount, limitedPicks.length)
           : partialResult
             ? text.partialSuggestionsLead(limitedPicks.length, requestedPickCount)
             : leadCountMismatch
@@ -787,6 +818,8 @@ export async function POST(request: Request) {
               : data.lead;
         const nextStep = emptyPicksAfterFiltering
           ? text.noSafePicksNext
+          : cappedBySystem
+            ? text.cappedSuggestionsNext
           : partialResult
             ? text.partialSuggestionsNext
             : data.nextStep;
