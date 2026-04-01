@@ -1,5 +1,6 @@
 export const AGE_GATE_COOKIE_NAME = "cinescope_birth_date";
 export const AGE_GATE_COOKIE_MAX_AGE = 60 * 60 * 24 * 365 * 5;
+export const UNKNOWN_CERTIFICATION_FALLBACK_AGE = 18;
 
 export type AgeGateSource = "profile" | "cookie" | null;
 
@@ -134,8 +135,12 @@ export function mapTvCertificationToMinAge(label: string, region: string) {
 }
 
 export function isCertificationAllowed(minAge: number | null, viewerAge: number | null) {
-  if (viewerAge === null || minAge === null) {
+  if (viewerAge === null) {
     return true;
+  }
+
+  if (minAge === null) {
+    return viewerAge >= UNKNOWN_CERTIFICATION_FALLBACK_AGE;
   }
 
   return viewerAge >= minAge;
