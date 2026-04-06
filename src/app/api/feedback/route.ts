@@ -24,6 +24,14 @@ const OFF_TOPIC_REASON_PATTERNS = [
   /\bkein(?:e|en|er)?\s+bezug\b/i
 ] as const;
 
+const NON_CONSTRUCTIVE_REASON_PATTERNS = [
+  /\bnot\s+constructive\b/i,
+  /\bnot\s+actionable\b/i,
+  /\bconstructive\b/i,
+  /\bumsetzbar\b/i,
+  /\bnicht\s+konstruktiv\b/i
+] as const;
+
 export async function POST(request: Request) {
   if (!isSameOriginRequest(request)) {
     return NextResponse.json({ error: "Cross-origin requests are not allowed." }, { status: 403 });
@@ -69,13 +77,18 @@ export async function POST(request: Request) {
 
     if (!moderation.allowed) {
       const isOffTopic = OFF_TOPIC_REASON_PATTERNS.some((pattern) => pattern.test(moderation.reason));
+      const isNonConstructive = NON_CONSTRUCTIVE_REASON_PATTERNS.some((pattern) =>
+        pattern.test(moderation.reason)
+      );
 
       return NextResponse.json(
         {
           approved: false,
           message: isOffTopic
             ? "Bitte sende Feedback mit klarem Bezug zur App (Funktionen, Inhalte, UX oder Fehler)."
-            : "Dein Feedback konnte in dieser Form nicht übernommen werden. Bitte formuliere es sachlich und app-bezogen."
+            : isNonConstructive
+              ? "Bitte formuliere dein Feedback konkret und umsetzbar (z. B. Problem, Ort in der App, gewünschte Änderung)."
+              : "Dein Feedback konnte in dieser Form nicht übernommen werden. Bitte formuliere es sachlich und app-bezogen."
         },
         { status: 400 }
       );
