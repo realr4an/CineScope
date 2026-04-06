@@ -2,12 +2,14 @@
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { Loader2 } from "lucide-react";
 
 import { SearchForm } from "@/features/search/search-form";
 import {
   SearchSidebarFilters,
   type SearchDraftState
 } from "@/features/search/search-sidebar-filters";
+import { useLanguage } from "@/features/i18n/language-provider";
 import { savePreferredRegion } from "@/features/watch-providers/region-preference";
 import type { Genre } from "@/types/media";
 import type { WatchRegion } from "@/types/watch-providers";
@@ -83,6 +85,8 @@ export function SearchControls({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const hydratedRef = useRef(false);
+  const { locale } = useLanguage();
+  const loadingText = locale === "en" ? "Loading updated search..." : "Aktualisierte Suche wird geladen...";
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -163,6 +167,16 @@ export function SearchControls({
         onSubmit={submit}
         isPending={isPending}
       />
+      {isPending ? (
+        <div
+          className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-4 py-2 text-xs text-primary"
+          role="status"
+          aria-live="polite"
+        >
+          <Loader2 className="size-3.5 animate-spin" />
+          <span>{loadingText}</span>
+        </div>
+      ) : null}
 
       <div className="min-w-0 grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)] lg:items-start">
         <SearchSidebarFilters

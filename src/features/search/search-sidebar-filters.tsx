@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo } from "react";
+import { Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/features/i18n/language-provider";
@@ -88,6 +89,8 @@ export function SearchSidebarFilters({
           noStreamingOptions: "Für diese Auswahl sind keine Streamingdienste verfügbar.",
           reset: "Filter zurücksetzen"
         };
+  const pendingText =
+    locale === "en" ? "Applying filters and loading..." : "Filter werden angewendet und geladen...";
 
   useEffect(() => {
     if (!value.providers.length) {
@@ -120,6 +123,16 @@ export function SearchSidebarFilters({
       <div className="space-y-1">
         <h2 className="text-lg font-semibold">{text.title}</h2>
         <p className="text-sm text-muted-foreground">{text.description}</p>
+        {isPending ? (
+          <div
+            className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs text-primary"
+            role="status"
+            aria-live="polite"
+          >
+            <Loader2 className="size-3.5 animate-spin" />
+            <span>{pendingText}</span>
+          </div>
+        ) : null}
       </div>
 
       <div className="space-y-3">
@@ -404,6 +417,7 @@ export function SearchSidebarFilters({
       <div className="grid gap-2">
         {primaryAction ? (
           <Button type="button" onClick={primaryAction.onClick} disabled={isPending} className="w-full">
+            {isPending ? <Loader2 className="size-4 animate-spin" /> : null}
             {primaryAction.label}
           </Button>
         ) : null}

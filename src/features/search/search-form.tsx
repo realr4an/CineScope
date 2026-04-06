@@ -3,6 +3,7 @@
 import { SearchField } from "@/components/shared/ui-components";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/features/i18n/language-provider";
+import { Loader2 } from "lucide-react";
 
 export function SearchForm({
   query,
@@ -15,7 +16,8 @@ export function SearchForm({
   onSubmit: () => void;
   isPending: boolean;
 }) {
-  const { dictionary } = useLanguage();
+  const { dictionary, locale } = useLanguage();
+  const loadingText = locale === "en" ? "Loading results..." : "Ergebnisse werden geladen...";
 
   return (
     <form
@@ -33,8 +35,14 @@ export function SearchForm({
         placeholder={dictionary.searchForm.searchPlaceholder}
       />
       <Button type="submit" disabled={isPending} className="sm:self-stretch">
+        {isPending ? <Loader2 className="size-4 animate-spin" /> : null}
         {dictionary.searchForm.search}
       </Button>
+      {isPending ? (
+        <p className="text-xs text-muted-foreground sm:ml-2" role="status" aria-live="polite">
+          {loadingText}
+        </p>
+      ) : null}
     </form>
   );
 }
