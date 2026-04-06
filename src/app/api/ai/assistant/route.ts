@@ -921,6 +921,58 @@ function isTitleInfoRequest(input: {
   );
 }
 
+function extractStandaloneTitleCandidate(prompt: string) {
+  const cleaned = prompt
+    .trim()
+    .replace(/^[\s"'`„“]+|[\s"'`“”.!?]+$/g, "")
+    .trim();
+
+  if (!cleaned || cleaned.length < 2 || cleaned.length > 80) {
+    return null;
+  }
+
+  if (!/[a-zA-Z]/.test(cleaned)) {
+    return null;
+  }
+
+  const wordCount = cleaned.split(/\s+/).filter(Boolean).length;
+  if (wordCount > 7) {
+    return null;
+  }
+
+  const lowered = cleaned.toLowerCase();
+  if (
+    /^(wie|what|tell|kannst|can|gib|give|schlag|recommend|suggest|nenn|nenne|erzaehl|erzähl)\b/.test(
+      lowered
+    )
+  ) {
+    return null;
+  }
+
+  if (/\b(minuten?|minutes?|folgen?|episodes?|staffeln?|seasons?|genre|mood|stimmung)\b/.test(lowered)) {
+    return null;
+  }
+
+  return cleaned;
+}
+
+function assistantRequestedExactTitle(
+  conversation: Array<{ role: "user" | "assistant"; content: string }>
+) {
+  const recentAssistantMessages = conversation
+    .filter(message => message.role === "assistant")
+    .slice(-3)
+    .map(message => message.content.toLowerCase());
+
+  return recentAssistantMessages.some(
+    content =>
+      content.includes("genauen titel") ||
+      content.includes("exact title") ||
+      content.includes("worum geht es in") ||
+      content.includes("what is") && content.includes("about")
+  );
+}
+
 function isTitleDetailFollowUpPrompt(prompt: string) {
   const normalized = prompt.toLowerCase();
 
@@ -1168,8 +1220,11 @@ function extractLikelyTitleQuery(input: string) {
     /(?:mehr\s+über|infos?\s+zu|info\s+zu|was\s+wei[sß]t\s+du\s+über)\s+["„“]?(.+?)["“”]?(?:\s+(?:wissen|erfahren))?\s*[.!?]?$/i,
     /(?:worum\s+geht\s+es\s+in|worum\s+geht'?s\s+in)\s+["„“]?(.+?)["“”]?\s*[.!?]?$/i,
     /(?:erz[aä]hl(?:e)?\s+mir\s+(?:mehr\s+)?(?:über|zu))\s+["„“]?(.+?)["“”]?\s*[.!?]?$/i,
+    /(?:wie\s+lange[^.!?\n]{0,60}(?:bei|von|in)\s*)["„“]?(.+?)["“”]?\s*[.!?]?$/i,
+    /(?:wie\s+lang[^.!?\n]{0,60}(?:bei|von|in)\s*)["„“]?(.+?)["“”]?\s*[.!?]?$/i,
     /(?:tell\s+me\s+more\s+about|more\s+about|info\s+about|what\s+about)\s+["“”]?(.+?)["“”]?\s*[.!?]?$/i,
-    /(?:what\s+is|what'?s)\s+["“”]?(.+?)["“”]?\s+about\s*[.!?]?$/i
+    /(?:what\s+is|what'?s)\s+["“”]?(.+?)["“”]?\s+about\s*[.!?]?$/i,
+    /(?:how\s+long[^.!?\n]{0,60}(?:for|in)\s*)["“”]?(.+?)["“”]?\s*[.!?]?$/i
   ] as const;
 
   for (const pattern of patterns) {
@@ -1537,6 +1592,9 @@ export async function POST(request: Request) {
         });
         const titleDetailFollowUp = isTitleDetailFollowUpPrompt(parsed.data.prompt);
         const directTitleQuery = extractLikelyTitleQuery(parsed.data.prompt);
+        const standaloneTitleCandidate = extractStandaloneTitleCandidate(parsed.data.prompt);
+        const askedForExactTitle = assistantRequestedExactTitle(parsed.data.conversation);
+        const fallbackTitleQuery = directTitleQuery ?? (askedForExactTitle ? standaloneTitleCandidate : null);
         const recommendationRequested = isRecommendationRequest({
           prompt: parsed.data.prompt,
           conversation: parsed.data.conversation
@@ -1551,12 +1609,16 @@ export async function POST(request: Request) {
           referencesCount: references.length
         });
 
-        if (titleInfoRequested || (titleDetailFollowUp && references.length > 0)) {
-          let titleContext = pickReferenceForTitleQuery(references, directTitleQuery);
+        if (
+          titleInfoRequested ||
+          (titleDetailFollowUp && (references.length > 0 || !!fallbackTitleQuery)) ||
+          (askedForExactTitle && !!standaloneTitleCandidate)
+        ) {
+          let titleContext = pickReferenceForTitleQuery(references, fallbackTitleQuery ?? directTitleQuery);
 
-          if (!titleContext && directTitleQuery) {
+          if (!titleContext && fallbackTitleQuery) {
             const resolved = await ensureResolvedMediaAllowed(
-              { query: directTitleQuery, mediaType: "all" },
+              { query: fallbackTitleQuery, mediaType: "all" },
               locale
             );
 
@@ -1589,7 +1651,7 @@ export async function POST(request: Request) {
           });
         }
 
-        if (titleDetailFollowUp && !references.length) {
+        if (titleDetailFollowUp && !references.length && !fallbackTitleQuery) {
           return NextResponse.json({
             mode: "assistant",
             data: {
