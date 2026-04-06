@@ -100,7 +100,7 @@ export function SearchSidebarFilters({
     locale === "en" ? "Applying filters and loading..." : "Filter werden angewendet und geladen...";
 
   useEffect(() => {
-    if (!value.providers.length) {
+    if (!value.providers.length || providerOptions.isLoading || providerOptions.error) {
       return;
     }
 
@@ -113,7 +113,7 @@ export function SearchSidebarFilters({
         providers: filteredProviders
       });
     }
-  }, [onChange, providerOptions.options, value]);
+  }, [onChange, providerOptions.error, providerOptions.isLoading, providerOptions.options, value]);
 
   useEffect(() => {
     setProviderSearchQuery("");
