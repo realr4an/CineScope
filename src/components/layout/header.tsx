@@ -29,7 +29,7 @@ import { cn } from "@/lib/utils";
 export function Header() {
   const pathname = usePathname();
   const { resolvedTheme, setTheme } = useTheme();
-  const { locale, setLocale, dictionary, isSwitchingLocale } = useLanguage();
+  const { locale, setLocale, dictionary, isSwitchingLocale, switchingToLocale } = useLanguage();
   const { user } = useWatchlist();
   const [mounted, setMounted] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -100,7 +100,9 @@ export function Header() {
                 aria-label={dictionary.common.german}
                 disabled={isSwitchingLocale}
               >
-                {isSwitchingLocale && locale === "de" ? <RefreshCw className="size-3.5 animate-spin" /> : null}
+                {isSwitchingLocale && (switchingToLocale ?? locale) === "de" ? (
+                  <RefreshCw className="size-3.5 animate-spin" />
+                ) : null}
                 DE
               </button>
               <button
@@ -115,7 +117,9 @@ export function Header() {
                 aria-label={dictionary.common.english}
                 disabled={isSwitchingLocale}
               >
-                {isSwitchingLocale && locale === "en" ? <RefreshCw className="size-3.5 animate-spin" /> : null}
+                {isSwitchingLocale && (switchingToLocale ?? locale) === "en" ? (
+                  <RefreshCw className="size-3.5 animate-spin" />
+                ) : null}
                 EN
               </button>
             </div>

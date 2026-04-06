@@ -13,6 +13,7 @@ type LanguageContextValue = {
   setLocale: (locale: Locale) => void;
   dictionary: ReturnType<typeof getDictionary>;
   isSwitchingLocale: boolean;
+  switchingToLocale: Locale | null;
 };
 
 const STORAGE_KEY = "cine_locale";
@@ -36,6 +37,7 @@ export function LanguageProvider({
   initialLocale: Locale;
 }) {
   const [locale, setLocaleState] = useState<Locale>(initialLocale);
+  const [switchingToLocale, setSwitchingToLocale] = useState<Locale | null>(null);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
 
@@ -45,6 +47,7 @@ export function LanguageProvider({
       storedLocale === "en" ? "en" : storedLocale === "de" ? "de" : null;
 
     if (normalizedStoredLocale && normalizedStoredLocale !== locale) {
+      setSwitchingToLocale(normalizedStoredLocale);
       startTransition(() => {
         persistLocale(normalizedStoredLocale);
         setLocaleState(normalizedStoredLocale);
@@ -56,6 +59,12 @@ export function LanguageProvider({
     persistLocale(locale);
   }, [locale, router]);
 
+  useEffect(() => {
+    if (!isPending) {
+      setSwitchingToLocale(null);
+    }
+  }, [isPending]);
+
   const value = useMemo<LanguageContextValue>(
     () => ({
       locale,
@@ -64,6 +73,7 @@ export function LanguageProvider({
           return;
         }
 
+        setSwitchingToLocale(nextLocale);
         startTransition(() => {
           persistLocale(nextLocale);
           setLocaleState(nextLocale);
@@ -71,10 +81,13 @@ export function LanguageProvider({
         });
       },
       dictionary: getDictionary(locale),
-      isSwitchingLocale: isPending
+      isSwitchingLocale: isPending,
+      switchingToLocale
     }),
-    [isPending, locale, router]
+    [isPending, locale, router, switchingToLocale]
   );
+
+  const loadingLocale = switchingToLocale ?? locale;
 
   return (
     <LanguageContext.Provider value={value}>
@@ -84,7 +97,7 @@ export function LanguageProvider({
           <div className="flex items-center gap-3 rounded-2xl border border-border/50 bg-card/90 px-5 py-4 shadow-2xl">
             <RefreshCw className="size-5 animate-spin text-primary" />
             <span className="text-sm font-medium text-foreground">
-              {locale === "en" ? "Applying language..." : "Sprache wird angewendet..."}
+              {loadingLocale === "en" ? "Applying language..." : "Sprache wird angewendet..."}
             </span>
           </div>
         </div>
