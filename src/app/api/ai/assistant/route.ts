@@ -148,7 +148,9 @@ function isAnimeIntent(input: {
     .join(" \n ")
     .toLowerCase();
 
-  return /\banime\b|\bmanga\b|studio ghibli|shonen|shōnen/.test(combined);
+  return /\banime\b|\bmanga\b|studio ghibli|shonen|shōnen|japan(?:isch|ese)?|trickfilm|zeichentrick|anim(?:e|ation)/.test(
+    combined
+  );
 }
 
 function isNoveltyRequest(input: {
@@ -802,7 +804,7 @@ function parseRequestedCount(input: string) {
   }
 
   const nounDigitMatch = normalized.match(
-    /(?:^|\s)(\d{1,2})\s*(?:filme?|series?|movies?|serien?|anime|animes?|shows?|titel|title|vorschl[aä]ge?|picks?)(?:\s|$)/
+    /(?:^|\s)(\d{1,2})\s*(?:filme?|series?|movies?|serien?|anime|animes?|shows?|titel|title|vorschl[aä]ge?|picks?|trickfilme?|zeichentrick(?:filme?)?|cartoons?|animationsfilme?)(?:\s|$)/
   );
 
   if (nounDigitMatch) {
@@ -810,7 +812,7 @@ function parseRequestedCount(input: string) {
   }
 
   const quantifiedNounDigitMatch = normalized.match(
-    /(?:^|\s)(\d{1,2})\s*(?:neue?n?|weitere?n?|more|extra|zus[aä]tzliche?n?|st[uü]ck|stücke|items?)?\s*(?:filme?|series?|movies?|serien?|anime|animes?|shows?|titel|title|vorschl[aä]ge?|picks?)(?:\s|$)/
+    /(?:^|\s)(\d{1,2})\s*(?:neue?n?|weitere?n?|more|extra|zus[aä]tzliche?n?|st[uü]ck|stücke|items?)?\s*(?:filme?|series?|movies?|serien?|anime|animes?|shows?|titel|title|vorschl[aä]ge?|picks?|trickfilme?|zeichentrick(?:filme?)?|cartoons?|animationsfilme?)(?:\s|$)/
   );
 
   if (quantifiedNounDigitMatch) {
@@ -823,6 +825,20 @@ function parseRequestedCount(input: string) {
 
   if (requestDigitMatch) {
     return Number(requestDigitMatch[1]);
+  }
+
+  const actionDigitMatch = normalized.match(
+    /(?:gib(?:\s+mir)?|give(?:\s+me)?|empf(?:iehl)?|recommend|suggest|schlag(?:\s+mir)?(?:\s+vor)?)\D{0,20}(\d{1,2})(?:\s|$)/
+  );
+
+  if (actionDigitMatch) {
+    const nearby = normalized.slice(
+      Math.max(0, actionDigitMatch.index ?? 0),
+      Math.min(normalized.length, (actionDigitMatch.index ?? 0) + 50)
+    );
+    if (!/\b(min(?:ute|uten)?|minutes?|folge|folgen|episode|episoden|staffel|staffeln|jahr|jahre|year|years)\b/.test(nearby)) {
+      return Number(actionDigitMatch[1]);
+    }
   }
 
   for (const [word, count] of Object.entries(wordToNumber)) {
@@ -999,6 +1015,16 @@ function isRecommendationRequest(input: {
     ) ||
     /\b(recommend|suggest|show me|give me|what should i watch|looking for)\b/.test(combined) ||
     /\b(film|filme|serie|serien|movie|movies|show|shows|anime|animes)\b/.test(combined)
+  );
+}
+
+function isExplicitRecommendationIntent(prompt: string) {
+  const normalized = prompt.toLowerCase();
+  return (
+    /\b(empfiehl|empfehl|vorschlag|schlag.*vor|suche|zeig mir|gib mir|was schauen|was gucken)\b/.test(
+      normalized
+    ) ||
+    /\b(recommend|suggest|show me|give me|what should i watch|looking for)\b/.test(normalized)
   );
 }
 
@@ -1219,10 +1245,13 @@ function extractLikelyTitleQuery(input: string) {
   const patterns = [
     /(?:mehr\s+über|infos?\s+zu|info\s+zu|was\s+wei[sß]t\s+du\s+über)\s+["„“]?(.+?)["“”]?(?:\s+(?:wissen|erfahren))?\s*[.!?]?$/i,
     /(?:worum\s+geht\s+es\s+in|worum\s+geht'?s\s+in)\s+["„“]?(.+?)["“”]?\s*[.!?]?$/i,
+    /(?:was\s+passiert\s+in)\s+["„“]?(.+?)["“”]?\s*[.!?]?$/i,
     /(?:erz[aä]hl(?:e)?\s+mir\s+(?:mehr\s+)?(?:über|zu))\s+["„“]?(.+?)["“”]?\s*[.!?]?$/i,
     /(?:wie\s+lange[^.!?\n]{0,60}(?:bei|von|in)\s*)["„“]?(.+?)["“”]?\s*[.!?]?$/i,
     /(?:wie\s+lang[^.!?\n]{0,60}(?:bei|von|in)\s*)["„“]?(.+?)["“”]?\s*[.!?]?$/i,
+    /(?:wie\s+lange\s+dauert[^.!?\n]{0,80}(?:bei|von|in)\s*)["„“]?(.+?)["“”]?\s*[.!?]?$/i,
     /(?:tell\s+me\s+more\s+about|more\s+about|info\s+about|what\s+about)\s+["“”]?(.+?)["“”]?\s*[.!?]?$/i,
+    /(?:what\s+happens\s+in)\s+["“”]?(.+?)["“”]?\s*[.!?]?$/i,
     /(?:what\s+is|what'?s)\s+["“”]?(.+?)["“”]?\s+about\s*[.!?]?$/i,
     /(?:how\s+long[^.!?\n]{0,60}(?:for|in)\s*)["“”]?(.+?)["“”]?\s*[.!?]?$/i
   ] as const;
@@ -1599,6 +1628,8 @@ export async function POST(request: Request) {
           prompt: parsed.data.prompt,
           conversation: parsed.data.conversation
         });
+        const explicitRecommendationIntent = isExplicitRecommendationIntent(parsed.data.prompt);
+        const titleDetailMode = titleDetailFollowUp && !explicitRecommendationIntent;
         const preferenceSignalsAvailable = hasPreferenceSignals({
           prompt: parsed.data.prompt,
           conversation: parsed.data.conversation,
@@ -1611,7 +1642,7 @@ export async function POST(request: Request) {
 
         if (
           titleInfoRequested ||
-          (titleDetailFollowUp && (references.length > 0 || !!fallbackTitleQuery)) ||
+          (titleDetailMode && (references.length > 0 || !!fallbackTitleQuery)) ||
           (askedForExactTitle && !!standaloneTitleCandidate)
         ) {
           let titleContext = pickReferenceForTitleQuery(references, fallbackTitleQuery ?? directTitleQuery);
@@ -1651,7 +1682,7 @@ export async function POST(request: Request) {
           });
         }
 
-        if (titleDetailFollowUp && !references.length && !fallbackTitleQuery) {
+        if (titleDetailMode && !references.length && !fallbackTitleQuery) {
           return NextResponse.json({
             mode: "assistant",
             data: {

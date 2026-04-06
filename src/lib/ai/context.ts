@@ -34,6 +34,80 @@ function tokenize(value: string) {
     .filter(token => token.length >= 2);
 }
 
+function levenshteinDistance(left: string, right: string) {
+  if (left === right) {
+    return 0;
+  }
+
+  if (!left.length) {
+    return right.length;
+  }
+
+  if (!right.length) {
+    return left.length;
+  }
+
+  const previous = Array.from({ length: right.length + 1 }, (_, index) => index);
+  const current = new Array<number>(right.length + 1).fill(0);
+
+  for (let row = 1; row <= left.length; row += 1) {
+    current[0] = row;
+
+    for (let column = 1; column <= right.length; column += 1) {
+      const substitutionCost = left[row - 1] === right[column - 1] ? 0 : 1;
+      current[column] = Math.min(
+        previous[column] + 1,
+        current[column - 1] + 1,
+        previous[column - 1] + substitutionCost
+      );
+    }
+
+    for (let column = 0; column <= right.length; column += 1) {
+      previous[column] = current[column];
+    }
+  }
+
+  return previous[right.length];
+}
+
+function fuzzyTokenOverlap(queryTokens: string[], candidateTokens: string[]) {
+  if (!queryTokens.length || !candidateTokens.length) {
+    return 0;
+  }
+
+  let overlap = 0;
+
+  for (const queryToken of queryTokens) {
+    const hasCloseMatch = candidateTokens.some(candidateToken => {
+      if (candidateToken === queryToken) {
+        return true;
+      }
+
+      const maxDistance =
+        queryToken.length >= 8 || candidateToken.length >= 8
+          ? 2
+          : 1;
+      return levenshteinDistance(queryToken, candidateToken) <= maxDistance;
+    });
+
+    if (hasCloseMatch) {
+      overlap += 1;
+    }
+  }
+
+  return overlap;
+}
+
+function normalizedStringSimilarity(left: string, right: string) {
+  if (!left.length || !right.length) {
+    return 0;
+  }
+
+  const distance = levenshteinDistance(left, right);
+  const maxLength = Math.max(left.length, right.length);
+  return 1 - distance / maxLength;
+}
+
 function getTitleMatchScore(item: MediaListItem, rawQuery: string) {
   const queryYear = extractYear(rawQuery);
   const queryWithoutYear = rawQuery.replace(/\b(19|20)\d{2}\b/g, " ").trim();
@@ -60,9 +134,26 @@ function getTitleMatchScore(item: MediaListItem, rawQuery: string) {
     }
 
     if (queryTokens.length) {
-      const candidateTokenSet = new Set(tokenize(candidate));
-      const overlap = queryTokens.filter(token => candidateTokenSet.has(token)).length;
-      score += Math.round((overlap / queryTokens.length) * 40);
+      const candidateTokens = tokenize(candidate);
+      const exactOverlap = queryTokens.filter(token => candidateTokens.includes(token)).length;
+      const fuzzyOverlap = fuzzyTokenOverlap(queryTokens, candidateTokens);
+      score += Math.round((exactOverlap / queryTokens.length) * 40);
+      score += Math.round((fuzzyOverlap / queryTokens.length) * 22);
+
+      if (queryTokens.length >= 4 && fuzzyOverlap <= 1) {
+        score -= 22;
+      }
+    }
+
+    if (query.length >= 5 && candidate.length >= 5) {
+      const similarity = normalizedStringSimilarity(query, candidate);
+      if (similarity >= 0.88) {
+        score += 56;
+      } else if (similarity >= 0.78) {
+        score += 40;
+      } else if (similarity >= 0.7) {
+        score += 24;
+      }
     }
 
     if (queryYear && item.releaseDate) {
