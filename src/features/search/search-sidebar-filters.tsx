@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
-import { Loader2 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Check, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/features/i18n/language-provider";
@@ -56,6 +56,7 @@ export function SearchSidebarFilters({
   };
 }) {
   const { dictionary, locale } = useLanguage();
+  const [providerSearchQuery, setProviderSearchQuery] = useState("");
   const providerType = value.type === "all" ? "all" : value.type;
   const providerOptions = useProviderOptions(providerType, value.region);
   const text =
@@ -71,6 +72,9 @@ export function SearchSidebarFilters({
           descending: "Descending",
           chooseTypeFirst: "Select media type first",
           clearStreaming: "Clear all",
+          providerSearchPlaceholder: "Search streaming services...",
+          selectedStreaming: "Selected services",
+          noStreamingMatch: "No service matches your search.",
           noStreamingOptions: "No streaming services are available for this selection.",
           reset: "Reset filters"
         }
@@ -84,10 +88,13 @@ export function SearchSidebarFilters({
           category: "Kategorie",
           ascending: "Aufsteigend",
           descending: "Absteigend",
-          chooseTypeFirst: "Erst Medientyp wählen",
+          chooseTypeFirst: "Erst Medientyp waehlen",
           clearStreaming: "Alle entfernen",
-          noStreamingOptions: "Für diese Auswahl sind keine Streamingdienste verfügbar.",
-          reset: "Filter zurücksetzen"
+          providerSearchPlaceholder: "Streamingdienste suchen...",
+          selectedStreaming: "Ausgewaehlte Dienste",
+          noStreamingMatch: "Kein Dienst passt zu deiner Suche.",
+          noStreamingOptions: "Fuer diese Auswahl sind keine Streamingdienste verfuegbar.",
+          reset: "Filter zuruecksetzen"
         };
   const pendingText =
     locale === "en" ? "Applying filters and loading..." : "Filter werden angewendet und geladen...";
@@ -108,6 +115,10 @@ export function SearchSidebarFilters({
     }
   }, [onChange, providerOptions.options, value]);
 
+  useEffect(() => {
+    setProviderSearchQuery("");
+  }, [providerType, value.region]);
+
   const genres = value.type === "movie" ? movieGenres : value.type === "tv" ? tvGenres : [];
   const yearToOptions = useMemo(
     () => YEAR_OPTIONS.filter(year => !value.yearFrom || year >= value.yearFrom),
@@ -117,6 +128,34 @@ export function SearchSidebarFilters({
     minimumFractionDigits: 1,
     maximumFractionDigits: 1
   });
+  const normalizedProviderQuery = providerSearchQuery.trim().toLocaleLowerCase();
+  const selectedProviders = useMemo(() => {
+    const selectedIds = new Set(value.providers);
+
+    return providerOptions.options
+      .filter(option => selectedIds.has(option.providerId))
+      .sort((left, right) =>
+        left.providerName.localeCompare(right.providerName, locale === "en" ? "en" : "de")
+      );
+  }, [locale, providerOptions.options, value.providers]);
+  const sortedProviderOptions = useMemo(() => {
+    const filtered = providerOptions.options.filter(option =>
+      normalizedProviderQuery.length
+        ? option.providerName.toLocaleLowerCase().includes(normalizedProviderQuery)
+        : true
+    );
+
+    return [...filtered].sort((left, right) => {
+      const leftSelected = value.providers.includes(left.providerId);
+      const rightSelected = value.providers.includes(right.providerId);
+
+      if (leftSelected !== rightSelected) {
+        return leftSelected ? -1 : 1;
+      }
+
+      return left.providerName.localeCompare(right.providerName, locale === "en" ? "en" : "de");
+    });
+  }, [locale, normalizedProviderQuery, providerOptions.options, value.providers]);
 
   return (
     <aside className="min-w-0 w-full space-y-5 overflow-hidden rounded-[2rem] border border-border/50 bg-card/50 p-5 lg:sticky lg:top-24 lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto lg:overscroll-contain">
@@ -147,25 +186,25 @@ export function SearchSidebarFilters({
                   : dictionary.searchForm.series;
 
             return (
-            <button
-              key={nextType}
-              type="button"
-              onClick={() =>
-                onChange({
-                  ...value,
-                  type: nextType,
-                  genre: nextType === "all" ? undefined : value.genre,
-                  providers: []
-                })
-              }
-              className={`rounded-xl border px-3 py-2 text-left text-sm transition ${
-                value.type === nextType
-                  ? "border-primary bg-primary/10 text-foreground"
-                  : "border-border/50 bg-background hover:border-primary/40"
-              }`}
-            >
-              {label}
-            </button>
+              <button
+                key={nextType}
+                type="button"
+                onClick={() =>
+                  onChange({
+                    ...value,
+                    type: nextType,
+                    genre: nextType === "all" ? undefined : value.genre,
+                    providers: []
+                  })
+                }
+                className={`rounded-xl border px-3 py-2 text-left text-sm transition ${
+                  value.type === nextType
+                    ? "border-primary bg-primary/10 text-foreground"
+                    : "border-border/50 bg-background hover:border-primary/40"
+                }`}
+              >
+                {label}
+              </button>
             );
           })}
         </div>
@@ -372,6 +411,38 @@ export function SearchSidebarFilters({
           ) : null}
         </div>
 
+        {selectedProviders.length ? (
+          <div className="space-y-2 rounded-xl border border-primary/30 bg-primary/10 p-3">
+            <p className="text-xs font-medium text-primary">{text.selectedStreaming}</p>
+            <div className="flex flex-wrap gap-2">
+              {selectedProviders.map(option => (
+                <button
+                  key={option.providerId}
+                  type="button"
+                  onClick={() =>
+                    onChange({
+                      ...value,
+                      providers: value.providers.filter(current => current !== option.providerId)
+                    })
+                  }
+                  className="inline-flex items-center gap-1 rounded-full border border-primary/40 bg-background/80 px-2.5 py-1 text-xs text-foreground hover:border-primary"
+                >
+                  <Check className="size-3 text-primary" />
+                  <span>{option.providerName}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
+        <input
+          type="text"
+          value={providerSearchQuery}
+          onChange={event => setProviderSearchQuery(event.target.value)}
+          placeholder={text.providerSearchPlaceholder}
+          className="h-10 w-full rounded-xl border border-border/50 bg-background px-3 text-sm"
+        />
+
         <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
           {providerOptions.isLoading ? (
             <p className="text-sm text-muted-foreground">
@@ -381,8 +452,8 @@ export function SearchSidebarFilters({
             <p className="text-sm text-destructive">
               {dictionary.searchForm.streamingServiceError}
             </p>
-          ) : providerOptions.options.length ? (
-            providerOptions.options.map(option => {
+          ) : sortedProviderOptions.length ? (
+            sortedProviderOptions.map(option => {
               const checked = value.providers.includes(option.providerId);
               const nextProviders = checked
                 ? value.providers.filter(current => current !== option.providerId)
@@ -405,9 +476,12 @@ export function SearchSidebarFilters({
                     className="size-4 rounded border-border"
                   />
                   <span className="min-w-0 truncate">{option.providerName}</span>
+                  {checked ? <Check className="ml-auto size-3.5 text-primary" /> : null}
                 </label>
               );
             })
+          ) : providerOptions.options.length ? (
+            <p className="text-sm text-muted-foreground">{text.noStreamingMatch}</p>
           ) : (
             <p className="text-sm text-muted-foreground">{text.noStreamingOptions}</p>
           )}
