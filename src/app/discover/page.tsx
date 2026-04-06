@@ -6,6 +6,7 @@ import { SectionHeader } from "@/components/shared/ui-components";
 import { EmptyState, ErrorState } from "@/components/states/state-components";
 import { Button } from "@/components/ui/button";
 import { DiscoverControls } from "@/features/discover/discover-controls";
+import { DiscoverQuickNav } from "@/features/discover/discover-quick-nav";
 import type {
   SearchSortDirection,
   SearchSortKey
@@ -16,7 +17,6 @@ import { getDiscoverResults, getGenreMaps } from "@/lib/tmdb/discover";
 import { DEFAULT_WATCH_REGION } from "@/lib/tmdb/watch-provider-preference";
 import { getServerPreferredWatchRegion } from "@/lib/tmdb/watch-provider-preference.server";
 import { getAvailableRegions } from "@/lib/tmdb/watch-providers";
-import { cn } from "@/lib/utils";
 import { searchParamsSchema } from "@/lib/validators/media";
 import type { Genre, MediaListItem } from "@/types/media";
 import type { WatchRegion } from "@/types/watch-providers";
@@ -281,85 +281,53 @@ function ActiveGenreSection({
 
   return (
     <section className="rounded-[2rem] border border-border/50 bg-gradient-to-br from-card/90 via-card/60 to-background p-6 sm:p-8">
-      <div className="space-y-3">
-        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">{text.mediaLabel}</p>
-        <div className="flex flex-wrap gap-2">
-          <Link
-            href={buildTypeSwitchHref({ type: "all", ...baseFilters })}
-            className={cn(
-              "rounded-xl border px-4 py-2 text-sm font-medium transition-colors",
-              mediaType === "all"
-                ? "border-primary bg-primary/15 text-primary"
-                : "border-border/50 bg-background/60 text-muted-foreground hover:border-primary/40 hover:text-foreground"
-            )}
-          >
-            {text.all}
-          </Link>
-          <Link
-            href={buildTypeSwitchHref({ type: "movie", ...baseFilters })}
-            className={cn(
-              "rounded-xl border px-4 py-2 text-sm font-medium transition-colors",
-              mediaType === "movie"
-                ? "border-primary bg-primary/15 text-primary"
-                : "border-border/50 bg-background/60 text-muted-foreground hover:border-primary/40 hover:text-foreground"
-            )}
-          >
-            {text.movie}
-          </Link>
-          <Link
-            href={buildTypeSwitchHref({ type: "tv", ...baseFilters })}
-            className={cn(
-              "rounded-xl border px-4 py-2 text-sm font-medium transition-colors",
-              mediaType === "tv"
-                ? "border-primary bg-primary/15 text-primary"
-                : "border-border/50 bg-background/60 text-muted-foreground hover:border-primary/40 hover:text-foreground"
-            )}
-          >
-            {text.tv}
-          </Link>
-        </div>
-      </div>
-
-      <div className="mt-6 space-y-3">
-        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">{text.genreLabel}</p>
-        <div className="max-h-56 overflow-y-auto rounded-2xl border border-border/40 bg-background/35 p-3 pr-2">
-          {mediaType === "all" ? (
-            <p className="text-sm text-muted-foreground">{text.allHint}</p>
-          ) : (
-            <div className="flex flex-wrap gap-2">
-              <Link
-                href={buildGenreResetHref({ type: mediaType, ...baseFilters })}
-                className={cn(
-                  "rounded-full border px-3 py-1.5 text-sm transition-colors",
-                  selectedGenre === undefined
-                    ? "border-primary bg-primary/15 text-primary"
-                    : "border-border/50 bg-background/60 text-muted-foreground hover:border-primary/40 hover:text-foreground"
-                )}
-              >
-                {text.resetGenre}
-              </Link>
-              {genres.map(genre => (
-                <Link
-                  key={genre.id}
-                  href={buildGenrePickHref({
+      <DiscoverQuickNav
+        mediaLabel={text.mediaLabel}
+        genreLabel={text.genreLabel}
+        genreHint={mediaType === "all" ? text.allHint : undefined}
+        pendingText={
+          locale === "en"
+            ? "Loading categories..."
+            : "Kategorien werden geladen..."
+        }
+        mediaLinks={[
+          {
+            label: text.all,
+            href: buildTypeSwitchHref({ type: "all", ...baseFilters }),
+            active: mediaType === "all"
+          },
+          {
+            label: text.movie,
+            href: buildTypeSwitchHref({ type: "movie", ...baseFilters }),
+            active: mediaType === "movie"
+          },
+          {
+            label: text.tv,
+            href: buildTypeSwitchHref({ type: "tv", ...baseFilters }),
+            active: mediaType === "tv"
+          }
+        ]}
+        genreLinks={
+          mediaType === "all"
+            ? []
+            : [
+                {
+                  label: text.resetGenre,
+                  href: buildGenreResetHref({ type: mediaType, ...baseFilters }),
+                  active: selectedGenre === undefined
+                },
+                ...genres.map(genre => ({
+                  label: genre.name,
+                  href: buildGenrePickHref({
                     type: mediaType,
                     genre: genre.id,
                     ...baseFilters
-                  })}
-                  className={cn(
-                    "rounded-full border px-3 py-1.5 text-sm transition-colors",
-                    selectedGenre === genre.id
-                      ? "border-primary bg-primary/15 text-primary"
-                      : "border-border/50 bg-background/60 text-muted-foreground hover:border-primary/40 hover:text-foreground"
-                  )}
-                >
-                  {genre.name}
-                </Link>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
+                  }),
+                  active: selectedGenre === genre.id
+                }))
+              ]
+        }
+      />
     </section>
   );
 }
