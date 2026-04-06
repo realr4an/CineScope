@@ -195,6 +195,32 @@ function buildGenreResetHref(input: {
   });
 }
 
+function prioritizeSelectedGenre<T extends { genres: Genre[] }>(
+  items: T[],
+  selectedGenre?: number
+) {
+  if (!selectedGenre) {
+    return items;
+  }
+
+  return items.map(item => {
+    const selectedIndex = item.genres.findIndex(genre => genre.id === selectedGenre);
+
+    if (selectedIndex <= 0) {
+      return item;
+    }
+
+    const prioritizedGenres = [...item.genres];
+    const [selected] = prioritizedGenres.splice(selectedIndex, 1);
+    prioritizedGenres.unshift(selected);
+
+    return {
+      ...item,
+      genres: prioritizedGenres
+    };
+  });
+}
+
 function ActiveGenreSection({
   locale,
   mediaType,
@@ -360,6 +386,7 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
       parsedFilters.genre !== undefined
         ? safeItems.filter(item => item.genres.some(genre => genre.id === parsedFilters.genre))
         : safeItems;
+    const visibleItems = prioritizeSelectedGenre(strictGenreItems, parsedFilters.genre);
     const totalPages = Math.max(1, Math.min(discoverResult.totalPages, 167));
     const visiblePages = getVisiblePages(discoverResult.page, totalPages);
 
@@ -476,8 +503,8 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
             <div className="min-w-0 space-y-4">
               <SectionHeader title={text.discoverLabel} subtitle={text.discoverSubtitle} />
 
-              {strictGenreItems.length ? (
-                <MediaGrid items={strictGenreItems} />
+              {visibleItems.length ? (
+                <MediaGrid items={visibleItems} />
               ) : (
                 <EmptyState title={text.noResultsTitle} description={text.noResultsDescription} />
               )}

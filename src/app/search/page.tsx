@@ -103,6 +103,29 @@ function interleaveItems(movieItems: MediaListItem[], tvItems: MediaListItem[]) 
   return items.slice(0, 60);
 }
 
+function prioritizeSelectedGenre(items: MediaListItem[], selectedGenre?: number) {
+  if (!selectedGenre) {
+    return items;
+  }
+
+  return items.map(item => {
+    const selectedIndex = item.genres.findIndex(genre => genre.id === selectedGenre);
+
+    if (selectedIndex <= 0) {
+      return item;
+    }
+
+    const prioritizedGenres = [...item.genres];
+    const [selected] = prioritizedGenres.splice(selectedIndex, 1);
+    prioritizedGenres.unshift(selected);
+
+    return {
+      ...item,
+      genres: prioritizedGenres
+    };
+  });
+}
+
 function filterSearchItems(
   items: MediaListItem[],
   input: {
@@ -290,6 +313,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
 
       return (left.voteCount - right.voteCount) * directionMultiplier;
     });
+    const visibleSearchResults = prioritizeSelectedGenre(sortedResults, parsed.genre);
 
     const browseResult =
       parsed.q.trim().length === 0
@@ -319,6 +343,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
             })
           )
         : [];
+    const visibleDiscoveryItems = prioritizeSelectedGenre(discoveryItems, parsed.genre);
 
     const isEnglish = locale === "en";
     const totalPages = Math.max(1, Math.min(searchResult.totalPages, 167));
@@ -383,7 +408,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
             }}
           >
               {parsed.q ? (
-                sortedResults.length ? (
+                visibleSearchResults.length ? (
                   <>
                     <SectionHeader
                       title={resultsLabel}
@@ -396,7 +421,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
                           : `Zeige korrigierte Ergebnisse für "${searchResult.appliedQuery}" auf Basis deiner Eingabe "${parsed.q}".`}
                       </p>
                     ) : null}
-                    <MediaGrid items={sortedResults} />
+                    <MediaGrid items={visibleSearchResults} />
                     {totalPages > 1 ? (
                       <div className="flex flex-col gap-3 rounded-[1.5rem] border border-border/50 bg-card/50 p-4 sm:flex-row sm:items-center sm:justify-between">
                         <div className="text-sm text-muted-foreground">
@@ -452,7 +477,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
                     title={pageText.browseTitle}
                     subtitle={`${pageText.browseSubtitle} · ${pageText.page} ${browseResult.page} ${pageText.of} ${browseResult.totalPages} · ${parsed.providers.length ? pageText.filteredInfo : pageText.browseInfo}`}
                   />
-                  <MediaGrid items={discoveryItems} />
+                  <MediaGrid items={visibleDiscoveryItems} />
                   {browseResult.totalPages > 1 ? (
                     <div className="flex flex-col gap-3 rounded-[1.5rem] border border-border/50 bg-card/50 p-4 sm:flex-row sm:items-center sm:justify-between">
                       <div className="text-sm text-muted-foreground">
