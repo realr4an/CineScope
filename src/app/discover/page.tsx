@@ -455,26 +455,24 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
             </div>
           </section>
 
-          <div className="grid min-w-0 gap-6 lg:grid-cols-[320px_minmax(0,1fr)] lg:items-start">
-            <DiscoverControls
-              movieGenres={genreMaps.movieList}
-              tvGenres={genreMaps.tvList}
-              availableRegions={availableRegions}
-              initial={{
-                query: "",
-                type: mediaType,
-                sort: parsedFilters.sort,
-                direction: parsedFilters.direction,
-                genre: parsedFilters.genre,
-                yearFrom: parsedFilters.yearFrom,
-                yearTo: parsedFilters.yearTo,
-                rating: parsedFilters.rating,
-                region: activeRegion,
-                providers: parsedFilters.providers
-              }}
-            />
-
-            <div className="space-y-4">
+          <DiscoverControls
+            movieGenres={genreMaps.movieList}
+            tvGenres={genreMaps.tvList}
+            availableRegions={availableRegions}
+            initial={{
+              query: "",
+              type: mediaType,
+              sort: parsedFilters.sort,
+              direction: parsedFilters.direction,
+              genre: parsedFilters.genre,
+              yearFrom: parsedFilters.yearFrom,
+              yearTo: parsedFilters.yearTo,
+              rating: parsedFilters.rating,
+              region: activeRegion,
+              providers: parsedFilters.providers
+            }}
+          >
+            <div className="min-w-0 space-y-4">
               <SectionHeader title={text.discoverLabel} subtitle={text.discoverSubtitle} />
 
               {strictGenreItems.length ? (
@@ -561,7 +559,7 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
                 </div>
               ) : null}
             </div>
-          </div>
+          </DiscoverControls>
         </div>
       </AppShell>
     );

@@ -2,8 +2,9 @@
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Loader2 } from "lucide-react";
+import { ChevronDown, Loader2 } from "lucide-react";
 
+import { Button } from "@/components/ui/button";
 import { SearchForm } from "@/features/search/search-form";
 import {
   SearchSidebarFilters,
@@ -11,6 +12,7 @@ import {
 } from "@/features/search/search-sidebar-filters";
 import { useLanguage } from "@/features/i18n/language-provider";
 import { savePreferredRegion } from "@/features/watch-providers/region-preference";
+import { cn } from "@/lib/utils";
 import type { Genre } from "@/types/media";
 import type { WatchRegion } from "@/types/watch-providers";
 
@@ -80,6 +82,7 @@ export function SearchControls({
   children: React.ReactNode;
 }) {
   const [draft, setDraft] = useState<SearchDraftState>(initial);
+  const [isFiltersOpen, setIsFiltersOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
   const pathname = usePathname();
@@ -87,6 +90,14 @@ export function SearchControls({
   const hydratedRef = useRef(false);
   const { locale } = useLanguage();
   const loadingText = locale === "en" ? "Loading updated search..." : "Aktualisierte Suche wird geladen...";
+  const filterToggleLabel = isFiltersOpen
+    ? locale === "en"
+      ? "Hide filters"
+      : "Filter ausblenden"
+    : locale === "en"
+      ? "Show filters"
+      : "Filter anzeigen";
+  const searchParamsValue = searchParams?.toString() ?? "";
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -125,6 +136,10 @@ export function SearchControls({
       // ignore storage write failures
     }
   }, [draft]);
+
+  useEffect(() => {
+    setIsFiltersOpen(false);
+  }, [searchParamsValue]);
 
   const resetState = useMemo<SearchDraftState>(
     () => ({
@@ -177,18 +192,35 @@ export function SearchControls({
           <span>{loadingText}</span>
         </div>
       ) : null}
+      <Button
+        type="button"
+        variant="outline"
+        onClick={() => setIsFiltersOpen(current => !current)}
+        aria-expanded={isFiltersOpen}
+        className="w-full justify-between sm:w-auto"
+      >
+        {filterToggleLabel}
+        <ChevronDown className={cn("size-4 transition-transform", isFiltersOpen ? "rotate-180" : "")} />
+      </Button>
 
-      <div className="min-w-0 grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)] lg:items-start">
-        <SearchSidebarFilters
-          movieGenres={movieGenres}
-          tvGenres={tvGenres}
-          availableRegions={availableRegions}
-          value={draft}
-          onChange={setDraft}
-          onReset={() => setDraft(resetState)}
-          isPending={isPending}
-        />
-        <div className="space-y-4">{children}</div>
+      <div
+        className={cn(
+          "min-w-0 grid gap-6",
+          isFiltersOpen ? "lg:grid-cols-[280px_minmax(0,1fr)] lg:items-start" : ""
+        )}
+      >
+        {isFiltersOpen ? (
+          <SearchSidebarFilters
+            movieGenres={movieGenres}
+            tvGenres={tvGenres}
+            availableRegions={availableRegions}
+            value={draft}
+            onChange={setDraft}
+            onReset={() => setDraft(resetState)}
+            isPending={isPending}
+          />
+        ) : null}
+        <div className="min-w-0 space-y-4">{children}</div>
       </div>
     </>
   );
