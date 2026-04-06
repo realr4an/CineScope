@@ -18,10 +18,30 @@ import type {
 } from "@/types/watch-providers";
 
 const WATCH_PROVIDER_GROUPS: WatchProviderGroupKey[] = ["flatrate", "free", "ads", "rent", "buy"];
-const SEARCH_PROVIDER_BATCH_SIZE = 10;
-const SEARCH_PROVIDER_MAX_CHECKS = 30;
+const SEARCH_PROVIDER_MAX_CHECKS = 24;
+const SEARCH_PROVIDER_CONCURRENCY = 12;
 const SEARCH_PROVIDER_TARGET_MATCHES = 18;
 const watchProviderResponseCache = new Map<string, Promise<TmdbWatchProvidersResponse>>();
+
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  concurrency: number,
+  mapper: (item: T, index: number) => Promise<R>
+) {
+  const results = new Array<R>(items.length);
+  let cursor = 0;
+
+  const workers = Array.from({ length: Math.min(concurrency, items.length) }, async () => {
+    while (cursor < items.length) {
+      const index = cursor;
+      cursor += 1;
+      results[index] = await mapper(items[index], index);
+    }
+  });
+
+  await Promise.all(workers);
+  return results;
+}
 
 function mapProvider(provider: TmdbWatchProvider): ProviderItem {
   return {
@@ -209,36 +229,31 @@ export async function filterMediaByWatchProvider<
   const normalizedRegion = normalizeWatchRegionCode(regionCode) ?? "DE";
   const limitedItems = items.slice(0, SEARCH_PROVIDER_MAX_CHECKS);
   const providerSet = new Set(providerIds);
-  const matches: T[] = [];
 
   if (!providerSet.size) {
     return items;
   }
 
-  for (let index = 0; index < limitedItems.length; index += SEARCH_PROVIDER_BATCH_SIZE) {
-    const batch = limitedItems.slice(index, index + SEARCH_PROVIDER_BATCH_SIZE);
-    const checks = await Promise.all(
-      batch.map(async item => {
-        try {
-          const rawResponse = await getCachedWatchProviders(item.mediaType, item.tmdbId);
-          const providers = getRegionProviders(rawResponse, normalizedRegion);
+  const checks = await mapWithConcurrency(
+    limitedItems,
+    SEARCH_PROVIDER_CONCURRENCY,
+    async item => {
+      try {
+        const rawResponse = await getCachedWatchProviders(item.mediaType, item.tmdbId);
+        const providers = getRegionProviders(rawResponse, normalizedRegion);
 
-          return {
-            item,
-            matches: providers.some(provider => providerSet.has(provider.provider_id))
-          };
-        } catch {
-          return { item, matches: false };
-        }
-      })
-    );
-
-    matches.push(...checks.filter(result => result.matches).map(result => result.item));
-
-    if (matches.length >= SEARCH_PROVIDER_TARGET_MATCHES) {
-      break;
+        return {
+          item,
+          matches: providers.some(provider => providerSet.has(provider.provider_id))
+        };
+      } catch {
+        return { item, matches: false };
+      }
     }
-  }
+  );
 
-  return matches;
+  return checks
+    .filter(result => result.matches)
+    .slice(0, SEARCH_PROVIDER_TARGET_MATCHES)
+    .map(result => result.item);
 }
