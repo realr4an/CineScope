@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   Heart,
   ListFilter,
@@ -160,69 +161,130 @@ export function Header() {
               aria-label={mobileMenuOpen ? "Menü schließen" : "Menü öffnen"}
               onClick={() => setMobileMenuOpen(current => !current)}
             >
-              {mobileMenuOpen ? <X className="size-4" /> : <Menu className="size-4" />}
+              <AnimatePresence mode="wait" initial={false}>
+                {mobileMenuOpen ? (
+                  <motion.span
+                    key="close"
+                    initial={{ rotate: -120, opacity: 0, scale: 0.8 }}
+                    animate={{ rotate: 0, opacity: 1, scale: 1 }}
+                    exit={{ rotate: 120, opacity: 0, scale: 0.8 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <X className="size-4" />
+                  </motion.span>
+                ) : (
+                  <motion.span
+                    key="open"
+                    initial={{ rotate: -120, opacity: 0, scale: 0.8 }}
+                    animate={{ rotate: 0, opacity: 1, scale: 1 }}
+                    exit={{ rotate: 120, opacity: 0, scale: 0.8 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <Menu className="size-4" />
+                  </motion.span>
+                )}
+              </AnimatePresence>
             </Button>
           </div>
         </div>
       </div>
-      {mobileMenuOpen ? (
-        <div className="lg:hidden">
-          <button
-            type="button"
-            aria-label="Menü schließen"
-            className="fixed inset-0 z-40 bg-black/50"
-            onClick={() => setMobileMenuOpen(false)}
-          />
-          <aside className="fixed right-0 top-16 z-50 h-[calc(100dvh-4rem)] w-[min(88vw,22rem)] overflow-y-auto border-l border-border/50 bg-background p-4 shadow-2xl">
-            <nav className="space-y-2">
-              {navItems.map(item => {
-                const active = pathname === item.href;
-                const Icon = item.icon;
+      <AnimatePresence>
+        {mobileMenuOpen ? (
+          <div className="lg:hidden">
+            <motion.button
+              type="button"
+              aria-label="Menü schließen"
+              className="fixed inset-0 z-40 bg-black/60 backdrop-blur-[2px]"
+              onClick={() => setMobileMenuOpen(false)}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+            />
+            <motion.aside
+              className="fixed right-0 top-16 z-50 h-[calc(100dvh-4rem)] w-[min(88vw,22rem)] overflow-y-auto border-l border-border/50 bg-background p-4 shadow-2xl"
+              initial={{ x: "100%", opacity: 0.98 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: "100%", opacity: 0.98 }}
+              transition={{ type: "spring", stiffness: 360, damping: 34, mass: 0.9 }}
+            >
+              <motion.nav
+                className="space-y-2"
+                initial="hidden"
+                animate="visible"
+                variants={{
+                  hidden: {},
+                  visible: {
+                    transition: {
+                      staggerChildren: 0.04,
+                      delayChildren: 0.05
+                    }
+                  }
+                }}
+              >
+                {navItems.map(item => {
+                  const active = pathname === item.href;
+                  const Icon = item.icon;
 
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={cn(
-                      "inline-flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-colors",
-                      active
-                        ? "bg-primary/10 text-primary"
-                        : "text-muted-foreground hover:bg-accent hover:text-foreground"
-                    )}
-                  >
-                    <Icon className="size-4" />
-                    {item.label}
-                  </Link>
-                );
-              })}
-            </nav>
+                  return (
+                    <motion.div
+                      key={item.href}
+                      variants={{
+                        hidden: { x: 18, opacity: 0 },
+                        visible: { x: 0, opacity: 1 }
+                      }}
+                      transition={{ duration: 0.22, ease: "easeOut" }}
+                    >
+                      <Link
+                        href={item.href}
+                        className={cn(
+                          "inline-flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-colors",
+                          active
+                            ? "bg-primary/10 text-primary"
+                            : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                        )}
+                      >
+                        <Icon className="size-4" />
+                        {item.label}
+                      </Link>
+                    </motion.div>
+                  );
+                })}
+              </motion.nav>
 
-            <div className="mt-4 border-t border-border/50 pt-4">
-              {user ? (
-                <div className="space-y-2">
-                  <Link
-                    href="/account"
-                    className="inline-flex w-full items-center gap-3 rounded-xl border border-border/50 px-3 py-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
-                  >
-                    <User2 className="size-4" />
-                    <span className="truncate">{user.email ?? dictionary.common.account}</span>
-                  </Link>
-                  <div className="inline-flex w-full">
-                    <SignOutButton />
+              <motion.div
+                className="mt-4 border-t border-border/50 pt-4"
+                initial={{ y: 12, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                exit={{ y: 12, opacity: 0 }}
+                transition={{ duration: 0.2, delay: 0.08 }}
+              >
+                {user ? (
+                  <div className="space-y-2">
+                    <Link
+                      href="/account"
+                      className="inline-flex w-full items-center gap-3 rounded-xl border border-border/50 px-3 py-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
+                    >
+                      <User2 className="size-4" />
+                      <span className="truncate">{user.email ?? dictionary.common.account}</span>
+                    </Link>
+                    <div className="inline-flex w-full">
+                      <SignOutButton />
+                    </div>
                   </div>
-                </div>
-              ) : (
-                <Button asChild variant="outline" className="w-full justify-start">
-                  <Link href="/auth/login">
-                    <LogIn className="size-4" />
-                    {dictionary.common.login}
-                  </Link>
-                </Button>
-              )}
-            </div>
-          </aside>
-        </div>
-      ) : null}
+                ) : (
+                  <Button asChild variant="outline" className="w-full justify-start">
+                    <Link href="/auth/login">
+                      <LogIn className="size-4" />
+                      {dictionary.common.login}
+                    </Link>
+                  </Button>
+                )}
+              </motion.div>
+            </motion.aside>
+          </div>
+        ) : null}
+      </AnimatePresence>
     </header>
   );
 }
