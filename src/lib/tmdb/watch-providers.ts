@@ -32,6 +32,12 @@ function mapProvider(provider: TmdbWatchProvider): ProviderItem {
   };
 }
 
+function sortProviderItemsAlphabetically<T extends { providerName: string }>(providers: T[]) {
+  return [...providers].sort((left, right) =>
+    left.providerName.localeCompare(right.providerName, "de", { sensitivity: "base" })
+  );
+}
+
 function sortProviders(providers: TmdbWatchProvider[] | undefined) {
   return [...(providers ?? [])]
     .sort((left, right) => {
@@ -45,6 +51,10 @@ function sortProviders(providers: TmdbWatchProvider[] | undefined) {
       return left.provider_name.localeCompare(right.provider_name, "de");
     })
     .map(mapProvider);
+}
+
+function mapProviderOptionsAlphabetically(providers: TmdbWatchProvider[] | undefined) {
+  return sortProviderItemsAlphabetically([...(providers ?? [])].map(mapProvider));
 }
 
 function dedupeProviders(providers: ProviderItem[]) {
@@ -66,16 +76,7 @@ function dedupeProviders(providers: ProviderItem[]) {
     }
   }
 
-  return [...seen.values()].sort((left, right) => {
-    const leftPriority = left.displayPriority ?? Number.MAX_SAFE_INTEGER;
-    const rightPriority = right.displayPriority ?? Number.MAX_SAFE_INTEGER;
-
-    if (leftPriority !== rightPriority) {
-      return leftPriority - rightPriority;
-    }
-
-    return left.providerName.localeCompare(right.providerName, "de");
-  });
+  return sortProviderItemsAlphabetically([...seen.values()]);
 }
 
 function getRegionProviders(
@@ -137,7 +138,7 @@ export async function getMovieProviderOptions(regionCode: string) {
     language: "en-US"
   });
 
-  return sortProviders(response.results);
+  return mapProviderOptionsAlphabetically(response.results);
 }
 
 export async function getTvProviderOptions(regionCode: string) {
@@ -147,7 +148,7 @@ export async function getTvProviderOptions(regionCode: string) {
     language: "en-US"
   });
 
-  return sortProviders(response.results);
+  return mapProviderOptionsAlphabetically(response.results);
 }
 
 export async function getProviderOptions(
