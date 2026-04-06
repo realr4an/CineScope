@@ -137,6 +137,7 @@ export function DiscoverControls({
             onReset={resetDraft}
             isPending={isPending}
             typeOptions={["movie", "tv"]}
+            hideCategoryFilter
             primaryAction={{
               label: dictionary.discoverFilters.apply,
               onClick: apply

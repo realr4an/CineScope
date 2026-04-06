@@ -40,7 +40,8 @@ export function SearchSidebarFilters({
   onReset,
   isPending,
   typeOptions = ["all", "movie", "tv"],
-  primaryAction
+  primaryAction,
+  hideCategoryFilter = false
 }: {
   movieGenres: Genre[];
   tvGenres: Genre[];
@@ -54,6 +55,7 @@ export function SearchSidebarFilters({
     label: string;
     onClick: () => void;
   };
+  hideCategoryFilter?: boolean;
 }) {
   const { dictionary, locale } = useLanguage();
   const [providerSearchQuery, setProviderSearchQuery] = useState("");
@@ -210,32 +212,34 @@ export function SearchSidebarFilters({
         </div>
       </div>
 
-      <div className="space-y-3">
-        <label className="text-sm font-medium" htmlFor="search-category-filter">
-          {text.category}
-        </label>
-        <select
-          id="search-category-filter"
-          value={value.genre ?? ""}
-          onChange={event =>
-            onChange({
-              ...value,
-              genre: event.target.value ? Number(event.target.value) : undefined
-            })
-          }
-          className="h-10 w-full rounded-xl border border-border/50 bg-background px-3 text-sm"
-          disabled={value.type === "all"}
-        >
-          <option value="">
-            {value.type === "all" ? text.chooseTypeFirst : dictionary.discoverFilters.allCategories}
-          </option>
-          {genres.map(item => (
-            <option key={item.id} value={item.id}>
-              {item.name}
+      {!hideCategoryFilter ? (
+        <div className="space-y-3">
+          <label className="text-sm font-medium" htmlFor="search-category-filter">
+            {text.category}
+          </label>
+          <select
+            id="search-category-filter"
+            value={value.genre ?? ""}
+            onChange={event =>
+              onChange({
+                ...value,
+                genre: event.target.value ? Number(event.target.value) : undefined
+              })
+            }
+            className="h-10 w-full rounded-xl border border-border/50 bg-background px-3 text-sm"
+            disabled={value.type === "all"}
+          >
+            <option value="">
+              {value.type === "all" ? text.chooseTypeFirst : dictionary.discoverFilters.allCategories}
             </option>
-          ))}
-        </select>
-      </div>
+            {genres.map(item => (
+              <option key={item.id} value={item.id}>
+                {item.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      ) : null}
 
       <div className="space-y-3">
         <label className="text-sm font-medium" htmlFor="search-year-from-filter">
