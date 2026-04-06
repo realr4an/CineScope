@@ -59,9 +59,13 @@ export async function getDiscoverResults(input: {
   region?: string;
   providers?: number[];
   locale?: Locale;
+  genreMaps?: {
+    movieGenres: Map<number, TmdbGenre>;
+    tvGenres: Map<number, TmdbGenre>;
+  };
 }) {
   const locale = input.locale ?? "de";
-  const { movieGenres, tvGenres } = await getGenreMaps(locale);
+  const { movieGenres, tvGenres } = input.genreMaps ?? (await getGenreMaps(locale));
   const genresById = input.mediaType === "movie" ? movieGenres : tvGenres;
   const dateRangeParams = buildDateRangeParams(input);
   const providerFilter = input.providers?.length ? input.providers.join("|") : undefined;

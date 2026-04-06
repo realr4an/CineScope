@@ -173,6 +173,7 @@ async function getBrowseResults(input: {
   region: string;
   providers: number[];
   locale: "de" | "en";
+  genreMaps: Awaited<ReturnType<typeof getGenreMaps>>;
 }) {
   if (input.type === "movie" || input.type === "tv") {
     return getDiscoverResults({
@@ -185,6 +186,7 @@ async function getBrowseResults(input: {
       sort: mapSearchSortToDiscoverSort(input.type, input.sort, input.direction),
       region: input.region,
       providers: input.providers,
+      genreMaps: input.genreMaps,
       locale: input.locale
     });
   }
@@ -199,6 +201,7 @@ async function getBrowseResults(input: {
       sort: mapSearchSortToDiscoverSort("movie", input.sort, input.direction),
       region: input.region,
       providers: input.providers,
+      genreMaps: input.genreMaps,
       locale: input.locale
     }),
     getDiscoverResults({
@@ -210,6 +213,7 @@ async function getBrowseResults(input: {
       sort: mapSearchSortToDiscoverSort("tv", input.sort, input.direction),
       region: input.region,
       providers: input.providers,
+      genreMaps: input.genreMaps,
       locale: input.locale
     })
   ]);
@@ -300,6 +304,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
             direction: parsed.direction,
             region: activeRegion,
             providers: parsed.providers,
+            genreMaps,
             locale
           })
         : { items: [], page: 1, totalPages: 1, totalResults: 0 };

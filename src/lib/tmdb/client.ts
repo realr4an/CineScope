@@ -4,6 +4,7 @@ import { getTmdbEnv, isTmdbConfigured } from "@/lib/env";
 import type { Locale } from "@/lib/i18n/types";
 
 const TMDB_BASE_URL = "https://api.themoviedb.org/3";
+const TMDB_REQUEST_TIMEOUT_MS = 12_000;
 
 export function getTmdbLanguage(locale: Locale = "de") {
   return locale === "en" ? "en-US" : "de-DE";
@@ -42,11 +43,25 @@ export async function fetchTmdb<T>(
     searchParams.set("api_key", env.data.TMDB_API_KEY);
   }
 
-  const response = await fetch(`${TMDB_BASE_URL}${path}?${searchParams.toString()}`, {
-    ...init,
-    headers,
-    next: { revalidate: 3600 }
-  });
+  const timeoutSignal = AbortSignal.timeout(TMDB_REQUEST_TIMEOUT_MS);
+  const signal = init?.signal ? AbortSignal.any([init.signal, timeoutSignal]) : timeoutSignal;
+
+  let response: Response;
+
+  try {
+    response = await fetch(`${TMDB_BASE_URL}${path}?${searchParams.toString()}`, {
+      ...init,
+      headers,
+      signal,
+      next: { revalidate: 3600 }
+    });
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new Error("TMDB request timeout");
+    }
+
+    throw error;
+  }
 
   if (!response.ok) {
     throw new Error(`TMDB request failed: ${response.status}`);

@@ -352,6 +352,7 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
       sort: mapSearchSortToDiscoverSort(mediaType, parsedFilters.sort, parsedFilters.direction),
       region: activeRegion,
       providers: parsedFilters.providers,
+      genreMaps,
       locale
     });
     const safeItems = await filterMediaForViewerAge(discoverResult.items);
