@@ -72,6 +72,14 @@ function getText(locale: Locale) {
         noSafePicksLead: "I could not return suitable titles with the current restrictions.",
         noSafePicksNext:
           "Try broader criteria (for example another genre, less strict constraints, or a different mood).",
+        clarifyPreferencesLead:
+          "Sure, I can suggest series. Before I generate picks: do you prefer a specific genre, mood, runtime, or intensity?",
+        clarifyPreferencesNext:
+          "For example: 'dark sci-fi', 'light comedy under 45 minutes', or 'thriller for two evenings'.",
+        askDesiredCountLead:
+          "Great, that helps. How many suggestions do you want right now?",
+        askDesiredCountNext:
+          "Tell me a number between 1 and 8, for example: '6 please'.",
         forbiddenOrigin: "Cross-origin requests are not allowed.",
         rateLimited: "Too many AI requests. Please try again in a moment.",
         unsafePrompt: "The request contains unsafe instruction patterns."
@@ -104,6 +112,14 @@ function getText(locale: Locale) {
         noSafePicksLead: "Ich konnte mit den aktuellen Einschränkungen keine passenden Titel sicher zurückgeben.",
         noSafePicksNext:
           "Versuche breitere Kriterien, zum Beispiel ein anderes Genre, weniger strenge Vorgaben oder eine andere Stimmung.",
+        clarifyPreferencesLead:
+          "Klar, ich schlage dir gern etwas vor. Bevor ich Titel nenne: Hast du Wünsche bei Genre, Stimmung, Laufzeit oder Intensität?",
+        clarifyPreferencesNext:
+          "Zum Beispiel: 'düstere Sci-Fi', 'leichte Komödie unter 45 Minuten' oder 'Thriller für zwei Abende'.",
+        askDesiredCountLead:
+          "Sehr gut, das hilft. Wie viele Vorschläge möchtest du jetzt?",
+        askDesiredCountNext:
+          "Nenne eine Zahl zwischen 1 und 8, zum Beispiel: '6 bitte'.",
         forbiddenOrigin: "Cross-Origin-Anfragen sind nicht erlaubt.",
         rateLimited: "Zu viele KI-Anfragen. Bitte versuche es gleich erneut.",
         unsafePrompt: "Die Anfrage enthält unsichere Instruktionsmuster."
@@ -634,7 +650,8 @@ function getRequestedPickCount(input: {
     return {
       requestedRaw,
       requestedPickCount: clamp(fromPrompt, 1, MAX_ASSISTANT_SUGGESTIONS),
-      cappedBySystem: fromPrompt > MAX_ASSISTANT_SUGGESTIONS
+      cappedBySystem: fromPrompt > MAX_ASSISTANT_SUGGESTIONS,
+      explicitlyRequested: true
     };
   }
 
@@ -649,7 +666,8 @@ function getRequestedPickCount(input: {
       return {
         requestedRaw,
         requestedPickCount: clamp(parsed, 1, MAX_ASSISTANT_SUGGESTIONS),
-        cappedBySystem: parsed > MAX_ASSISTANT_SUGGESTIONS
+        cappedBySystem: parsed > MAX_ASSISTANT_SUGGESTIONS,
+        explicitlyRequested: true
       };
     }
   }
@@ -657,7 +675,8 @@ function getRequestedPickCount(input: {
   return {
     requestedRaw,
     requestedPickCount: 5,
-    cappedBySystem: false
+    cappedBySystem: false,
+    explicitlyRequested: false
   };
 }
 
@@ -677,6 +696,79 @@ function isSuggestionCapacityQuestion(input: {
   return (
     /wie viele[^.!?\n]{0,40}(?:filme|serien|titel|vorschl[aä]ge)/.test(combined) ||
     /how many[^.!?\n]{0,40}(?:movies|series|titles|suggestions|picks)/.test(combined)
+  );
+}
+
+function collectUserConversationText(
+  conversation: Array<{ role: "user" | "assistant"; content: string }>
+) {
+  return conversation
+    .filter(message => message.role === "user")
+    .map(message => message.content)
+    .join(" \n ");
+}
+
+function isTitleInfoRequest(input: {
+  prompt: string;
+  conversation: Array<{ role: "user" | "assistant"; content: string }>;
+}) {
+  if (extractLikelyTitleQuery(input.prompt)) {
+    return true;
+  }
+
+  const combined = `${input.prompt}\n${collectUserConversationText(input.conversation)}`.toLowerCase();
+  return (
+    /\b(mehr über|infos?\s+zu|erzähl mir mehr über)\b/.test(combined) ||
+    /\b(tell me more about|more about|info about)\b/.test(combined)
+  );
+}
+
+function isRecommendationRequest(input: {
+  prompt: string;
+  conversation: Array<{ role: "user" | "assistant"; content: string }>;
+}) {
+  const combined = `${input.prompt}\n${collectUserConversationText(input.conversation)}`.toLowerCase();
+  return (
+    /\b(empfiehl|empfehl|vorschlag|schlag.*vor|suche|zeig mir|gib mir|was schauen|was gucken)\b/.test(
+      combined
+    ) ||
+    /\b(recommend|suggest|show me|give me|what should i watch|looking for)\b/.test(combined) ||
+    /\b(film|filme|serie|serien|movie|movies|show|shows|anime|animes)\b/.test(combined)
+  );
+}
+
+function hasPreferenceSignals(input: {
+  prompt: string;
+  conversation: Array<{ role: "user" | "assistant"; content: string }>;
+  timeBudget?: string;
+  mood?: string;
+  intensity?: string;
+  socialContext?: string;
+  referencesCount: number;
+}) {
+  if (
+    input.timeBudget?.trim() ||
+    input.mood?.trim() ||
+    input.intensity ||
+    input.socialContext ||
+    input.referencesCount > 0
+  ) {
+    return true;
+  }
+
+  const combined = `${input.prompt}\n${collectUserConversationText(input.conversation)}`.toLowerCase();
+
+  return (
+    /\b(action|drama|thriller|horror|comedy|komödie|komoedie|romance|romantik|crime|krimi|mystery|sci[\s-]?fi|science fiction|fantasy|animation|anime|family|dokumentation|documentary|abenteuer)\b/.test(
+      combined
+    ) ||
+    /\b(düster|duester|dark|leicht|light|intens|intense|entspannt|relaxed|gritty|feel good|feelgood)\b/.test(
+      combined
+    ) ||
+    /\b(heute abend|tonight|wochenende|weekend|90 minuten|2 stunden|2 hours|kurz|miniserie)\b/.test(
+      combined
+    ) ||
+    /\b(mit freunden|mit eltern|date night|family|alleine|solo)\b/.test(combined)
   );
 }
 
@@ -1019,7 +1111,7 @@ export async function POST(request: Request) {
           prompt: parsed.data.prompt,
           conversation: parsed.data.conversation
         });
-        const { requestedPickCount, requestedRaw, cappedBySystem } = getRequestedPickCount({
+        const { requestedPickCount, requestedRaw, cappedBySystem, explicitlyRequested } = getRequestedPickCount({
           prompt: parsed.data.prompt,
           conversation: parsed.data.conversation
         });
@@ -1067,6 +1159,51 @@ export async function POST(request: Request) {
               references.push(resolved.resolved.context);
             }
           }
+        }
+
+        const titleInfoRequested = isTitleInfoRequest({
+          prompt: parsed.data.prompt,
+          conversation: parsed.data.conversation
+        });
+        const recommendationRequested = isRecommendationRequest({
+          prompt: parsed.data.prompt,
+          conversation: parsed.data.conversation
+        });
+        const preferenceSignalsAvailable = hasPreferenceSignals({
+          prompt: parsed.data.prompt,
+          conversation: parsed.data.conversation,
+          timeBudget: parsed.data.timeBudget,
+          mood: parsed.data.mood,
+          intensity: parsed.data.intensity,
+          socialContext: parsed.data.socialContext,
+          referencesCount: references.length
+        });
+
+        if (recommendationRequested && !titleInfoRequested && !preferenceSignalsAvailable) {
+          return NextResponse.json({
+            mode: "assistant",
+            data: {
+              lead: text.clarifyPreferencesLead,
+              picks: [],
+              nextStep: text.clarifyPreferencesNext
+            }
+          });
+        }
+
+        if (
+          recommendationRequested &&
+          !titleInfoRequested &&
+          preferenceSignalsAvailable &&
+          !explicitlyRequested
+        ) {
+          return NextResponse.json({
+            mode: "assistant",
+            data: {
+              lead: text.askDesiredCountLead,
+              picks: [],
+              nextStep: text.askDesiredCountNext
+            }
+          });
         }
 
         const data = await askOpenRouterJson(
