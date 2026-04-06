@@ -473,6 +473,7 @@ export function assistantPrompt(input: {
   mediaType: "all" | "movie" | "tv";
   desiredPickCount: number;
   timeBudget?: string;
+  episodeRuntimePreference?: string;
   mood?: string;
   intensity?: string;
   socialContext?: string;
@@ -497,6 +498,7 @@ ${text.rules}
 - never return more than 8 suggestions
 - justify each suggestion briefly
 - respect time budget, mood, intensity, and social context
+- if an episode-runtime preference is provided, prioritize series that match it closely
 - use reference titles deliberately when provided
 - avoid titles the user rated negatively
 - lead should be one short direct chat reply that clearly responds to the user's latest message
@@ -509,6 +511,7 @@ ${text.rules}
 
 ${text.mediaType}: ${input.mediaType}
 ${text.runtime}: ${input.timeBudget ?? text.notSpecified}
+${text.episodes}: ${input.episodeRuntimePreference ?? text.notSpecified}
 ${text.mood}: ${input.mood ?? text.notSpecified}
 ${text.intensity}: ${input.intensity ?? text.notSpecified}
 ${text.socialContext}: ${input.socialContext ?? text.notSpecified}

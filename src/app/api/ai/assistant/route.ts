@@ -2,6 +2,7 @@
 
 import { getAgeAccessForMedia } from "@/lib/age-gate/server";
 import {
+  getMediaAIContext,
   getManyMediaAIContexts,
   getPersonAIContext,
   resolveMediaAIContext
@@ -41,6 +42,11 @@ import { ZodError } from "zod";
 import type { AITitleContext } from "@/lib/ai/types";
 
 const MAX_ASSISTANT_SUGGESTIONS = 8;
+type EpisodeRuntimePreference = {
+  mode: "around" | "max" | "min";
+  minutes: number;
+  tolerance: number;
+};
 
 function getText(locale: Locale) {
   return locale === "en"
@@ -213,6 +219,7 @@ async function topUpAssistantPicks(input: {
   mediaType: "all" | "movie" | "tv";
   animeIntent: boolean;
   noveltyRequested: boolean;
+  episodeRuntimePreference?: EpisodeRuntimePreference | null;
   blockedTitles: Set<string>;
   locale: Locale;
 }) {
@@ -234,7 +241,9 @@ async function topUpAssistantPicks(input: {
   }
 
   const candidateTypes: Array<"movie" | "tv"> =
-    input.mediaType === "all"
+    input.episodeRuntimePreference
+      ? ["tv"]
+      : input.mediaType === "all"
       ? input.animeIntent
         ? ["tv", "movie"]
         : ["movie", "tv"]
@@ -283,6 +292,15 @@ async function topUpAssistantPicks(input: {
         const access = await getAgeAccessForMedia(item.mediaType, item.tmdbId);
         if (!access.allowed) {
           continue;
+        }
+
+        if (input.episodeRuntimePreference && item.mediaType === "tv") {
+          const tvContext = await getMediaAIContext("tv", item.tmdbId, input.locale);
+          const runtime = tvContext.runtime;
+
+          if (!runtime || !matchesEpisodeRuntime(runtime, input.episodeRuntimePreference)) {
+            continue;
+          }
         }
 
         seenIds.add(idKey);
@@ -772,6 +790,155 @@ function hasPreferenceSignals(input: {
   );
 }
 
+function parseRuntimeMinutes(rawMinutes: string) {
+  const minutes = Number(rawMinutes);
+  if (!Number.isFinite(minutes)) {
+    return null;
+  }
+
+  if (minutes < 10 || minutes > 180) {
+    return null;
+  }
+
+  return minutes;
+}
+
+function getRequestedEpisodeRuntime(input: {
+  prompt?: string;
+  conversation?: Array<{ role: "user" | "assistant"; content: string }>;
+  mediaType: "all" | "movie" | "tv";
+}) {
+  const combined = [
+    input.prompt ?? "",
+    ...(input.conversation ?? [])
+      .filter(message => message.role === "user")
+      .map(message => message.content)
+  ]
+    .join(" \n ")
+    .toLowerCase();
+
+  const episodeIntent =
+    input.mediaType === "tv" ||
+    /\b(folge|folgen|episod(?:e|en)|episode(?:s)?|serie|serien|series|pro folge|per episode)\b/.test(
+      combined
+    );
+
+  if (!episodeIntent) {
+    return null;
+  }
+
+  const maxMatch = combined.match(
+    /\b(?:unter|max(?:imal)?|höchstens|hoechstens|bis zu|at most|up to|under)\s*(\d{1,3})\s*(?:min(?:uten)?|minutes?)\b/
+  );
+  if (maxMatch?.[1]) {
+    const minutes = parseRuntimeMinutes(maxMatch[1]);
+    if (minutes !== null) {
+      return { mode: "max", minutes, tolerance: 0 } satisfies EpisodeRuntimePreference;
+    }
+  }
+
+  const minMatch = combined.match(
+    /\b(?:mindestens|min(?:imal)?|at least|minimum)\s*(\d{1,3})\s*(?:min(?:uten)?|minutes?)\b/
+  );
+  if (minMatch?.[1]) {
+    const minutes = parseRuntimeMinutes(minMatch[1]);
+    if (minutes !== null) {
+      return { mode: "min", minutes, tolerance: 0 } satisfies EpisodeRuntimePreference;
+    }
+  }
+
+  const aroundMatch = combined.match(
+    /\b(?:ca\.?|circa|ungef[aä]hr|around|about|roughly|knapp)?\s*(\d{1,3})\s*(?:min(?:uten)?|minutes?)\b/
+  );
+  if (aroundMatch?.[1]) {
+    const minutes = parseRuntimeMinutes(aroundMatch[1]);
+    if (minutes !== null) {
+      return {
+        mode: "around",
+        minutes,
+        tolerance: minutes <= 35 ? 6 : 10
+      } satisfies EpisodeRuntimePreference;
+    }
+  }
+
+  return null;
+}
+
+function matchesEpisodeRuntime(runtime: number, preference: EpisodeRuntimePreference) {
+  if (preference.mode === "max") {
+    return runtime <= preference.minutes;
+  }
+
+  if (preference.mode === "min") {
+    return runtime >= preference.minutes;
+  }
+
+  return Math.abs(runtime - preference.minutes) <= preference.tolerance;
+}
+
+function formatEpisodeRuntimePreference(preference: EpisodeRuntimePreference, locale: Locale) {
+  if (preference.mode === "max") {
+    return locale === "en"
+      ? `Episodes up to ${preference.minutes} minutes`
+      : `Folgen bis ${preference.minutes} Minuten`;
+  }
+
+  if (preference.mode === "min") {
+    return locale === "en"
+      ? `Episodes at least ${preference.minutes} minutes`
+      : `Folgen mindestens ${preference.minutes} Minuten`;
+  }
+
+  return locale === "en"
+    ? `Episodes around ${preference.minutes} minutes`
+    : `Folgen etwa ${preference.minutes} Minuten`;
+}
+
+async function filterAssistantPicksByEpisodeRuntime(
+  picks: Array<{
+    title: string;
+    mediaType: "movie" | "tv";
+    reason: string;
+    comparableTitle?: string;
+    tmdbId?: number;
+    href?: string;
+  }>,
+  preference: EpisodeRuntimePreference,
+  locale: Locale
+) {
+  const tvCandidates = picks.filter(
+    (pick): pick is (typeof picks)[number] & { tmdbId: number; mediaType: "tv" } =>
+      pick.mediaType === "tv" && typeof pick.tmdbId === "number"
+  );
+
+  if (!tvCandidates.length) {
+    return [] as typeof picks;
+  }
+
+  const contexts = await getManyMediaAIContexts(
+    tvCandidates.map(candidate => ({
+      tmdbId: candidate.tmdbId,
+      mediaType: candidate.mediaType
+    })),
+    locale
+  );
+
+  const allowedIds = new Set(
+    contexts
+      .filter(context => {
+        const runtime = context.runtime;
+        if (!runtime || runtime <= 0) {
+          return false;
+        }
+
+        return matchesEpisodeRuntime(runtime, preference);
+      })
+      .map(context => context.tmdbId)
+  );
+
+  return tvCandidates.filter(candidate => allowedIds.has(candidate.tmdbId));
+}
+
 function getRequestedSeasonCount(input: {
   prompt?: string;
   conversation?: Array<{ role: "user" | "assistant"; content: string }>;
@@ -1107,6 +1274,11 @@ export async function POST(request: Request) {
           prompt: parsed.data.prompt,
           conversation: parsed.data.conversation
         });
+        const episodeRuntimePreference = getRequestedEpisodeRuntime({
+          prompt: parsed.data.prompt,
+          conversation: parsed.data.conversation,
+          mediaType: parsed.data.mediaType
+        });
         const noveltyRequested = isNoveltyRequest({
           prompt: parsed.data.prompt,
           conversation: parsed.data.conversation
@@ -1213,6 +1385,9 @@ export async function POST(request: Request) {
               mediaType: parsed.data.mediaType,
               desiredPickCount: requestedPickCount,
               timeBudget: parsed.data.timeBudget,
+              episodeRuntimePreference: episodeRuntimePreference
+                ? formatEpisodeRuntimePreference(episodeRuntimePreference, locale)
+                : undefined,
               mood: parsed.data.mood,
               intensity: parsed.data.intensity,
               socialContext: parsed.data.socialContext,
@@ -1252,12 +1427,20 @@ export async function POST(request: Request) {
               locale
             )
           : noveltyFilteredPicks;
+        const picksAfterRuntimeFilter = episodeRuntimePreference
+          ? await filterAssistantPicksByEpisodeRuntime(
+              picksAfterSeasonFilter,
+              episodeRuntimePreference,
+              locale
+            )
+          : picksAfterSeasonFilter;
         const toppedUpPicks = await topUpAssistantPicks({
-          picks: picksAfterSeasonFilter,
+          picks: picksAfterRuntimeFilter,
           requestedPickCount,
-          mediaType: parsed.data.mediaType,
+          mediaType: episodeRuntimePreference ? "tv" : parsed.data.mediaType,
           animeIntent,
           noveltyRequested,
+          episodeRuntimePreference,
           blockedTitles,
           locale
         });
