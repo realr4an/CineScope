@@ -512,6 +512,96 @@ function buildTitleInfoLead(title: AITitleContext, locale: Locale) {
   return `${base} ${summary}${details.length ? ` ${details.join(" ")}` : ""}`.trim();
 }
 
+function buildTitleDetailLead(title: AITitleContext, prompt: string, locale: Locale) {
+  const normalized = prompt.toLowerCase();
+  const unknown =
+    locale === "en"
+      ? "I do not have that detail in the current data snapshot."
+      : "Dazu habe ich im aktuellen Datensatz keine verlässliche Angabe.";
+
+  if (
+    /\b(wie lange|laufzeit|folgenl[aä]nge|episode length|runtime|how long|minutes?)\b/.test(
+      normalized
+    )
+  ) {
+    if (title.mediaType === "tv") {
+      if (title.runtime) {
+        return locale === "en"
+          ? `The episodes of ${title.title} are usually about ${title.runtime} minutes long.`
+          : `Die Folgen von ${title.title} dauern in der Regel etwa ${title.runtime} Minuten.`;
+      }
+
+      return locale === "en"
+        ? `I could not find a reliable average episode runtime for ${title.title}.`
+        : `Ich konnte keine verlässliche durchschnittliche Folgenlänge für ${title.title} finden.`;
+    }
+
+    return title.runtime
+      ? locale === "en"
+        ? `${title.title} is a movie with a runtime of about ${title.runtime} minutes.`
+        : `${title.title} ist ein Film mit etwa ${title.runtime} Minuten Laufzeit.`
+      : unknown;
+  }
+
+  if (/\b(staffeln?|seasons?)\b/.test(normalized)) {
+    if (title.mediaType === "tv" && title.numberOfSeasons) {
+      return locale === "en"
+        ? `${title.title} currently has ${title.numberOfSeasons} season${title.numberOfSeasons === 1 ? "" : "s"}.`
+        : `${title.title} hat aktuell ${title.numberOfSeasons} Staffel${title.numberOfSeasons === 1 ? "" : "n"}.`;
+    }
+
+    return unknown;
+  }
+
+  if (/\b(episoden?|episodes?)\b/.test(normalized)) {
+    if (title.mediaType === "tv" && title.numberOfEpisodes) {
+      return locale === "en"
+        ? `${title.title} currently has ${title.numberOfEpisodes} episode${title.numberOfEpisodes === 1 ? "" : "s"} in total.`
+        : `${title.title} hat aktuell insgesamt ${title.numberOfEpisodes} Episode${title.numberOfEpisodes === 1 ? "" : "n"}.`;
+    }
+
+    return unknown;
+  }
+
+  if (/\b(genre|genres?|kategorie|kategorien)\b/.test(normalized)) {
+    const genres = title.genres.slice(0, 5).join(", ");
+    return genres
+      ? locale === "en"
+        ? `${title.title} is mainly in these genres: ${genres}.`
+        : `${title.title} ist vor allem in diesen Genres einzuordnen: ${genres}.`
+      : unknown;
+  }
+
+  if (/\b(besetzung|cast|schauspieler|actors?)\b/.test(normalized)) {
+    const cast = title.cast?.slice(0, 6).join(", ");
+    return cast
+      ? locale === "en"
+        ? `Main cast for ${title.title}: ${cast}.`
+        : `Wichtige Besetzung bei ${title.title}: ${cast}.`
+      : unknown;
+  }
+
+  if (/\b(sprachen?|languages?)\b/.test(normalized)) {
+    const languages = title.spokenLanguages?.slice(0, 6).join(", ");
+    return languages
+      ? locale === "en"
+        ? `Available spoken languages in the metadata for ${title.title}: ${languages}.`
+        : `Im Datensatz hinterlegte gesprochene Sprachen für ${title.title}: ${languages}.`
+      : unknown;
+  }
+
+  if (/\b(network|sender|plattform|platform)\b/.test(normalized)) {
+    const networks = title.networks?.slice(0, 5).join(", ");
+    return networks
+      ? locale === "en"
+        ? `${title.title} is associated with these networks/platforms: ${networks}.`
+        : `${title.title} ist mit diesen Sendern/Plattformen verknüpft: ${networks}.`
+      : unknown;
+  }
+
+  return null;
+}
+
 function pickReferenceForTitleQuery(
   references: AITitleContext[],
   titleQuery: string | null
@@ -828,6 +918,21 @@ function isTitleInfoRequest(input: {
   return (
     /\b(mehr über|infos?\s+zu|erzähl mir mehr über)\b/.test(combined) ||
     /\b(tell me more about|more about|info about)\b/.test(combined)
+  );
+}
+
+function isTitleDetailFollowUpPrompt(prompt: string) {
+  const normalized = prompt.toLowerCase();
+
+  return (
+    /\b(wie lange|laufzeit|folgenl[aä]nge|episode length|runtime|how long|minutes?)\b/.test(
+      normalized
+    ) ||
+    /\b(staffeln?|seasons?|episoden?|episodes?)\b/.test(normalized) ||
+    /\b(genre|genres?|kategorie|kategorien)\b/.test(normalized) ||
+    /\b(besetzung|cast|schauspieler|actors?)\b/.test(normalized) ||
+    /\b(sprachen?|languages?)\b/.test(normalized) ||
+    /\b(network|sender|plattform|platform)\b/.test(normalized)
   );
 }
 
@@ -1430,6 +1535,7 @@ export async function POST(request: Request) {
           prompt: parsed.data.prompt,
           conversation: parsed.data.conversation
         });
+        const titleDetailFollowUp = isTitleDetailFollowUpPrompt(parsed.data.prompt);
         const directTitleQuery = extractLikelyTitleQuery(parsed.data.prompt);
         const recommendationRequested = isRecommendationRequest({
           prompt: parsed.data.prompt,
@@ -1445,7 +1551,7 @@ export async function POST(request: Request) {
           referencesCount: references.length
         });
 
-        if (titleInfoRequested) {
+        if (titleInfoRequested || (titleDetailFollowUp && references.length > 0)) {
           let titleContext = pickReferenceForTitleQuery(references, directTitleQuery);
 
           if (!titleContext && directTitleQuery) {
@@ -1465,7 +1571,10 @@ export async function POST(request: Request) {
               data: {
                 lead: text.titleInfoClarify,
                 picks: [],
-                nextStep: text.clarifyPreferencesNext
+                nextStep:
+                  locale === "en"
+                    ? "For example: 'what is The Mandalorian about?'"
+                    : "Zum Beispiel: 'Worum geht es in The Mandalorian?'"
               }
             });
           }
@@ -1473,9 +1582,23 @@ export async function POST(request: Request) {
           return NextResponse.json({
             mode: "assistant",
             data: {
-              lead: buildTitleInfoLead(titleContext, locale),
+              lead: buildTitleDetailLead(titleContext, parsed.data.prompt, locale) ?? buildTitleInfoLead(titleContext, locale),
               picks: [],
               nextStep: text.titleInfoNext
+            }
+          });
+        }
+
+        if (titleDetailFollowUp && !references.length) {
+          return NextResponse.json({
+            mode: "assistant",
+            data: {
+              lead: text.titleInfoClarify,
+              picks: [],
+              nextStep:
+                locale === "en"
+                  ? "For example: 'what is The Mandalorian about?'"
+                  : "Zum Beispiel: 'Worum geht es in The Mandalorian?'"
             }
           });
         }
