@@ -82,6 +82,7 @@ export function SearchControls({
   children: React.ReactNode;
 }) {
   const [draft, setDraft] = useState<SearchDraftState>(initial);
+  const draftRef = useRef<SearchDraftState>(initial);
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
@@ -101,6 +102,7 @@ export function SearchControls({
 
   useEffect(() => {
     if (typeof window === "undefined") {
+      draftRef.current = initial;
       setDraft(initial);
       return;
     }
@@ -112,16 +114,18 @@ export function SearchControls({
         try {
           const rawValue = window.sessionStorage.getItem(SEARCH_DRAFT_STORAGE_KEY);
           if (rawValue) {
-            const parsed = JSON.parse(rawValue) as SearchDraftState;
-            setDraft(parsed);
-            return;
-          }
+          const parsed = JSON.parse(rawValue) as SearchDraftState;
+          draftRef.current = parsed;
+          setDraft(parsed);
+          return;
+        }
         } catch {
           // ignore invalid storage content
         }
       }
     }
 
+    draftRef.current = initial;
     setDraft(initial);
   }, [initial]);
 
@@ -141,6 +145,18 @@ export function SearchControls({
     setIsFiltersOpen(false);
   }, [searchParamsValue]);
 
+  const updateDraft = (
+    next:
+      | SearchDraftState
+      | ((current: SearchDraftState) => SearchDraftState)
+  ) => {
+    setDraft(current => {
+      const resolved = typeof next === "function" ? next(current) : next;
+      draftRef.current = resolved;
+      return resolved;
+    });
+  };
+
   const resetState = useMemo<SearchDraftState>(
     () => ({
       query: draft.query,
@@ -158,11 +174,12 @@ export function SearchControls({
   );
 
   const submit = () => {
-    const target = buildSearchHref(draft);
+    const latestDraft = draftRef.current;
+    const target = buildSearchHref(latestDraft);
     const currentSearch = searchParams?.toString() ?? "";
     const current = `${pathname}${currentSearch ? `?${currentSearch}` : ""}`;
 
-    savePreferredRegion(draft.region);
+    savePreferredRegion(latestDraft.region);
 
     startTransition(() => {
       if (current === target) {
@@ -178,7 +195,7 @@ export function SearchControls({
     <>
       <SearchForm
         query={draft.query}
-        onQueryChange={query => setDraft(current => ({ ...current, query }))}
+        onQueryChange={query => updateDraft(current => ({ ...current, query }))}
         onSubmit={submit}
         isPending={isPending}
       />
@@ -215,8 +232,8 @@ export function SearchControls({
             tvGenres={tvGenres}
             availableRegions={availableRegions}
             value={draft}
-            onChange={setDraft}
-            onReset={() => setDraft(resetState)}
+            onChange={updateDraft}
+            onReset={() => updateDraft(resetState)}
             isPending={isPending}
           />
         ) : null}
