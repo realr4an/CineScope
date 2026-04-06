@@ -86,6 +86,10 @@ function getText(locale: Locale) {
           "Great, that helps. How many suggestions do you want right now?",
         askDesiredCountNext:
           "Tell me a number between 1 and 8, for example: '6 please'.",
+        titleInfoNext:
+          "Want similar titles next, or a quick fit-check against your taste?",
+        titleInfoClarify:
+          "I can do that. Please give me the exact title so I can answer reliably.",
         forbiddenOrigin: "Cross-origin requests are not allowed.",
         rateLimited: "Too many AI requests. Please try again in a moment.",
         unsafePrompt: "The request contains unsafe instruction patterns."
@@ -126,6 +130,10 @@ function getText(locale: Locale) {
           "Sehr gut, das hilft. Wie viele Vorschläge möchtest du jetzt?",
         askDesiredCountNext:
           "Nenne eine Zahl zwischen 1 und 8, zum Beispiel: '6 bitte'.",
+        titleInfoNext:
+          "Willst du als Naechstes aehnliche Titel oder einen kurzen Fit-Check zu deinem Geschmack?",
+        titleInfoClarify:
+          "Gern. Nenne mir bitte den genauen Titel, damit ich sicher dazu antworten kann.",
         forbiddenOrigin: "Cross-Origin-Anfragen sind nicht erlaubt.",
         rateLimited: "Zu viele KI-Anfragen. Bitte versuche es gleich erneut.",
         unsafePrompt: "Die Anfrage enthält unsichere Instruktionsmuster."
@@ -444,6 +452,88 @@ function normalizeTitleForLookup(value: string | null | undefined) {
 
 function buildMediaKey(mediaType: "movie" | "tv", tmdbId: number) {
   return `${mediaType}:${tmdbId}`;
+}
+
+function compactOverviewForChat(overview: string | null | undefined) {
+  const normalized = (overview ?? "").replace(/\s+/g, " ").trim();
+
+  if (!normalized) {
+    return "";
+  }
+
+  const sentences = normalized
+    .split(/(?<=[.!?])\s+/)
+    .map(sentence => sentence.trim())
+    .filter(Boolean);
+  const short = sentences.slice(0, 2).join(" ").trim();
+
+  return short.length > 320 ? `${short.slice(0, 317).trimEnd()}...` : short;
+}
+
+function buildTitleInfoLead(title: AITitleContext, locale: Locale) {
+  const overview = compactOverviewForChat(title.overview);
+  const genres = title.genres.slice(0, 3).join(", ");
+  const typeLabel =
+    locale === "en"
+      ? title.mediaType === "tv"
+        ? "series"
+        : "movie"
+      : title.mediaType === "tv"
+        ? "Serie"
+        : "Film";
+  const base = locale === "en" ? `${title.title} is a ${typeLabel}.` : `${title.title} ist ein ${typeLabel}.`;
+  const summary =
+    overview ||
+    (locale === "en"
+      ? "I do not have a detailed synopsis in the current data snapshot."
+      : "Ich habe aktuell keine ausfuehrliche Inhaltsbeschreibung im Datensatz.");
+
+  const details: string[] = [];
+  if (genres) {
+    details.push(`Genres: ${genres}.`);
+  }
+
+  if (title.mediaType === "tv" && title.runtime) {
+    details.push(
+      locale === "en"
+        ? `Typical runtime: about ${title.runtime} minutes per episode.`
+        : `Typische Laufzeit: etwa ${title.runtime} Minuten pro Folge.`
+    );
+  }
+
+  if (title.mediaType === "tv" && title.numberOfSeasons) {
+    details.push(
+      locale === "en"
+        ? `Current seasons: ${title.numberOfSeasons}.`
+        : `Aktuelle Staffeln: ${title.numberOfSeasons}.`
+    );
+  }
+
+  return `${base} ${summary}${details.length ? ` ${details.join(" ")}` : ""}`.trim();
+}
+
+function pickReferenceForTitleQuery(
+  references: AITitleContext[],
+  titleQuery: string | null
+) {
+  if (!titleQuery) {
+    return references[0] ?? null;
+  }
+
+  const query = normalizeTitleForLookup(titleQuery);
+  if (!query) {
+    return references[0] ?? null;
+  }
+
+  return (
+    references.find(reference => {
+      const title = normalizeTitleForLookup(reference.title);
+      const original = normalizeTitleForLookup(reference.originalTitle);
+      return title.includes(query) || query.includes(title) || original.includes(query);
+    }) ??
+    references[0] ??
+    null
+  );
 }
 
 function dedupeAndNormalizePriorityGroups(
@@ -971,7 +1061,10 @@ function extractLikelyTitleQuery(input: string) {
 
   const patterns = [
     /(?:mehr\s+über|infos?\s+zu|info\s+zu|was\s+wei[sß]t\s+du\s+über)\s+["„“]?(.+?)["“”]?(?:\s+(?:wissen|erfahren))?\s*[.!?]?$/i,
-    /(?:tell\s+me\s+more\s+about|more\s+about|info\s+about|what\s+about)\s+["“”]?(.+?)["“”]?\s*[.!?]?$/i
+    /(?:worum\s+geht\s+es\s+in|worum\s+geht'?s\s+in)\s+["„“]?(.+?)["“”]?\s*[.!?]?$/i,
+    /(?:erz[aä]hl(?:e)?\s+mir\s+(?:mehr\s+)?(?:über|zu))\s+["„“]?(.+?)["“”]?\s*[.!?]?$/i,
+    /(?:tell\s+me\s+more\s+about|more\s+about|info\s+about|what\s+about)\s+["“”]?(.+?)["“”]?\s*[.!?]?$/i,
+    /(?:what\s+is|what'?s)\s+["“”]?(.+?)["“”]?\s+about\s*[.!?]?$/i
   ] as const;
 
   for (const pattern of patterns) {
@@ -1337,6 +1430,7 @@ export async function POST(request: Request) {
           prompt: parsed.data.prompt,
           conversation: parsed.data.conversation
         });
+        const directTitleQuery = extractLikelyTitleQuery(parsed.data.prompt);
         const recommendationRequested = isRecommendationRequest({
           prompt: parsed.data.prompt,
           conversation: parsed.data.conversation
@@ -1350,6 +1444,41 @@ export async function POST(request: Request) {
           socialContext: parsed.data.socialContext,
           referencesCount: references.length
         });
+
+        if (titleInfoRequested) {
+          let titleContext = pickReferenceForTitleQuery(references, directTitleQuery);
+
+          if (!titleContext && directTitleQuery) {
+            const resolved = await ensureResolvedMediaAllowed(
+              { query: directTitleQuery, mediaType: "all" },
+              locale
+            );
+
+            if (resolved.resolved) {
+              titleContext = resolved.resolved.context;
+            }
+          }
+
+          if (!titleContext) {
+            return NextResponse.json({
+              mode: "assistant",
+              data: {
+                lead: text.titleInfoClarify,
+                picks: [],
+                nextStep: text.clarifyPreferencesNext
+              }
+            });
+          }
+
+          return NextResponse.json({
+            mode: "assistant",
+            data: {
+              lead: buildTitleInfoLead(titleContext, locale),
+              picks: [],
+              nextStep: text.titleInfoNext
+            }
+          });
+        }
 
         if (recommendationRequested && !titleInfoRequested && !preferenceSignalsAvailable) {
           return NextResponse.json({
