@@ -98,10 +98,7 @@ export function DiscoverControls({
   };
 
   const apply = () => {
-    const nextDraft = {
-      ...draft,
-      type: draft.type === "all" ? "movie" : draft.type
-    };
+    const nextDraft = { ...draft };
     savePreferredRegion(nextDraft.region);
 
     startTransition(() => {
@@ -136,7 +133,7 @@ export function DiscoverControls({
             onChange={setDraft}
             onReset={resetDraft}
             isPending={isPending}
-            typeOptions={["movie", "tv"]}
+            typeOptions={["all", "movie", "tv"]}
             hideCategoryFilter
             primaryAction={{
               label: dictionary.discoverFilters.apply,

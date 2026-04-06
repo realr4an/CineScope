@@ -18,7 +18,7 @@ import { getServerPreferredWatchRegion } from "@/lib/tmdb/watch-provider-prefere
 import { getAvailableRegions } from "@/lib/tmdb/watch-providers";
 import { cn } from "@/lib/utils";
 import { searchParamsSchema } from "@/lib/validators/media";
-import type { Genre } from "@/types/media";
+import type { Genre, MediaListItem } from "@/types/media";
 import type { WatchRegion } from "@/types/watch-providers";
 
 type DiscoverPageProps = {
@@ -96,7 +96,7 @@ function mapSearchSortToDiscoverSort(
 }
 
 function buildDiscoverHref(input: {
-  type: "movie" | "tv";
+  type: "all" | "movie" | "tv";
   sort: SearchSortKey;
   direction: SearchSortDirection;
   genre?: number;
@@ -137,6 +137,22 @@ function buildDiscoverHref(input: {
   return `/discover?${params.toString()}`;
 }
 
+function interleaveItems(movieItems: MediaListItem[], tvItems: MediaListItem[]) {
+  const items: MediaListItem[] = [];
+  const maxLength = Math.max(movieItems.length, tvItems.length);
+
+  for (let index = 0; index < maxLength; index += 1) {
+    if (movieItems[index]) {
+      items.push(movieItems[index]);
+    }
+    if (tvItems[index]) {
+      items.push(tvItems[index]);
+    }
+  }
+
+  return items.slice(0, 60);
+}
+
 function getVisiblePages(currentPage: number, totalPages: number) {
   const start = Math.max(1, currentPage - 2);
   const end = Math.min(totalPages, currentPage + 2);
@@ -145,7 +161,7 @@ function getVisiblePages(currentPage: number, totalPages: number) {
 }
 
 function buildTypeSwitchHref(input: {
-  type: "movie" | "tv";
+  type: "all" | "movie" | "tv";
   sort: SearchSortKey;
   direction: SearchSortDirection;
   yearFrom?: number;
@@ -162,7 +178,7 @@ function buildTypeSwitchHref(input: {
 }
 
 function buildGenrePickHref(input: {
-  type: "movie" | "tv";
+  type: "all" | "movie" | "tv";
   sort: SearchSortKey;
   direction: SearchSortDirection;
   genre: number;
@@ -179,7 +195,7 @@ function buildGenrePickHref(input: {
 }
 
 function buildGenreResetHref(input: {
-  type: "movie" | "tv";
+  type: "all" | "movie" | "tv";
   sort: SearchSortKey;
   direction: SearchSortDirection;
   yearFrom?: number;
@@ -229,7 +245,7 @@ function ActiveGenreSection({
   baseFilters
 }: {
   locale: "de" | "en";
-  mediaType: "movie" | "tv";
+  mediaType: "all" | "movie" | "tv";
   genres: Genre[];
   selectedGenre?: number;
   baseFilters: {
@@ -246,17 +262,21 @@ function ActiveGenreSection({
     locale === "en"
       ? {
           mediaLabel: "Choose media type first",
+          all: "All",
           movie: "Movies",
           tv: "Series",
           genreLabel: "Then pick a genre",
-          resetGenre: "All genres"
+          resetGenre: "All genres",
+          allHint: "Genre selection is available after switching to Movies or Series."
         }
       : {
           mediaLabel: "Zuerst Medientyp waehlen",
+          all: "Alle",
           movie: "Filme",
           tv: "Serien",
           genreLabel: "Dann ein Genre auswaehlen",
-          resetGenre: "Alle Genres"
+          resetGenre: "Alle Genres",
+          allHint: "Genre-Auswahl ist verfuegbar, sobald du auf Filme oder Serien wechselst."
         };
 
   return (
@@ -264,6 +284,17 @@ function ActiveGenreSection({
       <div className="space-y-3">
         <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">{text.mediaLabel}</p>
         <div className="flex flex-wrap gap-2">
+          <Link
+            href={buildTypeSwitchHref({ type: "all", ...baseFilters })}
+            className={cn(
+              "rounded-xl border px-4 py-2 text-sm font-medium transition-colors",
+              mediaType === "all"
+                ? "border-primary bg-primary/15 text-primary"
+                : "border-border/50 bg-background/60 text-muted-foreground hover:border-primary/40 hover:text-foreground"
+            )}
+          >
+            {text.all}
+          </Link>
           <Link
             href={buildTypeSwitchHref({ type: "movie", ...baseFilters })}
             className={cn(
@@ -292,37 +323,41 @@ function ActiveGenreSection({
       <div className="mt-6 space-y-3">
         <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">{text.genreLabel}</p>
         <div className="max-h-56 overflow-y-auto rounded-2xl border border-border/40 bg-background/35 p-3 pr-2">
-          <div className="flex flex-wrap gap-2">
-            <Link
-              href={buildGenreResetHref({ type: mediaType, ...baseFilters })}
-              className={cn(
-                "rounded-full border px-3 py-1.5 text-sm transition-colors",
-                selectedGenre === undefined
-                  ? "border-primary bg-primary/15 text-primary"
-                  : "border-border/50 bg-background/60 text-muted-foreground hover:border-primary/40 hover:text-foreground"
-              )}
-            >
-              {text.resetGenre}
-            </Link>
-            {genres.map(genre => (
+          {mediaType === "all" ? (
+            <p className="text-sm text-muted-foreground">{text.allHint}</p>
+          ) : (
+            <div className="flex flex-wrap gap-2">
               <Link
-                key={genre.id}
-                href={buildGenrePickHref({
-                  type: mediaType,
-                  genre: genre.id,
-                  ...baseFilters
-                })}
+                href={buildGenreResetHref({ type: mediaType, ...baseFilters })}
                 className={cn(
                   "rounded-full border px-3 py-1.5 text-sm transition-colors",
-                  selectedGenre === genre.id
+                  selectedGenre === undefined
                     ? "border-primary bg-primary/15 text-primary"
                     : "border-border/50 bg-background/60 text-muted-foreground hover:border-primary/40 hover:text-foreground"
                 )}
               >
-                {genre.name}
+                {text.resetGenre}
               </Link>
-            ))}
-          </div>
+              {genres.map(genre => (
+                <Link
+                  key={genre.id}
+                  href={buildGenrePickHref({
+                    type: mediaType,
+                    genre: genre.id,
+                    ...baseFilters
+                  })}
+                  className={cn(
+                    "rounded-full border px-3 py-1.5 text-sm transition-colors",
+                    selectedGenre === genre.id
+                      ? "border-primary bg-primary/15 text-primary"
+                      : "border-border/50 bg-background/60 text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                  )}
+                >
+                  {genre.name}
+                </Link>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </section>
@@ -353,7 +388,7 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
     providers: rawSearchParams.providers ?? rawSearchParams.provider
   });
 
-  const mediaType = parsedFilters.type === "tv" ? "tv" : "movie";
+  const mediaType = parsedFilters.type;
 
   try {
     const [availableRegions, genreMaps] = await Promise.all([
@@ -361,32 +396,77 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
       getGenreMaps(locale)
     ]);
     const activeRegion = resolveRegionCode(parsedFilters.region ?? requestedRegion, availableRegions);
-    const mediaTypeGenres = mediaType === "movie" ? genreMaps.movieList : genreMaps.tvList;
-    const selectedGenreName = parsedFilters.genre
-      ? mediaTypeGenres.find(genre => genre.id === parsedFilters.genre)?.name
+    const activeGenre = mediaType === "all" ? undefined : parsedFilters.genre;
+    const mediaTypeGenres =
+      mediaType === "movie"
+        ? genreMaps.movieList
+        : mediaType === "tv"
+          ? genreMaps.tvList
+          : [];
+    const selectedGenreName = activeGenre
+      ? mediaTypeGenres.find(genre => genre.id === activeGenre)?.name
       : undefined;
     const activeRegionName =
       availableRegions.find(region => region.regionCode === activeRegion)?.regionName ??
       activeRegion;
-    const discoverResult = await getDiscoverResults({
-      mediaType,
-      genre: parsedFilters.genre,
-      yearFrom: parsedFilters.yearFrom,
-      yearTo: parsedFilters.yearTo,
-      rating: parsedFilters.rating,
-      page: parsedFilters.page,
-      sort: mapSearchSortToDiscoverSort(mediaType, parsedFilters.sort, parsedFilters.direction),
-      region: activeRegion,
-      providers: parsedFilters.providers,
-      genreMaps,
-      locale
-    });
+    const discoverResult =
+      mediaType === "all"
+        ? await (async () => {
+            const [movieResults, tvResults] = await Promise.all([
+              getDiscoverResults({
+                mediaType: "movie",
+                genre: undefined,
+                yearFrom: parsedFilters.yearFrom,
+                yearTo: parsedFilters.yearTo,
+                rating: parsedFilters.rating,
+                page: parsedFilters.page,
+                sort: mapSearchSortToDiscoverSort("movie", parsedFilters.sort, parsedFilters.direction),
+                region: activeRegion,
+                providers: parsedFilters.providers,
+                genreMaps,
+                locale
+              }),
+              getDiscoverResults({
+                mediaType: "tv",
+                genre: undefined,
+                yearFrom: parsedFilters.yearFrom,
+                yearTo: parsedFilters.yearTo,
+                rating: parsedFilters.rating,
+                page: parsedFilters.page,
+                sort: mapSearchSortToDiscoverSort("tv", parsedFilters.sort, parsedFilters.direction),
+                region: activeRegion,
+                providers: parsedFilters.providers,
+                genreMaps,
+                locale
+              })
+            ]);
+
+            return {
+              page: parsedFilters.page,
+              totalPages: Math.max(movieResults.totalPages, tvResults.totalPages),
+              totalResults: movieResults.totalResults + tvResults.totalResults,
+              items: interleaveItems(movieResults.items.slice(0, 30), tvResults.items.slice(0, 30))
+            };
+          })()
+        : await getDiscoverResults({
+            mediaType,
+            genre: activeGenre,
+            yearFrom: parsedFilters.yearFrom,
+            yearTo: parsedFilters.yearTo,
+            rating: parsedFilters.rating,
+            page: parsedFilters.page,
+            sort: mapSearchSortToDiscoverSort(mediaType, parsedFilters.sort, parsedFilters.direction),
+            region: activeRegion,
+            providers: parsedFilters.providers,
+            genreMaps,
+            locale
+          });
     const safeItems = await filterMediaForViewerAge(discoverResult.items);
     const strictGenreItems =
-      parsedFilters.genre !== undefined
-        ? safeItems.filter(item => item.genres.some(genre => genre.id === parsedFilters.genre))
+      activeGenre !== undefined
+        ? safeItems.filter(item => item.genres.some(genre => genre.id === activeGenre))
         : safeItems;
-    const visibleItems = prioritizeSelectedGenre(strictGenreItems, parsedFilters.genre);
+    const visibleItems = prioritizeSelectedGenre(strictGenreItems, activeGenre);
     const totalPages = Math.max(1, Math.min(discoverResult.totalPages, 167));
     const visiblePages = getVisiblePages(discoverResult.page, totalPages);
 
@@ -395,8 +475,9 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
         ? {
             spotlightTitle: "Genre-based discovery",
             spotlightSubtitle:
-              "Pick a genre first, then refine results with year, rating, sorting, and streaming filters.",
-            activeMediaType: mediaType === "movie" ? "Movies" : "Series",
+              "Switch between Movies, Series, or All, then refine with year, rating, sorting, and streaming filters.",
+            activeMediaType:
+              mediaType === "movie" ? "Movies" : mediaType === "tv" ? "Series" : "Movies + Series",
             activeRegion: `Region: ${activeRegionName}`,
             activeGenre: selectedGenreName ? `Category: ${selectedGenreName}` : "Category: All genres",
             totalResults: `${discoverResult.totalResults.toLocaleString("en-US")} discover results`,
@@ -413,8 +494,9 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
         : {
             spotlightTitle: "Genrebasierte Entdeckung",
             spotlightSubtitle:
-              "Waehle zuerst ein Genre, danach verfeinerst du mit Jahr, Rating, Sortierung und Streamingfiltern.",
-            activeMediaType: mediaType === "movie" ? "Filme" : "Serien",
+              "Wechsle zwischen Filme, Serien oder Alle und verfeinere danach mit Jahr, Rating, Sortierung und Streamingfiltern.",
+            activeMediaType:
+              mediaType === "movie" ? "Filme" : mediaType === "tv" ? "Serien" : "Filme + Serien",
             activeRegion: `Land: ${activeRegionName}`,
             activeGenre: selectedGenreName ? `Kategorie: ${selectedGenreName}` : "Kategorie: Alle Genres",
             totalResults: `${discoverResult.totalResults.toLocaleString("de-DE")} Discover-Treffer`,
@@ -436,7 +518,7 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
             locale={locale}
             mediaType={mediaType}
             genres={mediaTypeGenres}
-            selectedGenre={parsedFilters.genre}
+            selectedGenre={activeGenre}
             baseFilters={{
               sort: parsedFilters.sort,
               direction: parsedFilters.direction,
@@ -492,7 +574,7 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
               type: mediaType,
               sort: parsedFilters.sort,
               direction: parsedFilters.direction,
-              genre: parsedFilters.genre,
+              genre: activeGenre,
               yearFrom: parsedFilters.yearFrom,
               yearTo: parsedFilters.yearTo,
               rating: parsedFilters.rating,
@@ -522,7 +604,7 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
                           type: mediaType,
                           sort: parsedFilters.sort,
                           direction: parsedFilters.direction,
-                          genre: parsedFilters.genre,
+                          genre: activeGenre,
                           yearFrom: parsedFilters.yearFrom,
                           yearTo: parsedFilters.yearTo,
                           rating: parsedFilters.rating,
@@ -546,7 +628,7 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
                             type: mediaType,
                             sort: parsedFilters.sort,
                             direction: parsedFilters.direction,
-                            genre: parsedFilters.genre,
+                            genre: activeGenre,
                             yearFrom: parsedFilters.yearFrom,
                             yearTo: parsedFilters.yearTo,
                             rating: parsedFilters.rating,
@@ -571,7 +653,7 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
                           type: mediaType,
                           sort: parsedFilters.sort,
                           direction: parsedFilters.direction,
-                          genre: parsedFilters.genre,
+                          genre: activeGenre,
                           yearFrom: parsedFilters.yearFrom,
                           yearTo: parsedFilters.yearTo,
                           rating: parsedFilters.rating,
