@@ -217,6 +217,86 @@ function extractPreviouslySuggestedTitles(
   return titles;
 }
 
+function extractMostRecentSuggestedTitles(
+  conversation: Array<{ role: "user" | "assistant"; content: string }>
+) {
+  for (let index = conversation.length - 1; index >= 0; index -= 1) {
+    const message = conversation[index];
+    if (!message || message.role !== "assistant") {
+      continue;
+    }
+
+    const markerMatch = message.content.match(/suggested titles:\s*(.+)$/im);
+    if (!markerMatch?.[1]) {
+      continue;
+    }
+
+    const orderedTitles = markerMatch[1]
+      .split("|")
+      .map(rawTitle => rawTitle.trim())
+      .filter(Boolean);
+
+    if (orderedTitles.length) {
+      return orderedTitles;
+    }
+  }
+
+  return [] as string[];
+}
+
+function isRecentListDecisionFollowUp(prompt: string) {
+  const normalized = prompt.toLowerCase();
+
+  return (
+    /\b(welche(?:s|n)? davon|davon|aus der liste|von den genannten|welche würdest du|was davon)\b/.test(
+      normalized
+    ) ||
+    /\b(which (?:one|ones|of those)|from that list|from the list|which would you recommend)\b/.test(
+      normalized
+    )
+  );
+}
+
+function getDesiredShortlistCount(prompt: string, available: number) {
+  const parsed = parseRequestedCount(prompt);
+  if (parsed !== null) {
+    return clamp(parsed, 1, Math.min(5, available));
+  }
+
+  const normalized = prompt.toLowerCase();
+  if (/\b(welche|which one|best|am besten)\b/.test(normalized)) {
+    return Math.min(1, available);
+  }
+
+  return Math.min(3, available);
+}
+
+function scoreContextForShortlist(context: AITitleContext) {
+  const rating = context.rating ?? 0;
+  const voteCount = context.voteCount ?? 0;
+  return rating * 1000 + Math.min(voteCount, 200000);
+}
+
+function buildShortlistReason(rank: number, locale: Locale) {
+  if (locale === "en") {
+    if (rank === 0) {
+      return "From your recent shortlist, this is the strongest overall fit to start with.";
+    }
+    if (rank === 1) {
+      return "Great follow-up choice from the same shortlist with similarly strong appeal.";
+    }
+    return "Solid option from your shortlist if you want another title in the same direction.";
+  }
+
+  if (rank === 0) {
+    return "Aus deiner letzten Liste ist das der stärkste Gesamtfit als nächster Startpunkt.";
+  }
+  if (rank === 1) {
+    return "Sehr gute Anschlusswahl aus derselben Liste mit ähnlich starkem Profil.";
+  }
+  return "Solide Option aus deiner Liste, wenn du noch einen ähnlichen Titel willst.";
+}
+
 function hasLatinCharacters(value: string) {
   return /[a-z]/i.test(
     value
@@ -1678,6 +1758,58 @@ export async function POST(request: Request) {
               nextStep: text.maxSuggestionsNext
             }
           });
+        }
+
+        const mostRecentSuggestedTitles = extractMostRecentSuggestedTitles(parsed.data.conversation);
+        const wantsDecisionFromRecentList = isRecentListDecisionFollowUp(safePrompt);
+
+        if (wantsDecisionFromRecentList && mostRecentSuggestedTitles.length > 0) {
+          const resolvedShortlist = await Promise.all(
+            mostRecentSuggestedTitles.slice(0, 8).map(title =>
+              ensureResolvedMediaAllowed({ query: title, mediaType: "all" }, locale)
+            )
+          );
+
+          const shortlistContexts = resolvedShortlist
+            .filter(item => item.resolved)
+            .map(item => item.resolved!.context);
+
+          if (shortlistContexts.length > 0) {
+            const desiredCount = getDesiredShortlistCount(safePrompt, shortlistContexts.length);
+            const selected = [...shortlistContexts]
+              .sort((left, right) => scoreContextForShortlist(right) - scoreContextForShortlist(left))
+              .slice(0, desiredCount)
+              .map((context, index) => ({
+                title: context.title,
+                mediaType: context.mediaType,
+                reason: buildShortlistReason(index, locale),
+                tmdbId: context.tmdbId,
+                href: `/${context.mediaType}/${context.tmdbId}`
+              }));
+
+            const lead =
+              locale === "en"
+                ? selected.length === 1
+                  ? `From your last list, I would start with ${selected[0].title}.`
+                  : `From your last list, these are my top ${selected.length} picks.`
+                : selected.length === 1
+                  ? `Aus deiner letzten Liste würde ich mit ${selected[0].title} starten.`
+                  : `Aus deiner letzten Liste sind das meine Top-${selected.length}-Empfehlungen.`;
+
+            const nextStep =
+              locale === "en"
+                ? "Want details on one of these titles, or should I rank the remaining list as well?"
+                : "Willst du zu einem davon mehr Details oder soll ich dir auch die restliche Liste priorisieren?";
+
+            return NextResponse.json({
+              mode: "assistant",
+              data: {
+                lead,
+                picks: selected,
+                nextStep
+              }
+            });
+          }
         }
 
         const requestedSeasonCount = getRequestedSeasonCount({
