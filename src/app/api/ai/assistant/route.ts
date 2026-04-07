@@ -244,6 +244,35 @@ function extractMostRecentSuggestedTitles(
   return [] as string[];
 }
 
+function findSuggestedTitleMentionInPrompt(prompt: string, suggestedTitles: string[]) {
+  const normalizedPrompt = normalizeAssistantTitleValue(prompt);
+  if (!normalizedPrompt) {
+    return null;
+  }
+
+  for (const title of suggestedTitles) {
+    const normalizedTitle = normalizeAssistantTitleValue(title);
+
+    if (!normalizedTitle) {
+      continue;
+    }
+
+    if (normalizedPrompt.includes(normalizedTitle) || normalizedTitle.includes(normalizedPrompt)) {
+      return title;
+    }
+
+    const promptTokens = normalizedPrompt.split(" ").filter(Boolean);
+    const titleTokens = normalizedTitle.split(" ").filter(Boolean);
+    const overlap = promptTokens.filter(token => titleTokens.includes(token)).length;
+
+    if (overlap >= 1 && titleTokens.length <= 4) {
+      return title;
+    }
+  }
+
+  return null;
+}
+
 function isRecentListDecisionFollowUp(prompt: string) {
   const normalized = prompt.toLowerCase();
 
@@ -1159,6 +1188,15 @@ function isTitleDetailFollowUpPrompt(prompt: string) {
   );
 }
 
+function isTitleInfoFollowUpIntent(prompt: string) {
+  const normalized = prompt.toLowerCase();
+
+  return (
+    /\b(was passiert|worum geht|mehr über|mehr dazu|infos?\s+zu|erzähl mir mehr)\b/.test(normalized) ||
+    /\b(what happens|what is .* about|tell me more|more about|info about)\b/.test(normalized)
+  );
+}
+
 function isRecommendationRequest(input: {
   prompt: string;
   conversation: Array<{ role: "user" | "assistant"; content: string }>;
@@ -1424,6 +1462,7 @@ function extractLikelyTitleQuery(input: string) {
     /(?:mehr\s+über|infos?\s+zu|info\s+zu|was\s+wei[sß]t\s+du\s+über)\s+["„“]?(.+?)["“”]?(?:\s+(?:wissen|erfahren))?\s*[.!?]?$/i,
     /(?:worum\s+geht\s+es\s+in|worum\s+geht'?s\s+in)\s+["„“]?(.+?)["“”]?\s*[.!?]?$/i,
     /(?:was\s+passiert\s+in)\s+["„“]?(.+?)["“”]?\s*[.!?]?$/i,
+    /(?:was\s+passiert\s+bei)\s+["„“]?(.+?)["“”]?\s*[.!?]?$/i,
     /(?:erz[aä]hl(?:e)?\s+mir\s+(?:mehr\s+)?(?:über|zu))\s+["„“]?(.+?)["“”]?\s*[.!?]?$/i,
     /(?:wie\s+lange[^.!?\n]{0,60}(?:bei|von|in)\s*)["„“]?(.+?)["“”]?\s*[.!?]?$/i,
     /(?:wie\s+lang[^.!?\n]{0,60}(?:bei|von|in)\s*)["„“]?(.+?)["“”]?\s*[.!?]?$/i,
@@ -1846,7 +1885,7 @@ export async function POST(request: Request) {
             extractLikelyTitleQuery(safePrompt),
             extractStandaloneTitleCandidate(safePrompt),
             extractRecentConversationTitleCandidate(parsed.data.conversation),
-            ...recentSuggestedTitles.slice(0, 4),
+            ...recentSuggestedTitles.slice(0, 8),
             ...parsed.data.conversation
               .filter(message => message.role === "user")
               .slice(-6)
@@ -1884,14 +1923,14 @@ export async function POST(request: Request) {
           }
         }
 
-        const titleInfoRequested = isTitleInfoRequest({
-          prompt: safePrompt,
-          conversation: parsed.data.conversation
-        });
         const titleDetailFollowUp = isTitleDetailFollowUpPrompt(safePrompt);
         const directTitleQuery = extractLikelyTitleQuery(safePrompt);
         const standaloneTitleCandidate = extractStandaloneTitleCandidate(safePrompt);
         const latestSuggestedTitles = extractMostRecentSuggestedTitles(parsed.data.conversation);
+        const implicitSuggestedTitle = findSuggestedTitleMentionInPrompt(
+          safePrompt,
+          latestSuggestedTitles
+        );
         const askedForExactTitle = assistantRequestedExactTitle(parsed.data.conversation);
         const fallbackTitleQuery = directTitleQuery ?? (askedForExactTitle ? standaloneTitleCandidate : null);
         const recommendationRequested = isRecommendationRequest({
@@ -1911,7 +1950,16 @@ export async function POST(request: Request) {
         });
         const inferredConversationTitle = extractRecentConversationTitleCandidate(parsed.data.conversation);
         const effectiveTitleQuery =
-          fallbackTitleQuery ?? inferredConversationTitle ?? latestSuggestedTitles[0] ?? null;
+          fallbackTitleQuery ??
+          inferredConversationTitle ??
+          implicitSuggestedTitle ??
+          latestSuggestedTitles[0] ??
+          null;
+        const titleInfoRequested =
+          isTitleInfoRequest({
+            prompt: safePrompt,
+            conversation: parsed.data.conversation
+          }) || (!!implicitSuggestedTitle && isTitleInfoFollowUpIntent(safePrompt));
 
         if (
           (titleInfoRequested && !explicitRecommendationIntent) ||
