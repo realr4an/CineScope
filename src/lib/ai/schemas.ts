@@ -171,7 +171,7 @@ export const aiActionSchema = z.discriminatedUnion("mode", [
     socialContext: z.enum(["solo", "parents", "friends", "date", "family"]).optional(),
     referenceTitles: z.array(aiTitleReferenceSchema).max(3).default([]),
     feedback: z.array(feedbackSchema).max(50).default([]),
-    conversation: z.array(aiAssistantConversationMessageSchema).max(12).default([])
+    conversation: z.array(aiAssistantConversationMessageSchema).max(20).default([])
   }),
   z.object({
     mode: z.literal("title_insights"),

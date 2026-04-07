@@ -1163,7 +1163,7 @@ function isRecommendationRequest(input: {
   prompt: string;
   conversation: Array<{ role: "user" | "assistant"; content: string }>;
 }) {
-  const combined = `${input.prompt}\n${collectUserConversationText(input.conversation, { limit: 2 })}`.toLowerCase();
+  const combined = `${input.prompt}\n${collectUserConversationText(input.conversation, { limit: 6 })}`.toLowerCase();
   return (
     /\b(empfiehl|empfehl|vorschlag|schlag.*vor|suche|zeig mir|gib mir|was schauen|was gucken)\b/.test(
       combined
@@ -1202,7 +1202,7 @@ function hasPreferenceSignals(input: {
     return true;
   }
 
-  const combined = `${input.prompt}\n${collectUserConversationText(input.conversation, { limit: 3 })}`.toLowerCase();
+  const combined = `${input.prompt}\n${collectUserConversationText(input.conversation, { limit: 6 })}`.toLowerCase();
 
   return (
     /\b(action|drama|thriller|horror|comedy|komödie|komoedie|romance|romantik|crime|krimi|mystery|sci[\s-]?fi|science fiction|fantasy|animation|anime|family|dokumentation|documentary|abenteuer)\b/.test(
@@ -1519,7 +1519,7 @@ export async function POST(request: Request) {
             sanitizedBody.mode === "assistant" &&
             Array.isArray(sanitizedBody.conversation)
           ) {
-            sanitizedBody.conversation = sanitizedBody.conversation.slice(-12);
+            sanitizedBody.conversation = sanitizedBody.conversation.slice(-20);
           }
 
           return sanitizedBody;
@@ -1841,17 +1841,19 @@ export async function POST(request: Request) {
           .map(result => result.resolved!.context);
 
         if (references.length < 3) {
+          const recentSuggestedTitles = extractMostRecentSuggestedTitles(parsed.data.conversation);
           const inferredCandidates = [
             extractLikelyTitleQuery(safePrompt),
             extractStandaloneTitleCandidate(safePrompt),
             extractRecentConversationTitleCandidate(parsed.data.conversation),
+            ...recentSuggestedTitles.slice(0, 4),
             ...parsed.data.conversation
               .filter(message => message.role === "user")
-              .slice(-3)
+              .slice(-6)
               .map(message => extractLikelyTitleQuery(message.content)),
             ...parsed.data.conversation
               .filter(message => message.role === "user")
-              .slice(-2)
+              .slice(-4)
               .map(message => extractStandaloneTitleCandidate(message.content))
           ].filter((value): value is string => !!value);
 
@@ -1889,6 +1891,7 @@ export async function POST(request: Request) {
         const titleDetailFollowUp = isTitleDetailFollowUpPrompt(safePrompt);
         const directTitleQuery = extractLikelyTitleQuery(safePrompt);
         const standaloneTitleCandidate = extractStandaloneTitleCandidate(safePrompt);
+        const latestSuggestedTitles = extractMostRecentSuggestedTitles(parsed.data.conversation);
         const askedForExactTitle = assistantRequestedExactTitle(parsed.data.conversation);
         const fallbackTitleQuery = directTitleQuery ?? (askedForExactTitle ? standaloneTitleCandidate : null);
         const recommendationRequested = isRecommendationRequest({
@@ -1907,7 +1910,8 @@ export async function POST(request: Request) {
           referencesCount: references.length
         });
         const inferredConversationTitle = extractRecentConversationTitleCandidate(parsed.data.conversation);
-        const effectiveTitleQuery = fallbackTitleQuery ?? inferredConversationTitle;
+        const effectiveTitleQuery =
+          fallbackTitleQuery ?? inferredConversationTitle ?? latestSuggestedTitles[0] ?? null;
 
         if (
           (titleInfoRequested && !explicitRecommendationIntent) ||
