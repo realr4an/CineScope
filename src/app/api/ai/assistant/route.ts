@@ -686,6 +686,34 @@ function buildExtendedTitleInfoLead(title: AITitleContext, locale: Locale) {
   return parts.join(" ");
 }
 
+function isWeakTitleInfoLead(lead: string, locale: Locale) {
+  const normalized = lead.trim().toLowerCase();
+
+  if (!normalized) {
+    return true;
+  }
+
+  const generic =
+    locale === "en"
+      ? [
+          "here is some information",
+          "here are some details",
+          "want similar titles"
+        ]
+      : [
+          "hier sind einige informationen",
+          "hier sind ein paar informationen",
+          "möchtest du mehr",
+          "moechtest du mehr"
+        ];
+
+  if (normalized.length < 90) {
+    return true;
+  }
+
+  return generic.some(fragment => normalized.includes(fragment));
+}
+
 function buildTitleDetailLead(title: AITitleContext, prompt: string, locale: Locale) {
   const normalized = prompt.toLowerCase();
   const unknown =
@@ -1869,6 +1897,43 @@ export async function POST(request: Request) {
           ),
           aiAssistantResponseSchema
         );
+
+        let normalizedLead = data.lead;
+        let normalizedNextStep = data.nextStep;
+        if (data.intent === "title_info" && isWeakTitleInfoLead(data.lead, locale)) {
+          const recentSuggestedTitles = extractMostRecentSuggestedTitles(safeConversation);
+          const directTitleQuery = extractLikelyTitleQuery(safePrompt);
+          const standaloneTitleCandidate = extractStandaloneTitleCandidate(safePrompt);
+          const implicitSuggestedTitle = findSuggestedTitleMentionInPrompt(
+            safePrompt,
+            recentSuggestedTitles
+          );
+          const inferredConversationTitle = extractRecentConversationTitleCandidate(safeConversation);
+          const fallbackTitleQuery =
+            directTitleQuery ??
+            standaloneTitleCandidate ??
+            implicitSuggestedTitle ??
+            inferredConversationTitle ??
+            recentSuggestedTitles[0] ??
+            null;
+
+          let titleContext = pickReferenceForTitleQuery(references, fallbackTitleQuery);
+          if (!titleContext && fallbackTitleQuery) {
+            const resolved = await ensureResolvedMediaAllowed(
+              { query: fallbackTitleQuery, mediaType: "all" },
+              locale
+            );
+            if (resolved.resolved) {
+              titleContext = resolved.resolved.context;
+            }
+          }
+
+          if (titleContext) {
+            normalizedLead = buildExtendedTitleInfoLead(titleContext, locale);
+            normalizedNextStep = text.titleInfoNext;
+          }
+        }
+
         const blockedTitles = noveltyRequested
           ? new Set<string>([
               ...extractPreviouslySuggestedTitles(parsed.data.conversation),
@@ -1897,7 +1962,7 @@ export async function POST(request: Request) {
                   locale
                 })
               ).slice(0, requestedPickCount)
-            : noveltyFilteredPicks.slice(0, Math.min(3, requestedPickCount));
+            : [];
         const partialRecommendResult =
           data.intent === "recommend" &&
           assistantPicks.length > 0 &&
@@ -1910,14 +1975,14 @@ export async function POST(request: Request) {
             ? text.cappedSuggestionsLead(requestedRaw, requestedPickCount, assistantPicks.length)
             : data.intent === "recommend" && partialRecommendResult
               ? text.partialSuggestionsLead(assistantPicks.length, requestedPickCount)
-              : data.lead;
+              : normalizedLead;
         const nextStep = noRecommendPicks
           ? text.noSafePicksNext
           : data.intent === "recommend" && cappedBySystem
             ? text.cappedSuggestionsNext
             : data.intent === "recommend" && partialRecommendResult
               ? text.partialSuggestionsNext
-              : data.nextStep;
+              : normalizedNextStep;
 
         return NextResponse.json({
           mode: "assistant",
