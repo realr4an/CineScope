@@ -17,7 +17,9 @@ const WEAK_INJECTION_PATTERNS = [
   /\bdeveloper:\s*/i,
   /<system>/i,
   /<\/system>/i,
-  /```(?:json|xml|yaml|markdown)?/i
+  /```(?:json|xml|yaml|markdown)?/i,
+  /\bignore\b.{0,40}\b(prompt|instructions?)\b/i,
+  /\b(show|print|dump)\b.{0,40}\b(prompt|instructions?|secrets?|token)\b/i
 ] as const;
 
 const FEEDBACK_ABUSE_PATTERNS = [
@@ -90,7 +92,17 @@ export function findPromptInjectionSignal(input: string) {
   return weakHits >= 2 ? "weak" : null;
 }
 
-export function containsPromptInjection(values: Array<string | null | undefined>) {
+export type PromptInjectionAssessment = {
+  hasSignal: boolean;
+  severity: "none" | "weak" | "strong";
+  weakHits: number;
+  strongHits: number;
+};
+
+export function assessPromptInjection(values: Array<string | null | undefined>): PromptInjectionAssessment {
+  let weakHits = 0;
+  let strongHits = 0;
+
   for (const value of values) {
     if (!value) {
       continue;
@@ -98,12 +110,41 @@ export function containsPromptInjection(values: Array<string | null | undefined>
 
     const signal = findPromptInjectionSignal(value);
 
-    if (signal) {
-      return true;
+    if (signal === "strong") {
+      strongHits += 1;
+    } else if (signal === "weak") {
+      weakHits += 1;
     }
   }
 
-  return false;
+  if (strongHits > 0) {
+    return {
+      hasSignal: true,
+      severity: "strong",
+      weakHits,
+      strongHits
+    };
+  }
+
+  if (weakHits > 0) {
+    return {
+      hasSignal: true,
+      severity: "weak",
+      weakHits,
+      strongHits
+    };
+  }
+
+  return {
+    hasSignal: false,
+    severity: "none",
+    weakHits: 0,
+    strongHits: 0
+  };
+}
+
+export function containsPromptInjection(values: Array<string | null | undefined>) {
+  return assessPromptInjection(values).hasSignal;
 }
 
 export function isUnsafeFeedbackMessage(input: string) {

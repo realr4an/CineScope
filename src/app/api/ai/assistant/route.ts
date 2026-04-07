@@ -14,6 +14,7 @@ import {
 } from "@/lib/ai/formatters";
 import { getDiscoverResults } from "@/lib/tmdb/discover";
 import { askOpenRouterJson } from "@/lib/ai/openrouter";
+import { runAssistantSafetyGate, sanitizeAssistantInputText } from "@/lib/ai/assistant-guard";
 import {
   assistantPrompt,
   comparePrompt,
@@ -92,7 +93,11 @@ function getText(locale: Locale) {
           "I can do that. Please give me the exact title so I can answer reliably.",
         forbiddenOrigin: "Cross-origin requests are not allowed.",
         rateLimited: "Too many AI requests. Please try again in a moment.",
-        unsafePrompt: "The request contains unsafe instruction patterns."
+        unsafePrompt: "The request contains unsafe instruction patterns.",
+        unsafePromptLead:
+          "I cannot help with that request. I can assist with movies and series and safe recommendation questions.",
+        unsafePromptNext:
+          "Try asking something like: 'Recommend 6 dystopian sci-fi movies similar to Blade Runner.'"
       }
     : {
         unresolved: "Der Titel konnte nicht sicher aufgelöst werden.",
@@ -136,7 +141,11 @@ function getText(locale: Locale) {
           "Gern. Nenne mir bitte den genauen Titel, damit ich sicher dazu antworten kann.",
         forbiddenOrigin: "Cross-Origin-Anfragen sind nicht erlaubt.",
         rateLimited: "Zu viele KI-Anfragen. Bitte versuche es gleich erneut.",
-        unsafePrompt: "Die Anfrage enthält unsichere Instruktionsmuster."
+        unsafePrompt: "Die Anfrage enthält unsichere Instruktionsmuster.",
+        unsafePromptLead:
+          "Dabei kann ich nicht helfen. Ich unterstütze dich bei Filmen, Serien und sicheren Empfehlungsanfragen.",
+        unsafePromptNext:
+          "Versuche zum Beispiel: 'Empfiehl mir 6 dystopische Sci-Fi-Filme ähnlich wie Blade Runner.'"
       };
 }
 
@@ -1366,13 +1375,7 @@ export async function POST(request: Request) {
   const hasUnsafePrompt = (() => {
     switch (parsed.data.mode) {
       case "assistant":
-        return containsPromptInjection([
-          parsed.data.prompt,
-          parsed.data.timeBudget,
-          parsed.data.mood,
-          ...(parsed.data.conversation ?? []).map(message => message.content),
-          ...(parsed.data.referenceTitles ?? []).map(reference => reference.query)
-        ]);
+        return false;
       case "compare":
         return containsPromptInjection([parsed.data.left.query, parsed.data.right.query]);
       case "fit":
@@ -1536,6 +1539,41 @@ export async function POST(request: Request) {
       }
 
       case "assistant": {
+        const assistantSafety = await runAssistantSafetyGate({
+          locale,
+          prompt: parsed.data.prompt,
+          conversation: parsed.data.conversation,
+          additionalText: [
+            parsed.data.timeBudget,
+            parsed.data.mood,
+            ...parsed.data.referenceTitles.map(reference => reference.query)
+          ]
+        });
+
+        if (assistantSafety.blocked) {
+          return NextResponse.json({
+            mode: "assistant",
+            data: {
+              lead: text.unsafePromptLead,
+              picks: [],
+              nextStep: text.unsafePromptNext
+            }
+          });
+        }
+
+        const safePrompt = assistantSafety.sanitizedPrompt;
+        const safeConversation = assistantSafety.sanitizedConversation;
+        const safeTimeBudget = parsed.data.timeBudget
+          ? sanitizeAssistantInputText(parsed.data.timeBudget)
+          : undefined;
+        const safeMood = parsed.data.mood ? sanitizeAssistantInputText(parsed.data.mood) : undefined;
+        const safeReferenceTitles = parsed.data.referenceTitles
+          .map(reference => ({
+            ...reference,
+            query: sanitizeAssistantInputText(reference.query)
+          }))
+          .filter(reference => reference.query.length > 0);
+
         if (
           isSuggestionCapacityQuestion({
             prompt: parsed.data.prompt,
@@ -1574,7 +1612,7 @@ export async function POST(request: Request) {
           conversation: parsed.data.conversation
         });
         const explicitReferenceResults = await Promise.all(
-          parsed.data.referenceTitles.map(reference => ensureResolvedMediaAllowed(reference, locale))
+          safeReferenceTitles.map(reference => ensureResolvedMediaAllowed(reference, locale))
         );
         const references = explicitReferenceResults
           .filter(result => result.resolved)
@@ -1726,19 +1764,19 @@ export async function POST(request: Request) {
         const data = await askOpenRouterJson(
           assistantPrompt(
             {
-              prompt: parsed.data.prompt,
+              prompt: safePrompt,
               mediaType: parsed.data.mediaType,
               desiredPickCount: requestedPickCount,
-              timeBudget: parsed.data.timeBudget,
+              timeBudget: safeTimeBudget,
               episodeRuntimePreference: episodeRuntimePreference
                 ? formatEpisodeRuntimePreference(episodeRuntimePreference, locale)
                 : undefined,
-              mood: parsed.data.mood,
+              mood: safeMood,
               intensity: parsed.data.intensity,
               socialContext: parsed.data.socialContext,
               references,
               feedback: parsed.data.feedback,
-              conversation: parsed.data.conversation
+              conversation: safeConversation
             },
             locale
           ),
