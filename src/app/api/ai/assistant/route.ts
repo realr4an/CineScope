@@ -43,6 +43,7 @@ import { ZodError } from "zod";
 import type { AITitleContext } from "@/lib/ai/types";
 
 const MAX_ASSISTANT_SUGGESTIONS = 8;
+const MAX_ASSISTANT_CONTEXT_MESSAGES = 10;
 type EpisodeRuntimePreference = {
   mode: "around" | "max" | "min";
   minutes: number;
@@ -1586,7 +1587,9 @@ export async function POST(request: Request) {
             sanitizedBody.mode === "assistant" &&
             Array.isArray(sanitizedBody.conversation)
           ) {
-            sanitizedBody.conversation = sanitizedBody.conversation.slice(-20);
+            sanitizedBody.conversation = sanitizedBody.conversation.slice(
+              -MAX_ASSISTANT_CONTEXT_MESSAGES
+            );
           }
 
           return sanitizedBody;

@@ -75,6 +75,7 @@ type DraftSnapshot = {
 const DRAFT_STORAGE_KEY_BASE = "cine-ai-assistant-draft-v1";
 const SAVED_STORAGE_KEY_BASE = "cine-ai-assistant-saved-v1";
 const MAX_SAVED_CHATS = 12;
+const MAX_ASSISTANT_CONTEXT_MESSAGES = 10;
 
 function createId(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -95,7 +96,7 @@ function buildConversationContent(message: ChatMessage) {
   const picks = message.picks?.map(pick => pick.title.trim()).filter(Boolean) ?? [];
 
   if (!picks.length) {
-    return base;
+    return truncateWithEllipsis(base, 460);
   }
 
   const withPicks = `${base}\nSuggested titles: ${picks.join(" | ")}`;
@@ -492,7 +493,7 @@ export function AIAssistantPanel() {
     };
     const conversation = [...messages, userMessage]
       .filter(message => !message.staticIntro && !message.pending)
-      .slice(-20)
+      .slice(-MAX_ASSISTANT_CONTEXT_MESSAGES)
       .map(message => ({
         role: message.role,
         content: buildConversationContent(message)
