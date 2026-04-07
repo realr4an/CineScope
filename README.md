@@ -2,28 +2,104 @@
 
 CineScope ist eine produktionsnahe Film- und Serien-Explorer-Web-App. Die App kombiniert TMDB fuer Live-Inhalte, Supabase fuer Auth und persistente Watchlist sowie OpenRouter fuer einen zusammenhaengenden AI Layer fuer Medien-Discovery.
 
-## Gewaehltes Thema
+## README-Pflichtinhalte
 
-Thema C: Film- & Serien-Explorer
+### 1) Kurzbeschreibung des Projekts und gewaehltes Thema
 
-## Kurzbeschreibung
+- Thema: `Film- & Serien-Explorer` (Thema C)
+- Ziel: Eine moderne Discovery-App, in der Nutzer:innen Filme und Serien suchen, vergleichen, entdecken und in einer persistenten Watchlist organisieren koennen.
+- Datenquellen und Kernsysteme: TMDB fuer Medieninhalte, Supabase fuer Auth + Persistenz, OpenRouter fuer KI-Features.
 
-Nutzer:innen koennen Trending- und Popular-Inhalte entdecken, Filme und Serien suchen, Detailseiten mit Cast, Trailern und Watch-Provider-Infos nutzen, persoenliche Watchlist-Eintraege persistent speichern und mehrere fokussierte KI-Features fuer Auswahl, Vergleich und Einordnung verwenden.
+### 2) Anleitung zum lokalen Setup
 
-## Features
+Voraussetzungen:
 
-- Live-Startseite mit `Trending Movies`, `Trending TV`, `Popular Movies`, `Popular TV`
-- Suche fuer Filme und Serien ueber TMDB
-- Genre-basierte Discover-Seite mit Filtern
-- Film- und Serien-Detailseiten mit Cast, Trailern, Similar Titles und KI-Zusammenfassung
-- Person-Detailseiten mit Filmografie
-- `Where to watch` auf Film- und Serien-Detailseiten mit Land-Auswahl und TMDB Watch Providers
-- Supabase Auth mit Login, Signup und Passwort-Reset
-- Persistente Watchlist pro User mit Row Level Security
-- Watchlist-Feedback mit `gesehen`, `gefaellt mir`, `gefaellt mir nicht`
-- Klickbare KI-Empfehlungen mit TMDB-Aufloesung auf Detailseiten oder Suche
-- Dark Mode, Loading-, Empty- und Error-States
-- Altersabfrage fuer Gaeste und Profilspeicherung fuer Jugendschutzfilter mit altersgerechter Inhaltsauswahl
+- Node.js 20+
+- npm 10+
+- Supabase-Projekt
+- TMDB-API-Zugang
+- OpenRouter-API-Key
+
+Schritte:
+
+1. Repository klonen und in das Projektverzeichnis wechseln.
+2. Abhaengigkeiten installieren:
+
+```bash
+npm install
+```
+
+3. Umgebungsvariablen einrichten:
+
+```bash
+cp .env.example .env.local
+```
+
+4. `.env.local` mit echten Werten fuellen:
+
+```bash
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
+TMDB_API_KEY=
+TMDB_ACCESS_TOKEN=
+OPENROUTER_API_KEY=
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+OPENROUTER_MODEL=openai/gpt-4o-mini
+```
+
+5. Datenbankschema ausfuehren (Supabase SQL Editor):
+
+```sql
+-- Datei: supabase/schema.sql
+```
+
+6. Entwicklungsserver starten:
+
+```bash
+npm run dev
+```
+
+7. Build- und Typpruefung:
+
+```bash
+npm run check
+npm run build
+```
+
+### 3) Beschreibung der implementierten Features
+
+Kernfunktionen:
+
+- Startseite mit `Trending Movies`, `Trending TV`, `Popular Movies`, `Popular TV`
+- Suche mit Filtern fuer Filme und Serien
+- Genre-basierte Discover-Seite mit eigener Filterlogik
+- Detailseiten fuer Filme und Serien inkl. Cast, Trailer, Similar Titles und erweiterten Metadaten
+- Personenseiten mit Filmografie
+- `Where to watch` pro Titel mit Laenderauswahl und gruppierten TMDB-Watch-Providern
+
+Nutzerkonto und Persistenz:
+
+- Supabase Auth: Login, Signup, Logout, Passwort-Reset
+- Persistente Watchlist pro User mit RLS-Schutz
+- Watchlist-Status je Titel: `gesehen`, `gefaellt`, `gefaellt nicht`
+- Account- und Praeferenzdaten (z. B. bevorzugte Region/Jugendschutzrelevante Angaben)
+
+KI-Features:
+
+- KI-Assistent fuer Empfehlungen und gefuehrte Auswahl
+- Titelvergleich
+- Zeit- und situationsbasierte Vorschlaege
+- KI-gestuetzte Zusammenfassungen, Vibe-Tags und Content-Hinweise (UI-kontextbezogen)
+- KI-gestuetzte Watchlist-Priorisierung/Gruppierung
+
+UI/UX und Produktqualitaet:
+
+- Responsives Layout fuer Mobile und Desktop
+- Dark Mode
+- Loading-, Empty- und Error-States
+- Interaktive Listen, Filter, horizontale Card-Bereiche und klickbare Recommendation-Links
+- Altersabfrage/Jugendschutzfilter fuer nicht eingeloggte und eingeloggte Nutzung
 
 ## AI Layer
 
