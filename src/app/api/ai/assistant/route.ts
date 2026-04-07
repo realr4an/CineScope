@@ -1481,15 +1481,15 @@ function isDirectLinkRequest(prompt: string) {
   const normalized = prompt.toLowerCase();
 
   const asksForLink =
-    /\b(link|url|href|detailseite|direct link|direkter link)\b/.test(normalized) ||
-    /\b(gib mir den link|schick mir den link|send me the link|give me the link)\b/.test(
+    /\b(link|url|href|detailseite|seite|page|direct link|direkter link)\b/.test(normalized) ||
+    /\b(gib mir den link|schick mir den link|send me the link|give me the link|gib mir die seite|zeig mir die seite|show me the page)\b/.test(
       normalized
     );
   const hasDeicticReference = /\b(dazu|davon|zu dem|zu der|zu diesem|to that|for that|for it)\b/.test(
     normalized
   );
 
-  return asksForLink || (hasDeicticReference && /\b(link|url)\b/.test(normalized));
+  return asksForLink || (hasDeicticReference && /\b(link|url|seite|page)\b/.test(normalized));
 }
 
 function extractAssistantLeadTitle(content: string) {
@@ -1499,7 +1499,16 @@ function extractAssistantLeadTitle(content: string) {
     return null;
   }
 
+  const quotedMatch = normalized.match(/["'„“]([^"'„“”]{2,90})["'“”]/);
+  const quotedCandidate = quotedMatch?.[1]?.trim();
+  if (quotedCandidate && /[a-zA-Z]/.test(quotedCandidate)) {
+    return quotedCandidate;
+  }
+
   const patterns = [
+    /infos?\s+zu\s+["'„“]?(.+?)["'“”]?(?:[.!?]|$)/i,
+    /information(?:en)?\s+zu\s+["'„“]?(.+?)["'“”]?(?:[.!?]|$)/i,
+    /about\s+["'“”]?(.+?)["'“”]?(?:[.!?]|$)/i,
     /^(.+?)\s+ist\s+ein(?:e)?\s+/i,
     /^(.+?)\s+is\s+(?:a|an)\s+/i
   ] as const;
