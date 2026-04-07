@@ -2088,17 +2088,7 @@ export async function POST(request: Request) {
 
         const assistantPicks =
           data.intent === "recommend"
-            ? (
-                await topUpAssistantPicks({
-                  picks: noveltyFilteredPicks,
-                  requestedPickCount,
-                  mediaType: parsed.data.mediaType,
-                  animeIntent,
-                  noveltyRequested,
-                  blockedTitles,
-                  locale
-                })
-              ).slice(0, requestedPickCount)
+            ? noveltyFilteredPicks.slice(0, requestedPickCount)
             : [];
         const partialRecommendResult =
           data.intent === "recommend" &&
