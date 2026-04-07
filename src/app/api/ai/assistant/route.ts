@@ -14,6 +14,16 @@ import {
   resolveAllowedAIPicks
 } from "@/lib/ai/formatters";
 import { getDiscoverResults } from "@/lib/tmdb/discover";
+import {
+  mapWatchProvidersForRegion,
+  getMovieWatchProviders,
+  getTvWatchProviders
+} from "@/lib/tmdb/watch-providers";
+import {
+  DEFAULT_WATCH_REGION,
+  WATCH_REGION_COOKIE_NAME,
+  normalizeWatchRegionCode
+} from "@/lib/tmdb/watch-provider-preference";
 import { askOpenRouterJson } from "@/lib/ai/openrouter";
 import { runAssistantSafetyGate, sanitizeAssistantInputText } from "@/lib/ai/assistant-guard";
 import {
@@ -45,11 +55,33 @@ import type { AITitleContext } from "@/lib/ai/types";
 
 const MAX_ASSISTANT_SUGGESTIONS = 8;
 const MAX_ASSISTANT_CONTEXT_MESSAGES = 10;
+const WATCH_PROVIDER_GROUP_ORDER = ["flatrate", "free", "ads", "rent", "buy"] as const;
 type EpisodeRuntimePreference = {
   mode: "around" | "max" | "min";
   minutes: number;
   tolerance: number;
 };
+
+function getCookieValue(cookieHeader: string | null | undefined, key: string) {
+  if (!cookieHeader) {
+    return null;
+  }
+
+  const parts = cookieHeader.split(";");
+  for (const part of parts) {
+    const [rawName, ...rawValue] = part.trim().split("=");
+    if (rawName === key) {
+      return rawValue.join("=");
+    }
+  }
+
+  return null;
+}
+
+function getPreferredWatchRegionFromCookieHeader(cookieHeader: string | null | undefined) {
+  const rawValue = getCookieValue(cookieHeader, WATCH_REGION_COOKIE_NAME);
+  return normalizeWatchRegionCode(rawValue) ?? DEFAULT_WATCH_REGION;
+}
 
 function getText(locale: Locale) {
   return locale === "en"
@@ -93,6 +125,12 @@ function getText(locale: Locale) {
           "Want similar titles next, or a quick fit-check against your taste?",
         titleInfoClarify:
           "I can do that. Please give me the exact title so I can answer reliably.",
+        linkMissingLead:
+          "I can share the link, but I need the exact title first.",
+        linkMissingNext:
+          "For example: 'Give me the link to One Punch Man'.",
+        linkProvidedNext:
+          "If you want, I can immediately suggest similar titles.",
         forbiddenOrigin: "Cross-origin requests are not allowed.",
         rateLimited: "Too many AI requests. Please try again in a moment.",
         unsafePrompt: "The request contains unsafe instruction patterns.",
@@ -141,6 +179,12 @@ function getText(locale: Locale) {
           "Willst du als Nächstes ähnliche Titel oder einen kurzen Fit-Check zu deinem Geschmack?",
         titleInfoClarify:
           "Gern. Nenne mir bitte den genauen Titel, damit ich sicher dazu antworten kann.",
+        linkMissingLead:
+          "Ich kann den Link gern schicken, brauche dafür aber den genauen Titel.",
+        linkMissingNext:
+          "Zum Beispiel: 'Gib mir den Link zu One Punch Man'.",
+        linkProvidedNext:
+          "Wenn du möchtest, kann ich dir direkt ähnliche Titel dazu empfehlen.",
         forbiddenOrigin: "Cross-Origin-Anfragen sind nicht erlaubt.",
         rateLimited: "Zu viele KI-Anfragen. Bitte versuche es gleich erneut.",
         unsafePrompt: "Die Anfrage enthält unsichere Instruktionsmuster.",
@@ -592,6 +636,99 @@ function compactOverviewForChat(overview: string | null | undefined) {
   return short.length > 320 ? `${short.slice(0, 317).trimEnd()}...` : short;
 }
 
+function isStreamingAvailabilityPrompt(prompt: string) {
+  const normalized = prompt.toLowerCase();
+
+  return (
+    /\b(streaming|streamen|streambar|watch provider|where to watch|anbieter|anbietern|wo schauen|wo gucken|verf[uü]gbar)\b/.test(
+      normalized
+    ) ||
+    /\b(netflix|prime video|amazon prime|disney\+|disney plus|wow|sky|apple tv|hulu|paramount\+|rtl\+)\b/.test(
+      normalized
+    )
+  );
+}
+
+function isComprehensiveTitleInfoRequest(prompt: string) {
+  const normalized = prompt.toLowerCase();
+
+  return (
+    /\b(alle infos|alle informationen|alles [uü]ber|komplette infos|vollst[aä]ndige infos|full details|all details|all info|everything about)\b/.test(
+      normalized
+    )
+  );
+}
+
+async function buildWhereToWatchSummaryForTitle(
+  title: AITitleContext,
+  locale: Locale,
+  regionCode: string
+) {
+  try {
+    const rawResponse =
+      title.mediaType === "movie"
+        ? await getMovieWatchProviders(title.tmdbId)
+        : await getTvWatchProviders(title.tmdbId);
+    const mapped = mapWatchProvidersForRegion(rawResponse, regionCode);
+    const regionLabel = mapped.regionName || mapped.regionCode;
+    const labels =
+      locale === "en"
+        ? {
+            flatrate: "Subscription",
+            free: "Free",
+            ads: "With ads",
+            rent: "Rent",
+            buy: "Buy"
+          }
+        : {
+            flatrate: "Im Abo",
+            free: "Kostenlos",
+            ads: "Mit Werbung",
+            rent: "Leihen",
+            buy: "Kaufen"
+          };
+
+    const segments = WATCH_PROVIDER_GROUP_ORDER.map(group => {
+      const providers = mapped[group];
+      if (!providers.length) {
+        return null;
+      }
+
+      const names = providers
+        .slice(0, 4)
+        .map(provider => provider.providerName)
+        .join(", ");
+      return `${labels[group]}: ${names}.`;
+    }).filter((segment): segment is string => Boolean(segment));
+
+    if (!segments.length) {
+      return locale === "en"
+        ? `Where to watch (${regionLabel}): no providers are currently listed in TMDB.`
+        : `Where to watch (${regionLabel}): aktuell sind in TMDB keine Anbieter hinterlegt.`;
+    }
+
+    const tmdbLink = mapped.link
+      ? locale === "en"
+        ? `TMDB link: ${mapped.link}.`
+        : `TMDB-Link: ${mapped.link}.`
+      : null;
+
+    return [
+      locale === "en"
+        ? `Where to watch in ${regionLabel}:`
+        : `Where to watch in ${regionLabel}:`,
+      ...segments,
+      tmdbLink
+    ]
+      .filter(Boolean)
+      .join(" ");
+  } catch {
+    return locale === "en"
+      ? "Where-to-watch data could not be loaded right now."
+      : "Where-to-watch-Daten konnten gerade nicht geladen werden.";
+  }
+}
+
 function buildTitleInfoLead(title: AITitleContext, locale: Locale) {
   const overview = compactOverviewForChat(title.overview);
   const genres = title.genres.slice(0, 3).join(", ");
@@ -688,6 +825,56 @@ function buildExtendedTitleInfoLead(title: AITitleContext, locale: Locale) {
   return parts.join(" ");
 }
 
+async function buildComprehensiveTitleInfoLead(
+  title: AITitleContext,
+  locale: Locale,
+  regionCode: string
+) {
+  const parts: string[] = [buildExtendedTitleInfoLead(title, locale)];
+
+  if (title.tagline) {
+    parts.push(locale === "en" ? `Tagline: ${title.tagline}.` : `Tagline: ${title.tagline}.`);
+  }
+
+  if (title.releaseDate) {
+    parts.push(
+      locale === "en"
+        ? `Release date: ${title.releaseDate}.`
+        : `Erscheinungsdatum: ${title.releaseDate}.`
+    );
+  }
+
+  if (typeof title.rating === "number") {
+    const rating = title.rating.toFixed(1);
+    const votes = title.voteCount?.toLocaleString(locale === "en" ? "en-US" : "de-DE");
+    parts.push(
+      locale === "en"
+        ? `Rating: ${rating}/10${votes ? ` (${votes} votes)` : ""}.`
+        : `Bewertung: ${rating}/10${votes ? ` (${votes} Stimmen)` : ""}.`
+    );
+  }
+
+  if (title.spokenLanguages?.length) {
+    parts.push(
+      locale === "en"
+        ? `Spoken languages: ${title.spokenLanguages.slice(0, 8).join(", ")}.`
+        : `Gesprochene Sprachen: ${title.spokenLanguages.slice(0, 8).join(", ")}.`
+    );
+  }
+
+  if (title.networks?.length) {
+    parts.push(
+      locale === "en"
+        ? `Networks/platforms: ${title.networks.slice(0, 6).join(", ")}.`
+        : `Sender/Plattformen: ${title.networks.slice(0, 6).join(", ")}.`
+    );
+  }
+
+  parts.push(await buildWhereToWatchSummaryForTitle(title, locale, regionCode));
+
+  return parts.join(" ");
+}
+
 function buildPersonInfoLead(input: {
   name: string;
   knownForDepartment: string | null;
@@ -770,12 +957,21 @@ function isWeakTitleInfoLead(lead: string, locale: Locale) {
   return generic.some(fragment => normalized.includes(fragment));
 }
 
-function buildTitleDetailLead(title: AITitleContext, prompt: string, locale: Locale) {
+async function buildTitleDetailLead(
+  title: AITitleContext,
+  prompt: string,
+  locale: Locale,
+  regionCode: string
+) {
   const normalized = prompt.toLowerCase();
   const unknown =
     locale === "en"
       ? "I do not have that detail in the current data snapshot."
       : "Dazu habe ich im aktuellen Datensatz keine verlässliche Angabe.";
+
+  if (isStreamingAvailabilityPrompt(normalized)) {
+    return buildWhereToWatchSummaryForTitle(title, locale, regionCode);
+  }
 
   if (
     /\b(wie lange|laufzeit|folgenl[aä]nge|episode length|runtime|how long|minutes?)\b/.test(
@@ -858,7 +1054,7 @@ function buildTitleDetailLead(title: AITitleContext, prompt: string, locale: Loc
   }
 
   if (/\b(ausführlicher|ausfuehrlicher|mehr details|mehr dazu|more details|tell me more)\b/.test(normalized)) {
-    return buildExtendedTitleInfoLead(title, locale);
+    return buildComprehensiveTitleInfoLead(title, locale, regionCode);
   }
 
   return null;
@@ -1281,6 +1477,45 @@ function isTitleInfoFollowUpIntent(prompt: string) {
   );
 }
 
+function isDirectLinkRequest(prompt: string) {
+  const normalized = prompt.toLowerCase();
+
+  const asksForLink =
+    /\b(link|url|href|detailseite|direct link|direkter link)\b/.test(normalized) ||
+    /\b(gib mir den link|schick mir den link|send me the link|give me the link)\b/.test(
+      normalized
+    );
+  const hasDeicticReference = /\b(dazu|davon|zu dem|zu der|zu diesem|to that|for that|for it)\b/.test(
+    normalized
+  );
+
+  return asksForLink || (hasDeicticReference && /\b(link|url)\b/.test(normalized));
+}
+
+function extractAssistantLeadTitle(content: string) {
+  const normalized = content.trim();
+
+  if (!normalized) {
+    return null;
+  }
+
+  const patterns = [
+    /^(.+?)\s+ist\s+ein(?:e)?\s+/i,
+    /^(.+?)\s+is\s+(?:a|an)\s+/i
+  ] as const;
+
+  for (const pattern of patterns) {
+    const match = normalized.match(pattern);
+    const candidate = match?.[1]?.trim();
+
+    if (candidate && candidate.length <= 90 && /[a-zA-Z]/.test(candidate)) {
+      return candidate.replace(/^[\s"'`„“]+|[\s"'`“”]+$/g, "").trim();
+    }
+  }
+
+  return null;
+}
+
 function isPersonInfoIntent(prompt: string) {
   const normalized = prompt.toLowerCase();
 
@@ -1443,6 +1678,24 @@ function extractRecentConversationTitleCandidate(
     const standalone = extractStandaloneTitleCandidate(message.content);
     if (standalone) {
       return standalone;
+    }
+  }
+
+  return null;
+}
+
+function extractRecentAssistantTitleCandidate(
+  conversation: Array<{ role: "user" | "assistant"; content: string }>
+) {
+  const recentAssistantMessages = conversation
+    .filter(message => message.role === "assistant")
+    .slice(-4)
+    .reverse();
+
+  for (const message of recentAssistantMessages) {
+    const candidate = extractAssistantLeadTitle(message.content);
+    if (candidate) {
+      return candidate;
     }
   }
 
@@ -1944,6 +2197,9 @@ export async function POST(request: Request) {
 
         const safePrompt = assistantSafety.sanitizedPrompt;
         const safeConversation = assistantSafety.sanitizedConversation;
+        const requestedWatchRegion = getPreferredWatchRegionFromCookieHeader(
+          request.headers.get("cookie")
+        );
         const explicitRecommendationIntent = isExplicitRecommendationIntent(safePrompt);
         const { requestedPickCount, requestedRaw, cappedBySystem } = getRequestedPickCount({
           prompt: safePrompt,
@@ -2122,6 +2378,139 @@ export async function POST(request: Request) {
           }
         }
 
+        if (isDirectLinkRequest(safePrompt)) {
+          const recentSuggestedTitles = extractMostRecentSuggestedTitles(safeConversation);
+          const inferredLinkTitleQuery =
+            extractLikelyTitleQuery(safePrompt) ??
+            extractStandaloneTitleCandidate(safePrompt) ??
+            extractRecentConversationTitleCandidate(safeConversation) ??
+            extractRecentAssistantTitleCandidate(safeConversation) ??
+            recentSuggestedTitles[0] ??
+            references[0]?.title ??
+            null;
+
+          let linkContext = pickReferenceForTitleQuery(references, inferredLinkTitleQuery);
+
+          if (!linkContext && inferredLinkTitleQuery) {
+            const resolved = await ensureResolvedMediaAllowed(
+              { query: inferredLinkTitleQuery, mediaType: "all" },
+              locale
+            );
+
+            if (resolved.resolved) {
+              linkContext = resolved.resolved.context;
+            }
+          }
+
+          if (linkContext) {
+            return NextResponse.json({
+              mode: "assistant",
+              data: {
+                intent: "title_info",
+                lead:
+                  locale === "en"
+                    ? `Here is the direct link to ${linkContext.title}.`
+                    : `Hier ist der direkte Link zu ${linkContext.title}.`,
+                picks: [
+                  {
+                    title: linkContext.title,
+                    mediaType: linkContext.mediaType,
+                    reason:
+                      locale === "en"
+                        ? "Open the detail page for trailers, cast, ratings and similar picks."
+                        : "Öffne die Detailseite mit Trailer, Besetzung, Bewertungen und ähnlichen Titeln.",
+                    tmdbId: linkContext.tmdbId,
+                    href: `/${linkContext.mediaType}/${linkContext.tmdbId}`
+                  }
+                ],
+                nextStep: text.linkProvidedNext
+              }
+            });
+          }
+
+          return NextResponse.json({
+            mode: "assistant",
+            data: {
+              intent: "clarify",
+              lead: text.linkMissingLead,
+              picks: [],
+              nextStep: text.linkMissingNext
+            }
+          });
+        }
+
+        const deterministicTitleInfoRequest =
+          !explicitRecommendationIntent &&
+          (isComprehensiveTitleInfoRequest(safePrompt) ||
+            isStreamingAvailabilityPrompt(safePrompt) ||
+            isTitleDetailFollowUpPrompt(safePrompt) ||
+            isTitleInfoFollowUpIntent(safePrompt));
+
+        if (deterministicTitleInfoRequest) {
+          const recentSuggestedTitles = extractMostRecentSuggestedTitles(safeConversation);
+          const inferredTitleQuery =
+            extractLikelyTitleQuery(safePrompt) ??
+            extractStandaloneTitleCandidate(safePrompt) ??
+            extractRecentConversationTitleCandidate(safeConversation) ??
+            extractRecentAssistantTitleCandidate(safeConversation) ??
+            recentSuggestedTitles[0] ??
+            references[0]?.title ??
+            null;
+
+          let titleContext = pickReferenceForTitleQuery(references, inferredTitleQuery);
+
+          if (!titleContext && inferredTitleQuery) {
+            const resolved = await ensureResolvedMediaAllowed(
+              { query: inferredTitleQuery, mediaType: "all" },
+              locale
+            );
+            if (resolved.resolved) {
+              titleContext = resolved.resolved.context;
+            }
+          }
+
+          if (!titleContext) {
+            return NextResponse.json({
+              mode: "assistant",
+              data: {
+                intent: "clarify",
+                lead: text.titleInfoClarify,
+                picks: [],
+                nextStep:
+                  locale === "en"
+                    ? "Name the exact movie or series title you mean."
+                    : "Nenne bitte den genauen Film- oder Serientitel."
+              }
+            });
+          }
+
+          const detailLead = await buildTitleDetailLead(
+            titleContext,
+            safePrompt,
+            locale,
+            requestedWatchRegion
+          );
+          const lead =
+            detailLead ??
+            (isComprehensiveTitleInfoRequest(safePrompt) || isTitleInfoFollowUpIntent(safePrompt)
+              ? await buildComprehensiveTitleInfoLead(
+                  titleContext,
+                  locale,
+                  requestedWatchRegion
+                )
+              : buildTitleInfoLead(titleContext, locale));
+
+          return NextResponse.json({
+            mode: "assistant",
+            data: {
+              intent: "title_info",
+              lead,
+              picks: [],
+              nextStep: text.titleInfoNext
+            }
+          });
+        }
+
         const data = await askOpenRouterJson(
           assistantPrompt(
             {
@@ -2143,7 +2532,16 @@ export async function POST(request: Request) {
 
         let normalizedLead = data.lead;
         let normalizedNextStep = data.nextStep;
-        if (data.intent === "title_info" && isWeakTitleInfoLead(data.lead, locale)) {
+        const forceDeterministicTitleInfo =
+          data.intent === "title_info" &&
+          (isComprehensiveTitleInfoRequest(safePrompt) ||
+            isStreamingAvailabilityPrompt(safePrompt) ||
+            isTitleDetailFollowUpPrompt(safePrompt) ||
+            isTitleInfoFollowUpIntent(safePrompt));
+        if (
+          data.intent === "title_info" &&
+          (forceDeterministicTitleInfo || isWeakTitleInfoLead(data.lead, locale))
+        ) {
           const recentSuggestedTitles = extractMostRecentSuggestedTitles(safeConversation);
           const directTitleQuery = extractLikelyTitleQuery(safePrompt);
           const standaloneTitleCandidate = extractStandaloneTitleCandidate(safePrompt);
@@ -2172,7 +2570,21 @@ export async function POST(request: Request) {
           }
 
           if (titleContext) {
-            normalizedLead = buildExtendedTitleInfoLead(titleContext, locale);
+            const detailLead = await buildTitleDetailLead(
+              titleContext,
+              safePrompt,
+              locale,
+              requestedWatchRegion
+            );
+            normalizedLead =
+              detailLead ??
+              (isComprehensiveTitleInfoRequest(safePrompt) || isTitleInfoFollowUpIntent(safePrompt)
+                ? await buildComprehensiveTitleInfoLead(
+                    titleContext,
+                    locale,
+                    requestedWatchRegion
+                  )
+                : buildExtendedTitleInfoLead(titleContext, locale));
             normalizedNextStep = text.titleInfoNext;
           }
         }
