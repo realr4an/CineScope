@@ -17,7 +17,7 @@ export const dictionaries = {
     nav: {
       discover: "Entdecken",
       search: "Suche",
-      categories: "Kategorien",
+      categories: "Genre-Entdeckung",
       ai: "KI",
       watchlist: "Watchlist"
     },
@@ -39,7 +39,7 @@ export const dictionaries = {
         "TMDB liefert Live-Daten für Trending, Popular, Detailseiten und Cast. Supabase speichert deine Watchlist dauerhaft, OpenRouter ergänzt intelligente Empfehlungen.",
       featured: "Featured ansehen",
       startSearch: "Suche starten",
-      exploreCategories: "Kategorien entdecken",
+      exploreCategories: "Genre-Entdeckung",
       trending: "Trending",
       popular: "Popular",
       aiAssist: "AI Assist",
@@ -88,9 +88,9 @@ export const dictionaries = {
       search: "Suchen"
     },
     discoverPage: {
-      title: "Kategorien",
+      title: "Genre-Entdeckung",
       description:
-        "Finde Filme und Serien nach Kategorien mit Rating-, Jahr- und Sortierungsfiltern.",
+        "Finde Filme und Serien genrebasiert mit Rating-, Jahr- und Sortierungsfiltern.",
       discoverMovies: "Filme entdecken",
       discoverSeries: "Serien entdecken",
       resultsFromTmdb: "Treffer aus TMDB Discover",
@@ -99,7 +99,7 @@ export const dictionaries = {
     discoverFilters: {
       movies: "Filme",
       series: "Serien",
-      allCategories: "Alle Kategorien",
+      allCategories: "Alle Genres",
       year: "Jahr",
       yearFrom: "Jahr von",
       yearTo: "Jahr bis",
@@ -253,7 +253,7 @@ export const dictionaries = {
     nav: {
       discover: "Discover",
       search: "Search",
-      categories: "Categories",
+      categories: "Genre discovery",
       ai: "AI",
       watchlist: "Watchlist"
     },
@@ -275,7 +275,7 @@ export const dictionaries = {
         "TMDB powers live trending, popular, detail and cast data. Supabase keeps your watchlist persistent, and OpenRouter adds smart recommendations.",
       featured: "View featured title",
       startSearch: "Start search",
-      exploreCategories: "Explore categories",
+      exploreCategories: "Genre discovery",
       trending: "Trending",
       popular: "Popular",
       aiAssist: "AI Assist",
@@ -324,8 +324,8 @@ export const dictionaries = {
       search: "Search"
     },
     discoverPage: {
-      title: "Categories",
-      description: "Find movies and series by category with rating, year and sort filters.",
+      title: "Genre discovery",
+      description: "Find movies and series by genre with rating, year and sort filters.",
       discoverMovies: "Discover movies",
       discoverSeries: "Discover series",
       resultsFromTmdb: "results from TMDB Discover",
@@ -334,7 +334,7 @@ export const dictionaries = {
     discoverFilters: {
       movies: "Movies",
       series: "Series",
-      allCategories: "All categories",
+      allCategories: "All genres",
       year: "Year",
       yearFrom: "Year from",
       yearTo: "Year to",

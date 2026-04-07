@@ -135,6 +135,7 @@ export function DiscoverControls({
             isPending={isPending}
             typeOptions={["all", "movie", "tv"]}
             hideCategoryFilter
+            hideMediaTypeFilter
             primaryAction={{
               label: dictionary.discoverFilters.apply,
               onClick: apply

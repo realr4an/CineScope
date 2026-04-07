@@ -40,11 +40,11 @@ export default async function handler(
       : {
           methodNotAllowed: "Methode nicht erlaubt",
           noAllowedRecommendations:
-            "Es konnten aktuell keine altersgerechten Empfehlungen sicher aufgeloest werden.",
+            "Es konnten aktuell keine altersgerechten Empfehlungen sicher aufgelöst werden.",
           fallbackError: "Empfehlung fehlgeschlagen",
           forbiddenOrigin: "Cross-Origin-Anfragen sind nicht erlaubt.",
           rateLimited: "Zu viele Empfehlungsanfragen. Bitte versuche es gleich erneut.",
-          unsafePrompt: "Die Anfrage enthaelt unsichere Instruktionsmuster."
+          unsafePrompt: "Die Anfrage enthält unsichere Instruktionsmuster."
         };
 
   if (request.method !== "POST") {

@@ -378,7 +378,7 @@ export function WatchlistPageContent() {
 
     if (remainingItems.length) {
       sections.push({
-        label: locale === "en" ? "Other picks" : "Weitere Vorschlaege",
+        label: locale === "en" ? "Other picks" : "Weitere Vorschläge",
         description: undefined,
         items: remainingItems
       });

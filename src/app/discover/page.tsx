@@ -270,13 +270,13 @@ function ActiveGenreSection({
           allHint: "Genre selection is available after switching to Movies or Series."
         }
       : {
-          mediaLabel: "Zuerst Medientyp waehlen",
+          mediaLabel: "Zuerst Medientyp wählen",
           all: "Alle",
           movie: "Filme",
           tv: "Serien",
-          genreLabel: "Dann ein Genre auswaehlen",
+          genreLabel: "Dann ein Genre auswählen",
           resetGenre: "Alle Genres",
-          allHint: "Genre-Auswahl ist verfuegbar, sobald du auf Filme oder Serien wechselst."
+          allHint: "Genre-Auswahl ist verfügbar, sobald du auf Filme oder Serien wechselst."
         };
 
   return (
@@ -287,8 +287,8 @@ function ActiveGenreSection({
         genreHint={mediaType === "all" ? text.allHint : undefined}
         pendingText={
           locale === "en"
-            ? "Loading categories..."
-            : "Kategorien werden geladen..."
+            ? "Loading genres..."
+            : "Genres werden geladen..."
         }
         mediaLinks={[
           {
@@ -447,7 +447,7 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
             activeMediaType:
               mediaType === "movie" ? "Movies" : mediaType === "tv" ? "Series" : "Movies + Series",
             activeRegion: `Region: ${activeRegionName}`,
-            activeGenre: selectedGenreName ? `Category: ${selectedGenreName}` : "Category: All genres",
+            activeGenre: selectedGenreName ? `Genre: ${selectedGenreName}` : "Genre: All genres",
             totalResults: `${discoverResult.totalResults.toLocaleString("en-US")} discover results`,
             discoverLabel: selectedGenreName ? `${selectedGenreName} picks` : "Genre suggestions",
             discoverSubtitle: `Page ${discoverResult.page} of ${totalPages}. This page shows up to 60 titles.`,
@@ -457,7 +457,7 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
             next: "Next",
             noResultsTitle: "No discover results for these filters",
             noResultsDescription:
-              "Try another category, wider year range, lower minimum score or a different country."
+              "Try another genre, wider year range, lower minimum score or a different country."
           }
         : {
             spotlightTitle: "Genrebasierte Entdeckung",
@@ -466,17 +466,17 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
             activeMediaType:
               mediaType === "movie" ? "Filme" : mediaType === "tv" ? "Serien" : "Filme + Serien",
             activeRegion: `Land: ${activeRegionName}`,
-            activeGenre: selectedGenreName ? `Kategorie: ${selectedGenreName}` : "Kategorie: Alle Genres",
+            activeGenre: selectedGenreName ? `Genre: ${selectedGenreName}` : "Genre: Alle Genres",
             totalResults: `${discoverResult.totalResults.toLocaleString("de-DE")} Discover-Treffer`,
-            discoverLabel: selectedGenreName ? `${selectedGenreName} Vorschlaege` : "Genre-Vorschlaege",
+            discoverLabel: selectedGenreName ? `${selectedGenreName} Vorschläge` : "Genre-Vorschläge",
             discoverSubtitle: `Seite ${discoverResult.page} von ${totalPages}. Diese Seite zeigt bis zu 60 Titel.`,
             page: "Seite",
             of: "von",
-            previous: "Zurueck",
+            previous: "Zurück",
             next: "Weiter",
-            noResultsTitle: "Keine Discover-Treffer fuer diese Filter",
+            noResultsTitle: "Keine Discover-Treffer für diese Filter",
             noResultsDescription:
-              "Probiere eine andere Kategorie, einen groesseren Zeitraum, ein niedrigeres Mindest-Rating oder ein anderes Land."
+              "Probiere ein anderes Genre, einen größeren Zeitraum, ein niedrigeres Mindest-Rating oder ein anderes Land."
           };
 
     return (
@@ -520,7 +520,7 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
               </div>
               <div className="rounded-2xl border border-border/40 bg-background/40 px-4 py-3 text-sm">
                 <span className="text-xs uppercase tracking-wide text-muted-foreground">
-                  {locale === "en" ? "Category" : "Kategorie"}
+                  {locale === "en" ? "Genre" : "Genre"}
                 </span>
                 <p className="mt-1 font-semibold">{text.activeGenre}</p>
               </div>

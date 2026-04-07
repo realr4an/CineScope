@@ -31,7 +31,7 @@ function formatValidationError(
   return (
     fieldMessages[0] ??
     flattened.formErrors[0] ??
-    (locale === "en" ? "Invalid summary input." : "Ungueltige Zusammenfassungsdaten.")
+    (locale === "en" ? "Invalid summary input." : "Ungültige Zusammenfassungsdaten.")
   );
 }
 
@@ -54,7 +54,7 @@ export default async function handler(
           fallbackError: "Zusammenfassung fehlgeschlagen",
           forbiddenOrigin: "Cross-Origin-Anfragen sind nicht erlaubt.",
           rateLimited: "Zu viele Zusammenfassungsanfragen. Bitte versuche es gleich erneut.",
-          unsafePrompt: "Die Anfrage enthaelt unsichere Instruktionsmuster."
+          unsafePrompt: "Die Anfrage enthält unsichere Instruktionsmuster."
         };
 
   if (request.method !== "POST") {

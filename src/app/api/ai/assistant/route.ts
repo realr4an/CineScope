@@ -138,7 +138,7 @@ function getText(locale: Locale) {
         askDesiredCountNext:
           "Nenne eine Zahl zwischen 1 und 8, zum Beispiel: '6 bitte'.",
         titleInfoNext:
-          "Willst du als Naechstes aehnliche Titel oder einen kurzen Fit-Check zu deinem Geschmack?",
+          "Willst du als Nächstes ähnliche Titel oder einen kurzen Fit-Check zu deinem Geschmack?",
         titleInfoClarify:
           "Gern. Nenne mir bitte den genauen Titel, damit ich sicher dazu antworten kann.",
         forbiddenOrigin: "Cross-Origin-Anfragen sind nicht erlaubt.",
@@ -608,7 +608,7 @@ function buildTitleInfoLead(title: AITitleContext, locale: Locale) {
     overview ||
     (locale === "en"
       ? "I do not have a detailed synopsis in the current data snapshot."
-      : "Ich habe aktuell keine ausfuehrliche Inhaltsbeschreibung im Datensatz.");
+      : "Ich habe aktuell keine ausführliche Inhaltsbeschreibung im Datensatz.");
 
   const details: string[] = [];
   if (genres) {
@@ -1288,10 +1288,53 @@ function isPersonInfoIntent(prompt: string) {
     /\b(schauspieler|schauspielerin|schaupieler|darsteller|person|regisseur|director|actor|actress|cast member)\b/.test(
       normalized
     ) ||
+    /\b(wo\s+spielt?|wo\s+spielt?\s+.+\s+mit|where\s+does\s+.+\s+(play|star)|mitspielt?)\b/.test(
+      normalized
+    ) ||
     /\b(über\s+den\s+schauspieler|ueber den schauspieler|about the actor|about dwayne johnson)\b/.test(
       normalized
     )
   );
+}
+
+function isPersonFilmographyRequest(prompt: string) {
+  const normalized = prompt.toLowerCase();
+
+  return (
+    /\b(wo\s+spielt?|mitspielt?|filmografie|filmography|starring|stars?\s+in)\b/.test(normalized) ||
+    (/\b(film|filme|movie|movies|serie|serien|show|shows)\b/.test(normalized) &&
+      /\b(mit|with|von|from)\b/.test(normalized))
+  );
+}
+
+function normalizePersonQueryAlias(query: string) {
+  const normalized = normalizeTitleForLookup(query);
+
+  if (normalized === "the rock" || normalized === "rock") {
+    return "Dwayne Johnson";
+  }
+
+  return query;
+}
+
+function inferPersonRequestMediaType(
+  prompt: string,
+  preferred: "all" | "movie" | "tv"
+) {
+  if (preferred !== "all") {
+    return preferred;
+  }
+
+  const normalized = prompt.toLowerCase();
+  if (/\b(film|filme|movie|movies)\b/.test(normalized)) {
+    return "movie" as const;
+  }
+
+  if (/\b(serie|serien|show|shows|tv)\b/.test(normalized)) {
+    return "tv" as const;
+  }
+
+  return "all" as const;
 }
 
 function extractLikelyPersonQuery(prompt: string) {
@@ -1305,7 +1348,11 @@ function extractLikelyPersonQuery(prompt: string) {
     /(?:über|ueber)\s+den\s+schauspieler\s+["„“]?(.+?)["“”]?\s*[.!?]?$/i,
     /(?:über|ueber)\s+die\s+schauspielerin\s+["„“]?(.+?)["“”]?\s*[.!?]?$/i,
     /(?:mehr\s+über|infos?\s+zu)\s+dem\s+schauspieler\s+["„“]?(.+?)["“”]?\s*[.!?]?$/i,
+    /\bwo\s+spielt?\s+["„“]?(.+?)["“”]?\s+mit\b/i,
+    /(?:filme?|serien?|movies?|shows?)\s+mit\s+["„“]?(.+?)["“”]?\s*[.!?]?$/i,
     /(?:tell\s+me\s+about|more\s+about)\s+(?:the\s+actor|actor)\s+["“”]?(.+?)["“”]?\s*[.!?]?$/i,
+    /\bwhere\s+does\s+["“”]?(.+?)["“”]?\s+(?:play|star)\b/i,
+    /(?:movies?|shows?)\s+with\s+["“”]?(.+?)["“”]?\s*[.!?]?$/i,
     /(?:actor|actress|director)\s+["“”]?(.+?)["“”]?\s*[.!?]?$/i
   ] as const;
 
@@ -1978,19 +2025,19 @@ export async function POST(request: Request) {
         }
 
         const explicitPersonQuery = extractLikelyPersonQuery(safePrompt);
-        const personInfoRequested =
-          !explicitRecommendationIntent &&
-          (isPersonInfoIntent(safePrompt) || !!explicitPersonQuery);
+        const personInfoRequested = isPersonInfoIntent(safePrompt) || !!explicitPersonQuery;
 
         if (personInfoRequested) {
           const personCandidateQuery =
-            explicitPersonQuery ??
-            safePrompt
+            normalizePersonQueryAlias(
+              explicitPersonQuery ??
+                safePrompt
               .replace(/\b(nein|bitte|doch|eigentlich|nur)\b/gi, " ")
               .replace(/\b(über|ueber)\b/gi, " ")
               .replace(/\b(den|die|das)\b/gi, " ")
               .replace(/\b(schauspieler|schauspielerin|darsteller|actor|actress|person)\b/gi, " ")
-              .trim();
+                .trim()
+            );
 
           const personResult = await resolvePersonAIContext({
             query: personCandidateQuery,
@@ -1998,6 +2045,65 @@ export async function POST(request: Request) {
           });
 
           if (personResult) {
+            const personFilmographyRequested =
+              explicitRecommendationIntent || isPersonFilmographyRequest(safePrompt);
+
+            if (personFilmographyRequested) {
+              const targetMediaType = inferPersonRequestMediaType(safePrompt, parsed.data.mediaType);
+              const uniquePicks = personResult.context.topCredits
+                .filter(credit => targetMediaType === "all" || credit.mediaType === targetMediaType)
+                .map(credit => ({
+                  title: credit.title,
+                  mediaType: credit.mediaType,
+                  reason:
+                    locale === "en"
+                      ? `${personResult.context.name}: ${credit.roleLabel}`
+                      : `${personResult.context.name}: ${credit.roleLabel}`
+                }))
+                .filter(
+                  (pick, index, picks) =>
+                    picks.findIndex(
+                      candidate =>
+                        normalizeAssistantTitleValue(candidate.title) ===
+                          normalizeAssistantTitleValue(pick.title) &&
+                        candidate.mediaType === pick.mediaType
+                    ) === index
+                )
+                .slice(0, requestedPickCount);
+              const resolvedFilmographyPicks = await resolveAllowedAIPicks(uniquePicks, locale);
+
+              if (resolvedFilmographyPicks.length) {
+                const typeLabel =
+                  targetMediaType === "movie"
+                    ? locale === "en"
+                      ? "movies"
+                      : "Filme"
+                    : targetMediaType === "tv"
+                      ? locale === "en"
+                        ? "series"
+                        : "Serien"
+                      : locale === "en"
+                        ? "titles"
+                        : "Titel";
+
+                return NextResponse.json({
+                  mode: "assistant",
+                  data: {
+                    intent: "recommend",
+                    lead:
+                      locale === "en"
+                        ? `Here are ${resolvedFilmographyPicks.length} ${typeLabel} with ${personResult.context.name}.`
+                        : `Hier sind ${resolvedFilmographyPicks.length} ${typeLabel} mit ${personResult.context.name}.`,
+                    picks: resolvedFilmographyPicks,
+                    nextStep:
+                      locale === "en"
+                        ? "If you want, I can suggest similar picks for one of these titles."
+                        : "Wenn du möchtest, kann ich dir zu einem dieser Titel ähnliche Empfehlungen geben."
+                  }
+                });
+              }
+            }
+
             return NextResponse.json({
               mode: "assistant",
               data: {

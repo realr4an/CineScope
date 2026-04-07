@@ -41,7 +41,8 @@ export function SearchSidebarFilters({
   isPending,
   typeOptions = ["all", "movie", "tv"],
   primaryAction,
-  hideCategoryFilter = false
+  hideCategoryFilter = false,
+  hideMediaTypeFilter = false
 }: {
   movieGenres: Genre[];
   tvGenres: Genre[];
@@ -56,6 +57,7 @@ export function SearchSidebarFilters({
     onClick: () => void;
   };
   hideCategoryFilter?: boolean;
+  hideMediaTypeFilter?: boolean;
 }) {
   const { dictionary, locale } = useLanguage();
   const [providerSearchQuery, setProviderSearchQuery] = useState("");
@@ -69,7 +71,7 @@ export function SearchSidebarFilters({
           mediaType: "Media type",
           sortBy: "Sort by",
           sortDirection: "Direction",
-          category: "Category",
+          category: "Genre",
           ascending: "Ascending",
           descending: "Descending",
           chooseTypeFirst: "Select media type first",
@@ -87,16 +89,16 @@ export function SearchSidebarFilters({
           mediaType: "Medientyp",
           sortBy: "Sortierung",
           sortDirection: "Richtung",
-          category: "Kategorie",
+          category: "Genre",
           ascending: "Aufsteigend",
           descending: "Absteigend",
-          chooseTypeFirst: "Erst Medientyp waehlen",
+          chooseTypeFirst: "Erst Medientyp wählen",
           clearStreaming: "Alle entfernen",
           providerSearchPlaceholder: "Streamingdienste suchen...",
-          selectedStreaming: "Ausgewaehlte Dienste",
+          selectedStreaming: "Ausgewählte Dienste",
           noStreamingMatch: "Kein Dienst passt zu deiner Suche.",
-          noStreamingOptions: "Fuer diese Auswahl sind keine Streamingdienste verfuegbar.",
-          reset: "Filter zuruecksetzen"
+          noStreamingOptions: "Für diese Auswahl sind keine Streamingdienste verfügbar.",
+          reset: "Filter zurücksetzen"
         };
   const pendingText =
     locale === "en" ? "Applying filters and loading..." : "Filter werden angewendet und geladen...";
@@ -176,41 +178,43 @@ export function SearchSidebarFilters({
         ) : null}
       </div>
 
-      <div className="space-y-3">
-        <p className="text-sm font-medium">{text.mediaType}</p>
-        <div className="grid gap-2">
-          {typeOptions.map(nextType => {
-            const label =
-              nextType === "all"
-                ? dictionary.searchForm.all
-                : nextType === "movie"
-                  ? dictionary.searchForm.movies
-                  : dictionary.searchForm.series;
+      {!hideMediaTypeFilter ? (
+        <div className="space-y-3">
+          <p className="text-sm font-medium">{text.mediaType}</p>
+          <div className="grid gap-2">
+            {typeOptions.map(nextType => {
+              const label =
+                nextType === "all"
+                  ? dictionary.searchForm.all
+                  : nextType === "movie"
+                    ? dictionary.searchForm.movies
+                    : dictionary.searchForm.series;
 
-            return (
-              <button
-                key={nextType}
-                type="button"
-                onClick={() =>
-                  onChange({
-                    ...value,
-                    type: nextType,
-                    genre: nextType === "all" ? undefined : value.genre,
-                    providers: []
-                  })
-                }
-                className={`rounded-xl border px-3 py-2 text-left text-sm transition ${
-                  value.type === nextType
-                    ? "border-primary bg-primary/10 text-foreground"
-                    : "border-border/50 bg-background hover:border-primary/40"
-                }`}
-              >
-                {label}
-              </button>
-            );
-          })}
+              return (
+                <button
+                  key={nextType}
+                  type="button"
+                  onClick={() =>
+                    onChange({
+                      ...value,
+                      type: nextType,
+                      genre: nextType === "all" ? undefined : value.genre,
+                      providers: []
+                    })
+                  }
+                  className={`rounded-xl border px-3 py-2 text-left text-sm transition ${
+                    value.type === nextType
+                      ? "border-primary bg-primary/10 text-foreground"
+                      : "border-border/50 bg-background hover:border-primary/40"
+                  }`}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
         </div>
-      </div>
+      ) : null}
 
       {!hideCategoryFilter ? (
         <div className="space-y-3">
