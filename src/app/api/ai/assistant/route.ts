@@ -5,6 +5,7 @@ import {
   getMediaAIContext,
   getManyMediaAIContexts,
   getPersonAIContext,
+  resolvePersonAIContext,
   resolveMediaAIContext
 } from "@/lib/ai/context";
 import {
@@ -687,6 +688,60 @@ function buildExtendedTitleInfoLead(title: AITitleContext, locale: Locale) {
   return parts.join(" ");
 }
 
+function buildPersonInfoLead(input: {
+  name: string;
+  knownForDepartment: string | null;
+  biography: string;
+  placeOfBirth: string | null;
+  birthday: string | null;
+  topCredits: Array<{ title: string; mediaType: "movie" | "tv" }>;
+  locale: Locale;
+}) {
+  const parts: string[] = [];
+  const isEn = input.locale === "en";
+  const bio = compactOverviewForChat(input.biography);
+  const credits = input.topCredits
+    .slice(0, 5)
+    .map(credit => `${credit.title}${credit.mediaType === "tv" ? " (Serie)" : ""}`)
+    .join(", ");
+
+  parts.push(
+    isEn
+      ? `${input.name} is primarily known for ${input.knownForDepartment ?? "acting"}.`
+      : `${input.name} ist vor allem bekannt für ${input.knownForDepartment ?? "Schauspiel"}.`
+  );
+
+  if (bio) {
+    parts.push(bio);
+  }
+
+  if (input.birthday) {
+    parts.push(
+      isEn
+        ? `Birthday: ${input.birthday}.`
+        : `Geboren: ${input.birthday}.`
+    );
+  }
+
+  if (input.placeOfBirth) {
+    parts.push(
+      isEn
+        ? `Place of birth: ${input.placeOfBirth}.`
+        : `Geburtsort: ${input.placeOfBirth}.`
+    );
+  }
+
+  if (credits) {
+    parts.push(
+      isEn
+        ? `Notable titles: ${credits}.`
+        : `Bekannte Titel: ${credits}.`
+    );
+  }
+
+  return parts.join(" ");
+}
+
 function isWeakTitleInfoLead(lead: string, locale: Locale) {
   const normalized = lead.trim().toLowerCase();
 
@@ -1224,6 +1279,45 @@ function isTitleInfoFollowUpIntent(prompt: string) {
     /\b(was passiert|worum geht|mehr über|mehr dazu|infos?\s+zu|erzähl mir mehr)\b/.test(normalized) ||
     /\b(what happens|what is .* about|tell me more|more about|info about)\b/.test(normalized)
   );
+}
+
+function isPersonInfoIntent(prompt: string) {
+  const normalized = prompt.toLowerCase();
+
+  return (
+    /\b(schauspieler|schauspielerin|schaupieler|darsteller|person|regisseur|director|actor|actress|cast member)\b/.test(
+      normalized
+    ) ||
+    /\b(über\s+den\s+schauspieler|ueber den schauspieler|about the actor|about dwayne johnson)\b/.test(
+      normalized
+    )
+  );
+}
+
+function extractLikelyPersonQuery(prompt: string) {
+  const normalized = prompt.trim();
+
+  if (!normalized) {
+    return null;
+  }
+
+  const patterns = [
+    /(?:über|ueber)\s+den\s+schauspieler\s+["„“]?(.+?)["“”]?\s*[.!?]?$/i,
+    /(?:über|ueber)\s+die\s+schauspielerin\s+["„“]?(.+?)["“”]?\s*[.!?]?$/i,
+    /(?:mehr\s+über|infos?\s+zu)\s+dem\s+schauspieler\s+["„“]?(.+?)["“”]?\s*[.!?]?$/i,
+    /(?:tell\s+me\s+about|more\s+about)\s+(?:the\s+actor|actor)\s+["“”]?(.+?)["“”]?\s*[.!?]?$/i,
+    /(?:actor|actress|director)\s+["“”]?(.+?)["“”]?\s*[.!?]?$/i
+  ] as const;
+
+  for (const pattern of patterns) {
+    const match = normalized.match(pattern);
+    const candidate = match?.[1]?.trim();
+    if (candidate) {
+      return candidate.replace(/^[\s"'`„“]+|[\s"'`“”]+$/g, "").trim();
+    }
+  }
+
+  return null;
 }
 
 function isRecommendationRequest(input: {
@@ -1803,6 +1897,7 @@ export async function POST(request: Request) {
 
         const safePrompt = assistantSafety.sanitizedPrompt;
         const safeConversation = assistantSafety.sanitizedConversation;
+        const explicitRecommendationIntent = isExplicitRecommendationIntent(safePrompt);
         const { requestedPickCount, requestedRaw, cappedBySystem } = getRequestedPickCount({
           prompt: safePrompt,
           conversation: safeConversation
@@ -1879,6 +1974,45 @@ export async function POST(request: Request) {
             if (resolved.resolved) {
               references.push(resolved.resolved.context);
             }
+          }
+        }
+
+        const explicitPersonQuery = extractLikelyPersonQuery(safePrompt);
+        const personInfoRequested =
+          !explicitRecommendationIntent &&
+          (isPersonInfoIntent(safePrompt) || !!explicitPersonQuery);
+
+        if (personInfoRequested) {
+          const personCandidateQuery =
+            explicitPersonQuery ??
+            safePrompt
+              .replace(/\b(nein|bitte|doch|eigentlich|nur)\b/gi, " ")
+              .replace(/\b(über|ueber)\b/gi, " ")
+              .replace(/\b(den|die|das)\b/gi, " ")
+              .replace(/\b(schauspieler|schauspielerin|darsteller|actor|actress|person)\b/gi, " ")
+              .trim();
+
+          const personResult = await resolvePersonAIContext({
+            query: personCandidateQuery,
+            locale
+          });
+
+          if (personResult) {
+            return NextResponse.json({
+              mode: "assistant",
+              data: {
+                intent: "title_info",
+                lead: buildPersonInfoLead({
+                  ...personResult.context,
+                  locale
+                }),
+                picks: [],
+                nextStep:
+                  locale === "en"
+                    ? "Do you want recommendations of movies or series with this person?"
+                    : "Möchtest du Empfehlungen für Filme oder Serien mit dieser Person?"
+              }
+            });
           }
         }
 

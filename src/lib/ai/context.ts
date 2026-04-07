@@ -1,7 +1,7 @@
 import "server-only";
 
 import { getMovieDetail } from "@/lib/tmdb/movies";
-import { getPersonDetail } from "@/lib/tmdb/people";
+import { getPersonDetail, searchPeople } from "@/lib/tmdb/people";
 import { searchMediaWithFallback } from "@/lib/tmdb/search";
 import { getTvDetail } from "@/lib/tmdb/tv";
 import type { AIPersonContext, AITitleContext } from "@/lib/ai/types";
@@ -268,6 +268,77 @@ export async function getPersonAIContext(id: number, locale: Locale = "de"): Pro
       genres: credit.genres.map(genre => genre.name),
       releaseDate: credit.releaseDate
     }))
+  };
+}
+
+function getPersonMatchScore(input: { query: string; name: string; popularity?: number | null }) {
+  const query = normalizeTitleValue(input.query);
+  const candidate = normalizeTitleValue(input.name);
+
+  if (!query || !candidate) {
+    return 0;
+  }
+
+  let score = 0;
+
+  if (candidate === query) {
+    score += 150;
+  } else if (candidate.includes(query) || query.includes(candidate)) {
+    score += 95;
+  }
+
+  const queryTokens = tokenize(query);
+  const candidateTokens = tokenize(candidate);
+  if (queryTokens.length) {
+    const exactOverlap = queryTokens.filter(token => candidateTokens.includes(token)).length;
+    const fuzzyOverlap = fuzzyTokenOverlap(queryTokens, candidateTokens);
+    score += Math.round((exactOverlap / queryTokens.length) * 40);
+    score += Math.round((fuzzyOverlap / queryTokens.length) * 25);
+  }
+
+  const similarity = normalizedStringSimilarity(query, candidate);
+  if (similarity >= 0.9) {
+    score += 65;
+  } else if (similarity >= 0.8) {
+    score += 38;
+  } else if (similarity >= 0.72) {
+    score += 20;
+  }
+
+  score += Math.min(15, Math.floor((input.popularity ?? 0) / 25));
+
+  return score;
+}
+
+export async function resolvePersonAIContext(input: { query: string; locale?: Locale }) {
+  const locale = input.locale ?? "de";
+  const results = await searchPeople(input.query, locale);
+
+  if (!results.length) {
+    return null;
+  }
+
+  const scored = results
+    .map(person => ({
+      person,
+      score: getPersonMatchScore({
+        query: input.query,
+        name: person.name,
+        popularity: person.popularity
+      })
+    }))
+    .sort((left, right) => right.score - left.score);
+  const best = scored[0];
+
+  if (!best || best.score < 70) {
+    return null;
+  }
+
+  const context = await getPersonAIContext(best.person.id, locale);
+
+  return {
+    context,
+    href: `/person/${best.person.id}`
   };
 }
 

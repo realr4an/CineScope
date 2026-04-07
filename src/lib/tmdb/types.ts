@@ -76,6 +76,14 @@ export interface TmdbPersonDetails {
   profile_path: string | null;
 }
 
+export interface TmdbPersonSearchResult {
+  id: number;
+  name: string;
+  known_for_department?: string | null;
+  popularity?: number;
+  profile_path?: string | null;
+}
+
 export interface TmdbCombinedCreditsResponse {
   cast: Array<
     TmdbListResult & {
