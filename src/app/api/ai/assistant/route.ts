@@ -523,6 +523,60 @@ function buildTitleInfoLead(title: AITitleContext, locale: Locale) {
   return `${base} ${summary}${details.length ? ` ${details.join(" ")}` : ""}`.trim();
 }
 
+function buildExtendedTitleInfoLead(title: AITitleContext, locale: Locale) {
+  const overview = compactOverviewForChat(title.overview);
+  const parts: string[] = [
+    locale === "en"
+      ? `${title.title} is a ${title.mediaType === "tv" ? "series" : "movie"}.`
+      : `${title.title} ist ${title.mediaType === "tv" ? "eine Serie" : "ein Film"}.`
+  ];
+
+  if (overview) {
+    parts.push(overview);
+  }
+
+  if (title.genres.length) {
+    parts.push(
+      locale === "en"
+        ? `Genres: ${title.genres.slice(0, 5).join(", ")}.`
+        : `Genres: ${title.genres.slice(0, 5).join(", ")}.`
+    );
+  }
+
+  if (title.mediaType === "tv") {
+    if (title.runtime) {
+      parts.push(
+        locale === "en"
+          ? `Typical runtime is around ${title.runtime} minutes per episode.`
+          : `Die typische Laufzeit liegt bei etwa ${title.runtime} Minuten pro Folge.`
+      );
+    }
+    if (title.numberOfSeasons) {
+      parts.push(
+        locale === "en"
+          ? `It currently has ${title.numberOfSeasons} season${title.numberOfSeasons === 1 ? "" : "s"}.`
+          : `Aktuell hat die Serie ${title.numberOfSeasons} Staffel${title.numberOfSeasons === 1 ? "" : "n"}.`
+      );
+    }
+  } else if (title.runtime) {
+    parts.push(
+      locale === "en"
+        ? `Runtime is about ${title.runtime} minutes.`
+        : `Die Laufzeit beträgt etwa ${title.runtime} Minuten.`
+    );
+  }
+
+  if (title.cast?.length) {
+    parts.push(
+      locale === "en"
+        ? `Main cast includes ${title.cast.slice(0, 5).join(", ")}.`
+        : `Wichtige Besetzung: ${title.cast.slice(0, 5).join(", ")}.`
+    );
+  }
+
+  return parts.join(" ");
+}
+
 function buildTitleDetailLead(title: AITitleContext, prompt: string, locale: Locale) {
   const normalized = prompt.toLowerCase();
   const unknown =
@@ -608,6 +662,10 @@ function buildTitleDetailLead(title: AITitleContext, prompt: string, locale: Loc
         ? `${title.title} is associated with these networks/platforms: ${networks}.`
         : `${title.title} ist mit diesen Sendern/Plattformen verknüpft: ${networks}.`
       : unknown;
+  }
+
+  if (/\b(ausführlicher|ausfuehrlicher|mehr details|mehr dazu|more details|tell me more)\b/.test(normalized)) {
+    return buildExtendedTitleInfoLead(title, locale);
   }
 
   return null;
@@ -923,12 +981,16 @@ function isSuggestionCapacityQuestion(input: {
 }
 
 function collectUserConversationText(
-  conversation: Array<{ role: "user" | "assistant"; content: string }>
+  conversation: Array<{ role: "user" | "assistant"; content: string }>,
+  options?: { limit?: number }
 ) {
-  return conversation
-    .filter(message => message.role === "user")
-    .map(message => message.content)
-    .join(" \n ");
+  const userMessages = conversation.filter(message => message.role === "user");
+  const limited =
+    options?.limit && options.limit > 0
+      ? userMessages.slice(-options.limit)
+      : userMessages;
+
+  return limited.map(message => message.content).join(" \n ");
 }
 
 function isTitleInfoRequest(input: {
@@ -939,7 +1001,7 @@ function isTitleInfoRequest(input: {
     return true;
   }
 
-  const combined = `${input.prompt}\n${collectUserConversationText(input.conversation)}`.toLowerCase();
+  const combined = `${input.prompt}\n${collectUserConversationText(input.conversation, { limit: 1 })}`.toLowerCase();
   return (
     /\b(mehr über|infos?\s+zu|erzähl mir mehr über)\b/.test(combined) ||
     /\b(tell me more about|more about|info about)\b/.test(combined)
@@ -984,17 +1046,20 @@ function extractStandaloneTitleCandidate(prompt: string) {
 function assistantRequestedExactTitle(
   conversation: Array<{ role: "user" | "assistant"; content: string }>
 ) {
-  const recentAssistantMessages = conversation
+  const lastAssistantMessage = conversation
     .filter(message => message.role === "assistant")
-    .slice(-3)
-    .map(message => message.content.toLowerCase());
+    .slice(-1)
+    .map(message => message.content.toLowerCase())[0];
 
-  return recentAssistantMessages.some(
-    content =>
-      content.includes("genauen titel") ||
-      content.includes("exact title") ||
-      content.includes("worum geht es in") ||
-      content.includes("what is") && content.includes("about")
+  if (!lastAssistantMessage) {
+    return false;
+  }
+
+  return (
+    lastAssistantMessage.includes("genauen titel") ||
+    lastAssistantMessage.includes("exact title") ||
+    lastAssistantMessage.includes("worum geht es in") ||
+    (lastAssistantMessage.includes("what is") && lastAssistantMessage.includes("about"))
   );
 }
 
@@ -1009,7 +1074,8 @@ function isTitleDetailFollowUpPrompt(prompt: string) {
     /\b(genre|genres?|kategorie|kategorien)\b/.test(normalized) ||
     /\b(besetzung|cast|schauspieler|actors?)\b/.test(normalized) ||
     /\b(sprachen?|languages?)\b/.test(normalized) ||
-    /\b(network|sender|plattform|platform)\b/.test(normalized)
+    /\b(network|sender|plattform|platform)\b/.test(normalized) ||
+    /\b(ausführlicher|ausfuehrlicher|mehr details|mehr dazu|more details|tell me more)\b/.test(normalized)
   );
 }
 
@@ -1017,7 +1083,7 @@ function isRecommendationRequest(input: {
   prompt: string;
   conversation: Array<{ role: "user" | "assistant"; content: string }>;
 }) {
-  const combined = `${input.prompt}\n${collectUserConversationText(input.conversation)}`.toLowerCase();
+  const combined = `${input.prompt}\n${collectUserConversationText(input.conversation, { limit: 2 })}`.toLowerCase();
   return (
     /\b(empfiehl|empfehl|vorschlag|schlag.*vor|suche|zeig mir|gib mir|was schauen|was gucken)\b/.test(
       combined
@@ -1056,7 +1122,7 @@ function hasPreferenceSignals(input: {
     return true;
   }
 
-  const combined = `${input.prompt}\n${collectUserConversationText(input.conversation)}`.toLowerCase();
+  const combined = `${input.prompt}\n${collectUserConversationText(input.conversation, { limit: 3 })}`.toLowerCase();
 
   return (
     /\b(action|drama|thriller|horror|comedy|komödie|komoedie|romance|romantik|crime|krimi|mystery|sci[\s-]?fi|science fiction|fantasy|animation|anime|family|dokumentation|documentary|abenteuer)\b/.test(
@@ -1070,6 +1136,29 @@ function hasPreferenceSignals(input: {
     ) ||
     /\b(mit freunden|mit eltern|date night|family|alleine|solo)\b/.test(combined)
   );
+}
+
+function extractRecentConversationTitleCandidate(
+  conversation: Array<{ role: "user" | "assistant"; content: string }>
+) {
+  const recentUserMessages = conversation
+    .filter(message => message.role === "user")
+    .slice(-4)
+    .reverse();
+
+  for (const message of recentUserMessages) {
+    const direct = extractLikelyTitleQuery(message.content);
+    if (direct) {
+      return direct;
+    }
+
+    const standalone = extractStandaloneTitleCandidate(message.content);
+    if (standalone) {
+      return standalone;
+    }
+  }
+
+  return null;
 }
 
 function parseRuntimeMinutes(rawMinutes: string) {
@@ -1262,7 +1351,9 @@ function extractLikelyTitleQuery(input: string) {
     /(?:tell\s+me\s+more\s+about|more\s+about|info\s+about|what\s+about)\s+["“”]?(.+?)["“”]?\s*[.!?]?$/i,
     /(?:what\s+happens\s+in)\s+["“”]?(.+?)["“”]?\s*[.!?]?$/i,
     /(?:what\s+is|what'?s)\s+["“”]?(.+?)["“”]?\s+about\s*[.!?]?$/i,
-    /(?:how\s+long[^.!?\n]{0,60}(?:for|in)\s*)["“”]?(.+?)["“”]?\s*[.!?]?$/i
+    /(?:how\s+long[^.!?\n]{0,60}(?:for|in)\s*)["“”]?(.+?)["“”]?\s*[.!?]?$/i,
+    /(?:ähnlich\s+zu|wie)\s+["„“]?(.+?)["“”]?\s*(?:sind|ist)?\s*[.!?]?$/i,
+    /(?:similar\s+to|like)\s+["“”]?(.+?)["“”]?\s*[.!?]?$/i
   ] as const;
 
   for (const pattern of patterns) {
@@ -1540,7 +1631,6 @@ export async function POST(request: Request) {
 
       case "assistant": {
         const assistantSafety = await runAssistantSafetyGate({
-          locale,
           prompt: parsed.data.prompt,
           conversation: parsed.data.conversation,
           additionalText: [
@@ -1603,7 +1693,7 @@ export async function POST(request: Request) {
           prompt: parsed.data.prompt,
           conversation: parsed.data.conversation
         });
-        const { requestedPickCount, requestedRaw, cappedBySystem, explicitlyRequested } = getRequestedPickCount({
+        const { requestedPickCount, requestedRaw, cappedBySystem } = getRequestedPickCount({
           prompt: parsed.data.prompt,
           conversation: parsed.data.conversation
         });
@@ -1620,10 +1710,17 @@ export async function POST(request: Request) {
 
         if (references.length < 3) {
           const inferredCandidates = [
-            extractLikelyTitleQuery(parsed.data.prompt),
+            extractLikelyTitleQuery(safePrompt),
+            extractStandaloneTitleCandidate(safePrompt),
+            extractRecentConversationTitleCandidate(parsed.data.conversation),
             ...parsed.data.conversation
+              .filter(message => message.role === "user")
+              .slice(-3)
+              .map(message => extractLikelyTitleQuery(message.content)),
+            ...parsed.data.conversation
+              .filter(message => message.role === "user")
               .slice(-2)
-              .map(message => extractLikelyTitleQuery(message.content))
+              .map(message => extractStandaloneTitleCandidate(message.content))
           ].filter((value): value is string => !!value);
 
           for (const query of inferredCandidates) {
@@ -1654,40 +1751,42 @@ export async function POST(request: Request) {
         }
 
         const titleInfoRequested = isTitleInfoRequest({
-          prompt: parsed.data.prompt,
+          prompt: safePrompt,
           conversation: parsed.data.conversation
         });
-        const titleDetailFollowUp = isTitleDetailFollowUpPrompt(parsed.data.prompt);
-        const directTitleQuery = extractLikelyTitleQuery(parsed.data.prompt);
-        const standaloneTitleCandidate = extractStandaloneTitleCandidate(parsed.data.prompt);
+        const titleDetailFollowUp = isTitleDetailFollowUpPrompt(safePrompt);
+        const directTitleQuery = extractLikelyTitleQuery(safePrompt);
+        const standaloneTitleCandidate = extractStandaloneTitleCandidate(safePrompt);
         const askedForExactTitle = assistantRequestedExactTitle(parsed.data.conversation);
         const fallbackTitleQuery = directTitleQuery ?? (askedForExactTitle ? standaloneTitleCandidate : null);
         const recommendationRequested = isRecommendationRequest({
-          prompt: parsed.data.prompt,
+          prompt: safePrompt,
           conversation: parsed.data.conversation
         });
-        const explicitRecommendationIntent = isExplicitRecommendationIntent(parsed.data.prompt);
+        const explicitRecommendationIntent = isExplicitRecommendationIntent(safePrompt);
         const titleDetailMode = titleDetailFollowUp && !explicitRecommendationIntent;
         const preferenceSignalsAvailable = hasPreferenceSignals({
-          prompt: parsed.data.prompt,
+          prompt: safePrompt,
           conversation: parsed.data.conversation,
-          timeBudget: parsed.data.timeBudget,
-          mood: parsed.data.mood,
+          timeBudget: safeTimeBudget,
+          mood: safeMood,
           intensity: parsed.data.intensity,
           socialContext: parsed.data.socialContext,
           referencesCount: references.length
         });
+        const inferredConversationTitle = extractRecentConversationTitleCandidate(parsed.data.conversation);
+        const effectiveTitleQuery = fallbackTitleQuery ?? inferredConversationTitle;
 
         if (
-          titleInfoRequested ||
-          (titleDetailMode && (references.length > 0 || !!fallbackTitleQuery)) ||
-          (askedForExactTitle && !!standaloneTitleCandidate)
+          (titleInfoRequested && !explicitRecommendationIntent) ||
+          (titleDetailMode && (references.length > 0 || !!effectiveTitleQuery)) ||
+          (askedForExactTitle && !!standaloneTitleCandidate && !explicitRecommendationIntent)
         ) {
-          let titleContext = pickReferenceForTitleQuery(references, fallbackTitleQuery ?? directTitleQuery);
+          let titleContext = pickReferenceForTitleQuery(references, effectiveTitleQuery ?? directTitleQuery);
 
-          if (!titleContext && fallbackTitleQuery) {
+          if (!titleContext && effectiveTitleQuery) {
             const resolved = await ensureResolvedMediaAllowed(
-              { query: fallbackTitleQuery, mediaType: "all" },
+              { query: effectiveTitleQuery, mediaType: "all" },
               locale
             );
 
@@ -1713,14 +1812,14 @@ export async function POST(request: Request) {
           return NextResponse.json({
             mode: "assistant",
             data: {
-              lead: buildTitleDetailLead(titleContext, parsed.data.prompt, locale) ?? buildTitleInfoLead(titleContext, locale),
+              lead: buildTitleDetailLead(titleContext, safePrompt, locale) ?? buildTitleInfoLead(titleContext, locale),
               picks: [],
               nextStep: text.titleInfoNext
             }
           });
         }
 
-        if (titleDetailMode && !references.length && !fallbackTitleQuery) {
+        if (titleDetailMode && !references.length && !effectiveTitleQuery) {
           return NextResponse.json({
             mode: "assistant",
             data: {
@@ -1741,22 +1840,6 @@ export async function POST(request: Request) {
               lead: text.clarifyPreferencesLead,
               picks: [],
               nextStep: text.clarifyPreferencesNext
-            }
-          });
-        }
-
-        if (
-          recommendationRequested &&
-          !titleInfoRequested &&
-          preferenceSignalsAvailable &&
-          !explicitlyRequested
-        ) {
-          return NextResponse.json({
-            mode: "assistant",
-            data: {
-              lead: text.askDesiredCountLead,
-              picks: [],
-              nextStep: text.askDesiredCountNext
             }
           });
         }

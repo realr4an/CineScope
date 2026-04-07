@@ -49,6 +49,14 @@ const FEEDBACK_OBFUSCATED_ABUSE_TERMS = [
   "kys"
 ] as const;
 
+const SENSITIVE_DATA_EXFIL_PATTERNS = [
+  /\b(show|list|dump|export|print|reveal)\b.{0,40}\b(users?|accounts?|emails?|email addresses?|profiles?)\b/i,
+  /\b(all|other|every)\s+(users?|accounts?|profiles?)\b/i,
+  /\b(auth|session|cookie|token|secret|apikey|api key|password)\b.{0,40}\b(show|reveal|dump|print|leak|steal)\b/i,
+  /\bdb|database|supabase\b.{0,40}\b(dump|export|all rows|all data)\b/i,
+  /\b(ignore|bypass|override)\b.{0,30}\b(safety|security|guardrails?)\b/i
+] as const;
+
 const LEET_REPLACEMENTS: Record<string, string> = {
   "0": "o",
   "1": "i",
@@ -145,6 +153,27 @@ export function assessPromptInjection(values: Array<string | null | undefined>):
 
 export function containsPromptInjection(values: Array<string | null | undefined>) {
   return assessPromptInjection(values).hasSignal;
+}
+
+export function containsSensitiveDataExfiltrationAttempt(
+  values: Array<string | null | undefined>
+) {
+  for (const value of values) {
+    if (!value) {
+      continue;
+    }
+
+    const trimmed = value.trim();
+    if (!trimmed) {
+      continue;
+    }
+
+    if (SENSITIVE_DATA_EXFIL_PATTERNS.some(pattern => pattern.test(trimmed))) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 export function isUnsafeFeedbackMessage(input: string) {
