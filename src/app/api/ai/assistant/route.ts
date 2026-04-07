@@ -1772,6 +1772,18 @@ export async function POST(request: Request) {
 
         const safePrompt = assistantSafety.sanitizedPrompt;
         const safeConversation = assistantSafety.sanitizedConversation;
+        const { requestedPickCount, requestedRaw, cappedBySystem } = getRequestedPickCount({
+          prompt: safePrompt,
+          conversation: safeConversation
+        });
+        const noveltyRequested = isNoveltyRequest({
+          prompt: safePrompt,
+          conversation: safeConversation
+        });
+        const animeIntent = isAnimeIntent({
+          prompt: safePrompt,
+          conversation: safeConversation
+        });
         const safeTimeBudget = parsed.data.timeBudget
           ? sanitizeAssistantInputText(parsed.data.timeBudget)
           : undefined;
@@ -1782,96 +1794,6 @@ export async function POST(request: Request) {
             query: sanitizeAssistantInputText(reference.query)
           }))
           .filter(reference => reference.query.length > 0);
-
-        if (
-          isSuggestionCapacityQuestion({
-            prompt: parsed.data.prompt,
-            conversation: parsed.data.conversation
-          })
-        ) {
-          return NextResponse.json({
-            mode: "assistant",
-            data: {
-              lead: text.maxSuggestionsInfo,
-              picks: [],
-              nextStep: text.maxSuggestionsNext
-            }
-          });
-        }
-
-        const mostRecentSuggestedTitles = extractMostRecentSuggestedTitles(parsed.data.conversation);
-        const wantsDecisionFromRecentList = isRecentListDecisionFollowUp(safePrompt);
-
-        if (wantsDecisionFromRecentList && mostRecentSuggestedTitles.length > 0) {
-          const resolvedShortlist = await Promise.all(
-            mostRecentSuggestedTitles.slice(0, 8).map(title =>
-              ensureResolvedMediaAllowed({ query: title, mediaType: "all" }, locale)
-            )
-          );
-
-          const shortlistContexts = resolvedShortlist
-            .filter(item => item.resolved)
-            .map(item => item.resolved!.context);
-
-          if (shortlistContexts.length > 0) {
-            const desiredCount = getDesiredShortlistCount(safePrompt, shortlistContexts.length);
-            const selected = [...shortlistContexts]
-              .sort((left, right) => scoreContextForShortlist(right) - scoreContextForShortlist(left))
-              .slice(0, desiredCount)
-              .map((context, index) => ({
-                title: context.title,
-                mediaType: context.mediaType,
-                reason: buildShortlistReason(index, locale),
-                tmdbId: context.tmdbId,
-                href: `/${context.mediaType}/${context.tmdbId}`
-              }));
-
-            const lead =
-              locale === "en"
-                ? selected.length === 1
-                  ? `From your last list, I would start with ${selected[0].title}.`
-                  : `From your last list, these are my top ${selected.length} picks.`
-                : selected.length === 1
-                  ? `Aus deiner letzten Liste würde ich mit ${selected[0].title} starten.`
-                  : `Aus deiner letzten Liste sind das meine Top-${selected.length}-Empfehlungen.`;
-
-            const nextStep =
-              locale === "en"
-                ? "Want details on one of these titles, or should I rank the remaining list as well?"
-                : "Willst du zu einem davon mehr Details oder soll ich dir auch die restliche Liste priorisieren?";
-
-            return NextResponse.json({
-              mode: "assistant",
-              data: {
-                lead,
-                picks: selected,
-                nextStep
-              }
-            });
-          }
-        }
-
-        const requestedSeasonCount = getRequestedSeasonCount({
-          prompt: parsed.data.prompt,
-          conversation: parsed.data.conversation
-        });
-        const episodeRuntimePreference = getRequestedEpisodeRuntime({
-          prompt: parsed.data.prompt,
-          conversation: parsed.data.conversation,
-          mediaType: parsed.data.mediaType
-        });
-        const noveltyRequested = isNoveltyRequest({
-          prompt: parsed.data.prompt,
-          conversation: parsed.data.conversation
-        });
-        const { requestedPickCount, requestedRaw, cappedBySystem } = getRequestedPickCount({
-          prompt: parsed.data.prompt,
-          conversation: parsed.data.conversation
-        });
-        const animeIntent = isAnimeIntent({
-          prompt: parsed.data.prompt,
-          conversation: parsed.data.conversation
-        });
         const explicitReferenceResults = await Promise.all(
           safeReferenceTitles.map(reference => ensureResolvedMediaAllowed(reference, locale))
         );
@@ -1879,25 +1801,31 @@ export async function POST(request: Request) {
           .filter(result => result.resolved)
           .map(result => result.resolved!.context);
 
-        if (references.length < 3) {
-          const recentSuggestedTitles = extractMostRecentSuggestedTitles(parsed.data.conversation);
+        if (references.length < 4) {
+          const recentSuggestedTitles = extractMostRecentSuggestedTitles(safeConversation);
+          const implicitSuggestedTitle = findSuggestedTitleMentionInPrompt(
+            safePrompt,
+            recentSuggestedTitles
+          );
           const inferredCandidates = [
             extractLikelyTitleQuery(safePrompt),
             extractStandaloneTitleCandidate(safePrompt),
-            extractRecentConversationTitleCandidate(parsed.data.conversation),
+            extractRecentConversationTitleCandidate(safeConversation),
+            implicitSuggestedTitle,
+            recentSuggestedTitles[0] ?? null,
             ...recentSuggestedTitles.slice(0, 8),
-            ...parsed.data.conversation
+            ...safeConversation
+              .filter(message => message.role === "user")
+              .slice(-8)
+              .map(message => extractLikelyTitleQuery(message.content)),
+            ...safeConversation
               .filter(message => message.role === "user")
               .slice(-6)
-              .map(message => extractLikelyTitleQuery(message.content)),
-            ...parsed.data.conversation
-              .filter(message => message.role === "user")
-              .slice(-4)
               .map(message => extractStandaloneTitleCandidate(message.content))
           ].filter((value): value is string => !!value);
 
           for (const query of inferredCandidates) {
-            if (references.length >= 3) {
+            if (references.length >= 4) {
               break;
             }
 
@@ -1923,111 +1851,6 @@ export async function POST(request: Request) {
           }
         }
 
-        const titleDetailFollowUp = isTitleDetailFollowUpPrompt(safePrompt);
-        const directTitleQuery = extractLikelyTitleQuery(safePrompt);
-        const standaloneTitleCandidate = extractStandaloneTitleCandidate(safePrompt);
-        const latestSuggestedTitles = extractMostRecentSuggestedTitles(parsed.data.conversation);
-        const implicitSuggestedTitle = findSuggestedTitleMentionInPrompt(
-          safePrompt,
-          latestSuggestedTitles
-        );
-        const askedForExactTitle = assistantRequestedExactTitle(parsed.data.conversation);
-        const fallbackTitleQuery = directTitleQuery ?? (askedForExactTitle ? standaloneTitleCandidate : null);
-        const recommendationRequested = isRecommendationRequest({
-          prompt: safePrompt,
-          conversation: parsed.data.conversation
-        });
-        const explicitRecommendationIntent = isExplicitRecommendationIntent(safePrompt);
-        const titleDetailMode = titleDetailFollowUp && !explicitRecommendationIntent;
-        const preferenceSignalsAvailable = hasPreferenceSignals({
-          prompt: safePrompt,
-          conversation: parsed.data.conversation,
-          timeBudget: safeTimeBudget,
-          mood: safeMood,
-          intensity: parsed.data.intensity,
-          socialContext: parsed.data.socialContext,
-          referencesCount: references.length
-        });
-        const inferredConversationTitle = extractRecentConversationTitleCandidate(parsed.data.conversation);
-        const effectiveTitleQuery =
-          fallbackTitleQuery ??
-          inferredConversationTitle ??
-          implicitSuggestedTitle ??
-          latestSuggestedTitles[0] ??
-          null;
-        const titleInfoRequested =
-          isTitleInfoRequest({
-            prompt: safePrompt,
-            conversation: parsed.data.conversation
-          }) || (!!implicitSuggestedTitle && isTitleInfoFollowUpIntent(safePrompt));
-
-        if (
-          (titleInfoRequested && !explicitRecommendationIntent) ||
-          (titleDetailMode && (references.length > 0 || !!effectiveTitleQuery)) ||
-          (askedForExactTitle && !!standaloneTitleCandidate && !explicitRecommendationIntent)
-        ) {
-          let titleContext = pickReferenceForTitleQuery(references, effectiveTitleQuery ?? directTitleQuery);
-
-          if (!titleContext && effectiveTitleQuery) {
-            const resolved = await ensureResolvedMediaAllowed(
-              { query: effectiveTitleQuery, mediaType: "all" },
-              locale
-            );
-
-            if (resolved.resolved) {
-              titleContext = resolved.resolved.context;
-            }
-          }
-
-          if (!titleContext) {
-            return NextResponse.json({
-              mode: "assistant",
-              data: {
-                lead: text.titleInfoClarify,
-                picks: [],
-                nextStep:
-                  locale === "en"
-                    ? "For example: 'what is The Mandalorian about?'"
-                    : "Zum Beispiel: 'Worum geht es in The Mandalorian?'"
-              }
-            });
-          }
-
-          return NextResponse.json({
-            mode: "assistant",
-            data: {
-              lead: buildTitleDetailLead(titleContext, safePrompt, locale) ?? buildTitleInfoLead(titleContext, locale),
-              picks: [],
-              nextStep: text.titleInfoNext
-            }
-          });
-        }
-
-        if (titleDetailMode && !references.length && !effectiveTitleQuery) {
-          return NextResponse.json({
-            mode: "assistant",
-            data: {
-              lead: text.titleInfoClarify,
-              picks: [],
-              nextStep:
-                locale === "en"
-                  ? "For example: 'what is The Mandalorian about?'"
-                  : "Zum Beispiel: 'Worum geht es in The Mandalorian?'"
-            }
-          });
-        }
-
-        if (recommendationRequested && !titleInfoRequested && !preferenceSignalsAvailable) {
-          return NextResponse.json({
-            mode: "assistant",
-            data: {
-              lead: text.clarifyPreferencesLead,
-              picks: [],
-              nextStep: text.clarifyPreferencesNext
-            }
-          });
-        }
-
         const data = await askOpenRouterJson(
           assistantPrompt(
             {
@@ -2035,9 +1858,6 @@ export async function POST(request: Request) {
               mediaType: parsed.data.mediaType,
               desiredPickCount: requestedPickCount,
               timeBudget: safeTimeBudget,
-              episodeRuntimePreference: episodeRuntimePreference
-                ? formatEpisodeRuntimePreference(episodeRuntimePreference, locale)
-                : undefined,
               mood: safeMood,
               intensity: parsed.data.intensity,
               socialContext: parsed.data.socialContext,
@@ -2058,63 +1878,46 @@ export async function POST(request: Request) {
             ])
           : new Set<string>();
         const resolvedPicks = await resolveAllowedAIPicks(data.picks, locale);
-        const noveltyFilteredPicks = noveltyRequested
+        const noveltyFilteredPicks = noveltyRequested && data.intent === "recommend"
           ? resolvedPicks.filter(
               pick => !blockedTitles.has(normalizeAssistantTitleValue(pick.title))
             )
           : resolvedPicks;
-        const picksAfterSeasonFilter = requestedSeasonCount
-          ? await filterAIPicksBySeasonCount(
-              noveltyFilteredPicks.filter(
-                (
-                  pick
-                ): pick is (typeof resolvedPicks)[number] & {
-                  tmdbId: number;
-                  mediaType: "tv";
-                } => pick.mediaType === "tv" && typeof pick.tmdbId === "number"
-              ),
-              requestedSeasonCount,
-              locale
-            )
-          : noveltyFilteredPicks;
-        const picksAfterRuntimeFilter = episodeRuntimePreference
-          ? await filterAssistantPicksByEpisodeRuntime(
-              picksAfterSeasonFilter,
-              episodeRuntimePreference,
-              locale
-            )
-          : picksAfterSeasonFilter;
-        const toppedUpPicks = await topUpAssistantPicks({
-          picks: picksAfterRuntimeFilter,
-          requestedPickCount,
-          mediaType: episodeRuntimePreference ? "tv" : parsed.data.mediaType,
-          animeIntent,
-          noveltyRequested,
-          episodeRuntimePreference,
-          blockedTitles,
-          locale
-        });
-        const limitedPicks = toppedUpPicks.slice(0, requestedPickCount);
-        const emptyPicksAfterFiltering = data.picks.length > 0 && limitedPicks.length === 0;
-        const leadCount = parseLeadCount(data.lead);
-        const leadCountMismatch = leadCount !== null && leadCount !== limitedPicks.length;
-        const partialResult = limitedPicks.length > 0 && limitedPicks.length < requestedPickCount;
-        const lead = emptyPicksAfterFiltering
+
+        const assistantPicks =
+          data.intent === "recommend"
+            ? (
+                await topUpAssistantPicks({
+                  picks: noveltyFilteredPicks,
+                  requestedPickCount,
+                  mediaType: parsed.data.mediaType,
+                  animeIntent,
+                  noveltyRequested,
+                  blockedTitles,
+                  locale
+                })
+              ).slice(0, requestedPickCount)
+            : noveltyFilteredPicks.slice(0, Math.min(3, requestedPickCount));
+        const partialRecommendResult =
+          data.intent === "recommend" &&
+          assistantPicks.length > 0 &&
+          assistantPicks.length < requestedPickCount;
+        const noRecommendPicks =
+          data.intent === "recommend" && assistantPicks.length === 0;
+        const lead = noRecommendPicks
           ? text.noSafePicksLead
-          : cappedBySystem
-            ? text.cappedSuggestionsLead(requestedRaw, requestedPickCount, limitedPicks.length)
-          : partialResult
-            ? text.partialSuggestionsLead(limitedPicks.length, requestedPickCount)
-            : leadCountMismatch
-              ? text.exactSuggestionsLead(limitedPicks.length)
+          : data.intent === "recommend" && cappedBySystem
+            ? text.cappedSuggestionsLead(requestedRaw, requestedPickCount, assistantPicks.length)
+            : data.intent === "recommend" && partialRecommendResult
+              ? text.partialSuggestionsLead(assistantPicks.length, requestedPickCount)
               : data.lead;
-        const nextStep = emptyPicksAfterFiltering
+        const nextStep = noRecommendPicks
           ? text.noSafePicksNext
-          : cappedBySystem
+          : data.intent === "recommend" && cappedBySystem
             ? text.cappedSuggestionsNext
-          : partialResult
-            ? text.partialSuggestionsNext
-            : data.nextStep;
+            : data.intent === "recommend" && partialRecommendResult
+              ? text.partialSuggestionsNext
+              : data.nextStep;
 
         return NextResponse.json({
           mode: "assistant",
@@ -2122,7 +1925,7 @@ export async function POST(request: Request) {
             ...data,
             lead,
             nextStep,
-            picks: limitedPicks
+            picks: assistantPicks
           }
         });
       }

@@ -111,6 +111,7 @@ export const aiPriorityGroupsResponseSchema = z.object({
 });
 
 export const aiAssistantResponseSchema = z.object({
+  intent: z.enum(["chat", "recommend", "title_info", "clarify"]).default("chat"),
   lead: z.string().min(1),
   personalNote: z.string().optional(),
   picks: z
