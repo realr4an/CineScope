@@ -1294,7 +1294,7 @@ function parseRequestedCount(input: string) {
     six: 6,
     seven: 7,
     eight: 8,
-    neun: 9,
+    nine: 9,
     ten: 10,
     eins: 1,
     eine: 1,
@@ -1307,9 +1307,15 @@ function parseRequestedCount(input: string) {
     sechs: 6,
     sieben: 7,
     acht: 8,
-    neun_de: 9,
+    neun: 9,
     zehn: 10
   };
+  const wordAlternation = Object.keys(wordToNumber)
+    .sort((left, right) => right.length - left.length)
+    .map(word => word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+    .join("|");
+  const countNounAlternation =
+    "filme?|series?|movies?|serien?|anime|animes?|shows?|titel|title|vorschl[aä]ge?|picks?|trickfilme?|zeichentrick(?:filme?)?|cartoons?|animationsfilme?";
 
   const shortNumericRequestMatch = normalized.match(
     /^(?:[a-zäöüß.,!? ]{0,20})?(\d{1,2})(?:\s*(?:bitte|please|mehr|noch|titel|filme?|serien?|movies?|series?|anime|animes?|shows?|picks?|vorschl[aä]ge?))?[.!? ]*$/i
@@ -1328,7 +1334,10 @@ function parseRequestedCount(input: string) {
   }
 
   const nounDigitMatch = normalized.match(
-    /(?:^|\s)(\d{1,2})\s*(?:filme?|series?|movies?|serien?|anime|animes?|shows?|titel|title|vorschl[aä]ge?|picks?|trickfilme?|zeichentrick(?:filme?)?|cartoons?|animationsfilme?)(?:\s|$)/
+    new RegExp(
+      `(?:^|\\s)(\\d{1,2})\\s*(?:${countNounAlternation})(?:\\s|$)`,
+      "i"
+    )
   );
 
   if (nounDigitMatch) {
@@ -1336,7 +1345,10 @@ function parseRequestedCount(input: string) {
   }
 
   const quantifiedNounDigitMatch = normalized.match(
-    /(?:^|\s)(\d{1,2})\s*(?:neue?n?|weitere?n?|more|extra|zus[aä]tzliche?n?|st[uü]ck|stücke|items?)?\s*(?:filme?|series?|movies?|serien?|anime|animes?|shows?|titel|title|vorschl[aä]ge?|picks?|trickfilme?|zeichentrick(?:filme?)?|cartoons?|animationsfilme?)(?:\s|$)/
+    new RegExp(
+      `(?:^|\\s)(\\d{1,2})\\s*(?:neue?n?|weitere?n?|more|extra|zus[aä]tzliche?n?|st[uü]ck|stücke|items?)?\\s*(?:${countNounAlternation})(?:\\s|$)`,
+      "i"
+    )
   );
 
   if (quantifiedNounDigitMatch) {
@@ -1365,10 +1377,32 @@ function parseRequestedCount(input: string) {
     }
   }
 
-  for (const [word, count] of Object.entries(wordToNumber)) {
-    const normalizedWord = word.replace("_de", "");
-    const matcher = new RegExp(`(^|\\s)${normalizedWord}(\\s|$)`, "i");
-    if (matcher.test(normalized)) {
+  const nounWordMatch = normalized.match(
+    new RegExp(
+      `(?:^|\\s)(${wordAlternation})\\s*(?:neue?n?|weitere?n?|more|extra|zus[aä]tzliche?n?|st[uü]ck|stücke|items?)?\\s*(?:${countNounAlternation})(?:\\s|$)`,
+      "i"
+    )
+  );
+
+  if (nounWordMatch?.[1]) {
+    const matchedWord = nounWordMatch[1].toLowerCase();
+    const count = wordToNumber[matchedWord];
+    if (typeof count === "number") {
+      return count;
+    }
+  }
+
+  const actionWordMatch = normalized.match(
+    new RegExp(
+      `(?:gib(?:\\s+mir)?|give(?:\\s+me)?|empf(?:iehl)?|recommend|suggest|schlag(?:\\s+mir)?(?:\\s+vor)?)\\D{0,24}(${wordAlternation})(?:\\s|$)`,
+      "i"
+    )
+  );
+
+  if (actionWordMatch?.[1]) {
+    const matchedWord = actionWordMatch[1].toLowerCase();
+    const count = wordToNumber[matchedWord];
+    if (typeof count === "number") {
       return count;
     }
   }
