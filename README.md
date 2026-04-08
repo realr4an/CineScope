@@ -371,22 +371,33 @@ Aktueller Stand in diesem Workspace:
 
 ## Agentic Engineering Dokumentation
 
-Dieses Projekt wurde bewusst agentisch umgesetzt, aber nicht blind generiert.
+Dieses Projekt wurde in einem bewusst zweistufigen agentischen Workflow umgesetzt.
 
-- Ein separater Frontend-Agent lieferte die visuelle Ausgangsbasis
-- anschliessend wurde der Bestand manuell auditiert und in wiederverwendbare sowie prototypische Teile zerlegt
-- die Migration auf Next.js, die TMDB-Service-Schicht, Supabase-Persistenz, Auth und OpenRouter-Integration wurden bewusst neu strukturiert
-- die neue KI-Schicht wurde als modularer Assistenz-Layer gebaut, nicht als Sammlung loser Einzel-Chats
-- KI wurde als Beschleuniger fuer Exploration und Strukturierung genutzt, aber Architekturentscheidungen, Refactors und Sicherheitsgrenzen wurden bewusst getroffen und manuell kontrolliert
+1. Zuerst wurde mit ChatGPT ein klarer Arbeitsplan fuer zwei spezialisierte AI-Agents erstellt.
+2. Auf Basis dieses Plans wurde Manus fuer einen ersten Frontend-Stand genutzt, um visuelle Richtung, Komponentenstruktur und erste UX-Muster schnell aufzubauen.
+3. Anschliessend wurde ein zweiter, auf diesen Stand aufbauender Prompt fuer Codex formuliert, mit Fokus auf Fullstack-Integration, Architektur, Backend-Anschluesse, Datenfluesse, Auth, Persistenz, KI-Routen und Deployment-Reife.
+4. Die weitere Entwicklung erfolgte dann interaktiv mit Codex: Anforderungen wurden konkretisiert, Fehlverhalten wurde direkt rueckgemeldet, und die App wurde in vielen Schleifen technisch und produktseitig nachgeschaerft.
 
-Wichtige manuelle Entscheidungen:
+Wie die Agenten konkret genutzt wurden:
 
-- Vite/Wouter nicht weiter flicken, sondern sauber auf Next.js App Router migrieren
-- keine Secrets im Client
-- Watchlist direkt via Supabase + RLS statt halbgares eigenes Backend
-- klare Service-Layer statt Fetch-Logik in UI-Komponenten
-- Reuse der starken UI-Patterns, aber keine Uebernahme mock-basierter Datenlogik
-- fokussierte AI-Aktionen statt eines unendlichen generischen Dauer-Chats
+- Manus: visuelle Grundlage, erste UI-Ideen, schneller Start fuer Layouts und Komponenten
+- Codex: Integration in Next.js App Router, TMDB-Service-Layer, Supabase Auth + Watchlist, OpenRouter-Anbindung, Sicherheits- und Edge-Case-Fixes, README- und Deployment-Polish
+- ChatGPT: Vorbereitung und Strukturierung der Agentenprompts, damit die Agenten mit klaren Rollen und sauberer Aufgabenabgrenzung arbeiten konnten
+
+Was dabei manuell entschieden und kontrolliert wurde:
+
+- welche Teile des Frontends beibehalten und welche technisch neu aufgebaut werden
+- die Migration auf Next.js App Router statt Weiterfuehren einer weniger stabilen Ausgangsstruktur
+- die Trennung zwischen UI, Feature-Schicht, TMDB-Layer, Supabase-Layer und AI-Layer
+- Sicherheitsgrenzen wie Secret-Handling, serverseitige KI-Nutzung, RLS, Input-Validierung und defensive Fehlerbehandlung
+- das laufende Gegensteuern bei Fehlverhalten der Agenten, z. B. bei falschen Verlinkungen, unpassenden KI-Ausgaben, zu starren Flows oder inkonsistenter UX
+
+Praktisch bedeutete das:
+
+- KI wurde als Beschleuniger fuer Struktur, Code-Erzeugung und Iteration genutzt
+- die Richtung des Produkts wurde aber nicht blind vom Modell vorgegeben
+- Entscheidungen wurden ueber wiederholtes Feedback, Tests, Builds und gezielte Nachschaerfung getroffen
+- besonders bei den KI-Features, der Datenintegration und der UX wurde stark iterativ gearbeitet statt nur einmalig generieren zu lassen
 
 ## Trade-offs
 
