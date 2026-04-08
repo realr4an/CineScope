@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import {
   Bot,
   FolderOpen,
@@ -76,6 +76,7 @@ const DRAFT_STORAGE_KEY_BASE = "cine-ai-assistant-draft-v1";
 const SAVED_STORAGE_KEY_BASE = "cine-ai-assistant-saved-v1";
 const MAX_SAVED_CHATS = 12;
 const MAX_ASSISTANT_CONTEXT_MESSAGES = 10;
+const URL_PATTERN = /(https?:\/\/[^\s]+)/g;
 
 function createId(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -89,6 +90,98 @@ function truncateWithEllipsis(value: string, maxLength: number) {
   }
 
   return `${normalized.slice(0, Math.max(0, maxLength - 3)).trimEnd()}...`;
+}
+
+function renderInlineContent(value: string, keyPrefix: string) {
+  const parts = value.split(URL_PATTERN);
+  return parts.map((part, index) => {
+    const key = `${keyPrefix}-${index}`;
+    if (/^https?:\/\//i.test(part)) {
+      return (
+        <a
+          key={key}
+          href={part}
+          target="_blank"
+          rel="noreferrer"
+          className="break-all text-primary underline underline-offset-4"
+        >
+          {part}
+        </a>
+      );
+    }
+
+    return <Fragment key={key}>{part}</Fragment>;
+  });
+}
+
+function StructuredMessageText({
+  text,
+  className
+}: {
+  text: string;
+  className?: string;
+}) {
+  const blocks = text
+    .replace(/\r\n/g, "\n")
+    .split(/\n{2,}/)
+    .map(block => block.trim())
+    .filter(Boolean);
+
+  if (!blocks.length) {
+    return null;
+  }
+
+  return (
+    <div className={className ?? "space-y-2"}>
+      {blocks.map((block, blockIndex) => {
+        const lines = block
+          .split("\n")
+          .map(line => line.trim())
+          .filter(Boolean);
+
+        const isBulletList = lines.length >= 2 && lines.every(line => /^[-*]\s+/.test(line));
+        const isOrderedList = lines.length >= 2 && lines.every(line => /^\d+[.)]\s+/.test(line));
+
+        if (isBulletList) {
+          return (
+            <ul key={`block-${blockIndex}`} className="list-disc space-y-1 pl-5">
+              {lines.map((line, lineIndex) => (
+                <li key={`line-${blockIndex}-${lineIndex}`}>
+                  {renderInlineContent(line.replace(/^[-*]\s+/, ""), `b-${blockIndex}-${lineIndex}`)}
+                </li>
+              ))}
+            </ul>
+          );
+        }
+
+        if (isOrderedList) {
+          return (
+            <ol key={`block-${blockIndex}`} className="list-decimal space-y-1 pl-5">
+              {lines.map((line, lineIndex) => (
+                <li key={`line-${blockIndex}-${lineIndex}`}>
+                  {renderInlineContent(
+                    line.replace(/^\d+[.)]\s+/, ""),
+                    `o-${blockIndex}-${lineIndex}`
+                  )}
+                </li>
+              ))}
+            </ol>
+          );
+        }
+
+        return (
+          <p key={`block-${blockIndex}`} className="break-words">
+            {lines.map((line, lineIndex) => (
+              <Fragment key={`line-${blockIndex}-${lineIndex}`}>
+                {lineIndex > 0 ? <br /> : null}
+                {renderInlineContent(line, `p-${blockIndex}-${lineIndex}`)}
+              </Fragment>
+            ))}
+          </p>
+        );
+      })}
+    </div>
+  );
 }
 
 function buildConversationContent(message: ChatMessage) {
@@ -197,6 +290,7 @@ export function AIAssistantPanel() {
           noChatToSave: "There is no conversation to save yet.",
           you: "You",
           ai: "AI",
+          noteLabel: "Context",
           nextLabel: "Next",
           updatedAt: "Upd."
         }
@@ -245,6 +339,7 @@ export function AIAssistantPanel() {
           noChatToSave: "Es gibt noch keinen Chatverlauf zum Speichern.",
           you: "Du",
           ai: "KI",
+          noteLabel: "Einordnung",
           nextLabel: "Nächster Schritt",
           updatedAt: "Akt."
         };
@@ -610,8 +705,16 @@ export function AIAssistantPanel() {
                           : "border border-border/50 bg-card/70 text-foreground"
                     }`}
                   >
-                    <p className="whitespace-pre-line break-words">{message.content}</p>
+                    <StructuredMessageText text={message.content} className="space-y-2" />
                   </div>
+                  {message.personalNote ? (
+                    <div className="rounded-[1.35rem] border border-border/60 bg-primary/5 px-4 py-3 text-sm text-foreground/90">
+                      <div className="mb-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
+                        {text.noteLabel}
+                      </div>
+                      <StructuredMessageText text={message.personalNote} className="space-y-2 leading-6" />
+                    </div>
+                  ) : null}
                   {message.picks && message.picks.length ? (
                     <div className="w-full">
                       <AIPicksGrid picks={message.picks} />
@@ -622,7 +725,7 @@ export function AIAssistantPanel() {
                       <div className="mb-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
                         {text.nextLabel}
                       </div>
-                      <p className="whitespace-pre-line break-words leading-6">{message.nextStep}</p>
+                      <StructuredMessageText text={message.nextStep} className="space-y-2 leading-6" />
                     </div>
                   ) : null}
                   {message.staticIntro ? (
