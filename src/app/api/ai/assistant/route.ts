@@ -2,7 +2,6 @@
 
 import { getAgeAccessForMedia } from "@/lib/age-gate/server";
 import {
-  getMediaAIContext,
   getManyMediaAIContexts,
   getPersonAIContext,
   resolvePersonAIContext,
@@ -13,7 +12,6 @@ import {
   resolveAIPicks,
   resolveAllowedAIPicks
 } from "@/lib/ai/formatters";
-import { getDiscoverResults } from "@/lib/tmdb/discover";
 import { searchMedia } from "@/lib/tmdb/search";
 import {
   mapWatchProvidersForRegion,
@@ -196,19 +194,6 @@ function getText(locale: Locale) {
       };
 }
 
-function isAnimeIntent(input: {
-  prompt?: string;
-  conversation?: Array<{ content: string }>;
-}) {
-  const combined = [input.prompt ?? "", ...(input.conversation ?? []).map(message => message.content)]
-    .join(" \n ")
-    .toLowerCase();
-
-  return /\banime\b|\bmanga\b|studio ghibli|shonen|shōnen|japan(?:isch|ese)?|trickfilm|zeichentrick|anim(?:e|ation)/.test(
-    combined
-  );
-}
-
 function isNoveltyRequest(input: {
   prompt?: string;
   conversation?: Array<{ content: string }>;
@@ -371,143 +356,6 @@ function buildShortlistReason(rank: number, locale: Locale) {
     return "Sehr gute Anschlusswahl aus derselben Liste mit ähnlich starkem Profil.";
   }
   return "Solide Option aus deiner Liste, wenn du noch einen ähnlichen Titel willst.";
-}
-
-function hasLatinCharacters(value: string) {
-  return /[a-z]/i.test(
-    value
-      .normalize("NFKD")
-      .replace(/[\u0300-\u036f]/g, "")
-  );
-}
-
-async function topUpAssistantPicks(input: {
-  picks: Array<{
-    title: string;
-    mediaType: "movie" | "tv";
-    reason: string;
-    comparableTitle?: string;
-    tmdbId?: number;
-    href?: string;
-  }>;
-  requestedPickCount: number;
-  mediaType: "all" | "movie" | "tv";
-  animeIntent: boolean;
-  noveltyRequested: boolean;
-  episodeRuntimePreference?: EpisodeRuntimePreference | null;
-  requestedSeasonCount?: number | null;
-  blockedTitles: Set<string>;
-  locale: Locale;
-}) {
-  const missing = input.requestedPickCount - input.picks.length;
-  if (missing <= 0) {
-    return input.picks;
-  }
-
-  const seenIds = new Set(
-    input.picks
-      .map(pick => (typeof pick.tmdbId === "number" ? `${pick.mediaType}-${pick.tmdbId}` : null))
-      .filter(Boolean) as string[]
-  );
-  const seenTitles = new Set(input.picks.map(pick => normalizeAssistantTitleValue(pick.title)));
-  for (const blockedTitle of input.blockedTitles) {
-    if (blockedTitle) {
-      seenTitles.add(blockedTitle);
-    }
-  }
-
-  const candidateTypes: Array<"movie" | "tv"> =
-    input.requestedSeasonCount !== null && input.requestedSeasonCount !== undefined
-      ? ["tv"]
-      : input.episodeRuntimePreference
-      ? ["tv"]
-      : input.mediaType === "all"
-      ? input.animeIntent
-        ? ["tv", "movie"]
-        : ["movie", "tv"]
-      : [input.mediaType];
-  const fallbackReason =
-    input.locale === "en"
-      ? "Strong current match from TMDB discovery."
-      : "Passender aktueller Treffer aus der TMDB-Discovery.";
-  const toppedUp = [...input.picks];
-
-  const candidatePages = input.noveltyRequested ? [2, 3, 4, 1] : [1, 2];
-
-  for (const mediaType of candidateTypes) {
-    if (toppedUp.length >= input.requestedPickCount) {
-      break;
-    }
-
-    for (const page of candidatePages) {
-      if (toppedUp.length >= input.requestedPickCount) {
-        break;
-      }
-
-      const discover = await getDiscoverResults({
-        mediaType,
-        genre: input.animeIntent ? 16 : undefined,
-        page,
-        sort: "vote_count.desc",
-        locale: input.locale
-      });
-
-      for (const item of discover.items) {
-        if (toppedUp.length >= input.requestedPickCount) {
-          break;
-        }
-
-        const idKey = `${item.mediaType}-${item.tmdbId}`;
-        const normalizedTitle = normalizeAssistantTitleValue(item.title);
-        if (seenIds.has(idKey) || seenTitles.has(normalizedTitle)) {
-          continue;
-        }
-
-        if ((input.locale === "de" || input.locale === "en") && !hasLatinCharacters(item.title)) {
-          continue;
-        }
-
-        const access = await getAgeAccessForMedia(item.mediaType, item.tmdbId);
-        if (!access.allowed) {
-          continue;
-        }
-
-        if (
-          (input.episodeRuntimePreference ||
-            (input.requestedSeasonCount !== null && input.requestedSeasonCount !== undefined)) &&
-          item.mediaType === "tv"
-        ) {
-          const tvContext = await getMediaAIContext("tv", item.tmdbId, input.locale);
-          if (
-            input.requestedSeasonCount !== null &&
-            input.requestedSeasonCount !== undefined &&
-            tvContext.numberOfSeasons !== input.requestedSeasonCount
-          ) {
-            continue;
-          }
-
-          if (input.episodeRuntimePreference) {
-            const runtime = tvContext.runtime;
-            if (!runtime || !matchesEpisodeRuntime(runtime, input.episodeRuntimePreference)) {
-              continue;
-            }
-          }
-        }
-
-        seenIds.add(idKey);
-        seenTitles.add(normalizedTitle);
-        toppedUp.push({
-          title: item.title,
-          mediaType: item.mediaType,
-          reason: fallbackReason,
-          tmdbId: item.tmdbId,
-          href: `/${item.mediaType}/${item.tmdbId}`
-        });
-      }
-    }
-  }
-
-  return toppedUp;
 }
 
 function parseLeadCount(input: string) {
@@ -2442,10 +2290,6 @@ export async function POST(request: Request) {
           prompt: safePrompt,
           conversation: safeConversation
         });
-        const animeIntent = isAnimeIntent({
-          prompt: safePrompt,
-          conversation: safeConversation
-        });
         const episodeRuntimePreference = getRequestedEpisodeRuntime({
           prompt: safePrompt,
           conversation: safeConversation,
@@ -3151,20 +2995,6 @@ export async function POST(request: Request) {
             episodeRuntimePreference,
             locale
           );
-        }
-
-        if (data.intent === "recommend" && normalizedRecommendPicks.length < requestedPickCount) {
-          normalizedRecommendPicks = await topUpAssistantPicks({
-            picks: normalizedRecommendPicks,
-            requestedPickCount,
-            mediaType: parsed.data.mediaType,
-            animeIntent,
-            noveltyRequested,
-            episodeRuntimePreference,
-            requestedSeasonCount,
-            blockedTitles,
-            locale
-          });
         }
 
         const assistantPicks =
