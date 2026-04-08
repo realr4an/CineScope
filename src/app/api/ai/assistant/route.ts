@@ -2837,32 +2837,46 @@ export async function POST(request: Request) {
           const loadLatestForType = async (mediaType: "movie" | "tv") => {
             const sort =
               mediaType === "movie" ? "primary_release_date.desc" : "first_air_date.desc";
-            const result = await getDiscoverResults({
-              mediaType,
-              page: 1,
-              sort,
-              locale
-            });
+            const collected: Array<(Awaited<ReturnType<typeof getDiscoverResults>>)["items"][number]> = [];
+            const seen = new Set<string>();
 
-            const filtered: typeof result.items = [];
-            for (const item of result.items) {
-              if (!item.releaseDate || item.releaseDate > today) {
-                continue;
+            for (let page = 1; page <= 5; page += 1) {
+              const result = await getDiscoverResults({
+                mediaType,
+                page,
+                sort,
+                locale
+              });
+
+              for (const item of result.items) {
+                if (!item.releaseDate || item.releaseDate > today) {
+                  continue;
+                }
+
+                const key = `${item.mediaType}:${item.tmdbId}`;
+                if (seen.has(key)) {
+                  continue;
+                }
+
+                const access = await getAgeAccessForMedia(item.mediaType, item.tmdbId);
+                if (!access.allowed) {
+                  continue;
+                }
+
+                seen.add(key);
+                collected.push(item);
+
+                if (collected.length >= Math.max(targetCount * 2, 12)) {
+                  return collected;
+                }
               }
 
-              const access = await getAgeAccessForMedia(item.mediaType, item.tmdbId);
-              if (!access.allowed) {
-                continue;
-              }
-
-              filtered.push(item);
-
-              if (filtered.length >= Math.max(targetCount * 2, 12)) {
+              if (result.totalPages <= page) {
                 break;
               }
             }
 
-            return filtered;
+            return collected;
           };
 
           const latestItems =
