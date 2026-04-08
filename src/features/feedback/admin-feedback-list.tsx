@@ -36,20 +36,20 @@ export function AdminFeedbackList({
           deleteError: "Feedback entry could not be deleted."
         }
       : {
-          empty: "Es wurden noch keine Feedback-Eintraege gespeichert.",
+          empty: "Es wurden noch keine Feedback-Einträge gespeichert.",
           sender: "Absender",
           page: "Seite",
           note: "KI-Zusammenfassung",
-          aiCheck: "KI geprueft",
+          aiCheck: "KI geprüft",
           constructive: "Konstruktiv",
           yes: "Ja",
           no: "Nein",
-          unavailable: "Nicht verfuegbar",
+          unavailable: "Nicht verfügbar",
           anonymous: "Anonym",
-          delete: "Loeschen",
-          deleteConfirm: "Diesen Feedback-Eintrag endgueltig loeschen?",
-          deleteSuccess: "Feedback-Eintrag wurde geloescht.",
-          deleteError: "Feedback-Eintrag konnte nicht geloescht werden."
+          delete: "Löschen",
+          deleteConfirm: "Diesen Feedback-Eintrag endgültig löschen?",
+          deleteSuccess: "Feedback-Eintrag wurde gelöscht.",
+          deleteError: "Feedback-Eintrag konnte nicht gelöscht werden."
         };
 
   const handleDelete = async (entryId: string) => {

@@ -51,7 +51,7 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           approved: false,
-          message: "Die KI-Pruefung ist gerade nicht verfuegbar. Bitte versuche es gleich erneut."
+          message: "Die KI-Prüfung ist gerade nicht verfügbar. Bitte versuche es gleich erneut."
         },
         { status: 503 }
       );
@@ -62,7 +62,7 @@ export async function POST(request: Request) {
         {
           approved: false,
           message:
-            "Bitte formuliere dein Feedback moeglichst konkret und umsetzbar, damit es gespeichert werden kann."
+            "Bitte formuliere dein Feedback möglichst konkret und umsetzbar, damit es gespeichert werden kann."
         },
         { status: 400 }
       );
@@ -93,7 +93,7 @@ export async function POST(request: Request) {
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: error.issues[0]?.message ?? "Ungueltige Eingabe." },
+        { error: error.issues[0]?.message ?? "Ungültige Eingabe." },
         { status: 400 }
       );
     }

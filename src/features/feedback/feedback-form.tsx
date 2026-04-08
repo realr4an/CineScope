@@ -50,7 +50,7 @@ export function FeedbackForm({ viewer }: { viewer: Viewer | null }) {
       : {
           title: "Feedback senden",
           description:
-            "Feedback wird vor dem Speichern per KI geprueft und nur gespeichert, wenn es eher konstruktiv wirkt.",
+            "Feedback wird vor dem Speichern per KI geprüft und nur gespeichert, wenn es eher konstruktiv wirkt.",
           category: "Kategorie",
           displayName: "Name",
           email: "E-Mail",
@@ -65,7 +65,7 @@ export function FeedbackForm({ viewer }: { viewer: Viewer | null }) {
           namePlaceholder: "Optionaler Anzeigename",
           emailPlaceholder: "Optionale Kontakt-E-Mail",
           messagePlaceholder:
-            "Was sollte verbessert, repariert oder ergaenzt werden? Je klarer dein Feedback ist, desto besser kann darauf reagiert werden.",
+            "Was sollte verbessert, repariert oder ergänzt werden? Je klarer dein Feedback ist, desto besser kann darauf reagiert werden.",
           submit: "Feedback senden",
           sending: "Wird gesendet...",
           success: "Danke, dein Feedback wurde gespeichert.",

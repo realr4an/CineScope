@@ -22,7 +22,7 @@ export default async function AdminFeedbackPage() {
           description={
             locale === "en"
               ? "This page is only available for admin accounts."
-              : "Diese Seite ist nur fuer Admin-Konten verfuegbar."
+              : "Diese Seite ist nur für Admin-Konten verfügbar."
           }
         />
       </AppShell>
@@ -39,8 +39,8 @@ export default async function AdminFeedbackPage() {
         }
       : {
           title: "Feedback-Postfach",
-          description: "Gespeicherte Feedback-Eintraege mit KI-gepruefter Konstruktiv-Kennzeichnung.",
-          empty: "Es wurden noch keine Feedback-Eintraege gespeichert."
+          description: "Gespeicherte Feedback-Einträge mit KI-geprüfter Konstruktiv-Kennzeichnung.",
+          empty: "Es wurden noch keine Feedback-Einträge gespeichert."
         };
 
   return (
