@@ -507,6 +507,101 @@ function buildShortlistReason(rank: number, locale: Locale) {
   return "Solide Option aus deiner Liste, wenn du noch einen ähnlichen Titel willst.";
 }
 
+type RecentListQualifier = "anime" | "live_action" | "movie" | "series";
+
+function extractRecentListQualifier(prompt: string): RecentListQualifier | null {
+  const normalized = prompt.toLowerCase();
+
+  if (/\b(anime|animiert|animated|zeichentrick|trickfilm)\b/.test(normalized)) {
+    return "anime";
+  }
+
+  if (/\b(live[\s-]?action|realverfilmung|echte menschen|mit echten menschen)\b/.test(normalized)) {
+    return "live_action";
+  }
+
+  if (/\b(film|movie|movies|filme)\b/.test(normalized)) {
+    return "movie";
+  }
+
+  if (/\b(serie|serien|show|shows|tv)\b/.test(normalized)) {
+    return "series";
+  }
+
+  return null;
+}
+
+function matchesRecentListQualifier(
+  context: AITitleContext,
+  qualifier: RecentListQualifier
+) {
+  const normalizedGenres = context.genres.map(genre => normalizeTitleForLookup(genre));
+  const isAnimation = normalizedGenres.includes("animation");
+
+  switch (qualifier) {
+    case "anime":
+      return isAnimation;
+    case "live_action":
+      return !isAnimation;
+    case "movie":
+      return context.mediaType === "movie";
+    case "series":
+      return context.mediaType === "tv";
+    default:
+      return false;
+  }
+}
+
+function buildRecentListQualifierLead(
+  qualifier: RecentListQualifier,
+  matches: AITitleContext[],
+  locale: Locale
+) {
+  const titles = matches.map(item => item.title);
+
+  if (locale === "en") {
+    if (qualifier === "anime") {
+      return matches.length === 1
+        ? `${titles[0]} is the anime from that list.`
+        : `These are the anime titles from that list: ${titles.join(", ")}.`;
+    }
+    if (qualifier === "live_action") {
+      return matches.length === 1
+        ? `${titles[0]} is the live-action title from that list.`
+        : `These are the live-action titles from that list: ${titles.join(", ")}.`;
+    }
+    if (qualifier === "movie") {
+      return matches.length === 1
+        ? `${titles[0]} is the movie from that list.`
+        : `These are the movies from that list: ${titles.join(", ")}.`;
+    }
+
+    return matches.length === 1
+      ? `${titles[0]} is the series from that list.`
+      : `These are the series from that list: ${titles.join(", ")}.`;
+  }
+
+  if (qualifier === "anime") {
+    return matches.length === 1
+      ? `${titles[0]} ist der Anime aus dieser Liste.`
+      : `Das sind die Anime-Titel aus dieser Liste: ${titles.join(", ")}.`;
+  }
+  if (qualifier === "live_action") {
+    return matches.length === 1
+      ? `${titles[0]} ist die Live-Action-Version aus dieser Liste.`
+      : `Das sind die Live-Action-Titel aus dieser Liste: ${titles.join(", ")}.`;
+  }
+  if (qualifier === "movie") {
+    return matches.length === 1
+      ? `${titles[0]} ist der Film aus dieser Liste.`
+      : `Das sind die Filme aus dieser Liste: ${titles.join(", ")}.`;
+  }
+
+  return matches.length === 1
+    ? `${titles[0]} ist die Serie aus dieser Liste.`
+    : `Das sind die Serien aus dieser Liste: ${titles.join(", ")}.`;
+}
+
 function parseLeadCount(input: string) {
   const normalized = input.toLowerCase();
   const digitMatch = normalized.match(/(?:^|\s)(\d{1,2})(?:\s|$)/);
@@ -2500,6 +2595,7 @@ export async function POST(request: Request) {
           prompt: safePrompt,
           conversation: safeConversation
         });
+        const recentListQualifier = extractRecentListQualifier(safePrompt);
         const safeTimeBudget = parsed.data.timeBudget
           ? sanitizeAssistantInputText(parsed.data.timeBudget)
           : undefined;
@@ -2697,6 +2793,83 @@ export async function POST(request: Request) {
                     : "Versuche eine etwas kürzere oder alternative Titelphrase."
               }
             });
+          }
+        }
+
+        if (recentListQualifier && isRecentListDecisionFollowUp(safePrompt)) {
+          const recentSuggestedTitles = extractMostRecentSuggestedTitles(safeConversation);
+          const recentCandidates = Array.from(
+            new Set([
+              ...recentSuggestedTitles,
+              ...references.map(reference => reference.title)
+            ])
+          ).slice(0, 8);
+
+          if (recentCandidates.length) {
+            const resolvedRecentCandidates = await Promise.all(
+              recentCandidates.map(title =>
+                ensureResolvedMediaAllowed(
+                  {
+                    query: title,
+                    mediaType: "all",
+                    hints: titleResolutionHints
+                  },
+                  locale
+                )
+              )
+            );
+
+            const matchedRecentContexts = resolvedRecentCandidates
+              .filter(result => result.resolved)
+              .map(result => result.resolved!.context)
+              .filter((context, index, all) =>
+                all.findIndex(
+                  candidate =>
+                    candidate.mediaType === context.mediaType &&
+                    candidate.tmdbId === context.tmdbId
+                ) === index
+              )
+              .filter(context => matchesRecentListQualifier(context, recentListQualifier));
+
+            if (matchedRecentContexts.length) {
+              return NextResponse.json({
+                mode: "assistant",
+                data: {
+                  intent: "recommend",
+                  lead: buildRecentListQualifierLead(
+                    recentListQualifier,
+                    matchedRecentContexts,
+                    locale
+                  ),
+                  picks: matchedRecentContexts.slice(0, MAX_ASSISTANT_SUGGESTIONS).map(context => ({
+                    title: context.title,
+                    mediaType: context.mediaType,
+                    reason:
+                      locale === "en"
+                        ? recentListQualifier === "anime"
+                          ? "Animated title from the recent shortlist."
+                          : recentListQualifier === "live_action"
+                            ? "Live-action title from the recent shortlist."
+                            : recentListQualifier === "movie"
+                              ? "Movie from the recent shortlist."
+                              : "Series from the recent shortlist."
+                        : recentListQualifier === "anime"
+                          ? "Animierter Titel aus der letzten Liste."
+                          : recentListQualifier === "live_action"
+                            ? "Live-Action-Titel aus der letzten Liste."
+                            : recentListQualifier === "movie"
+                              ? "Film aus der letzten Liste."
+                              : "Serie aus der letzten Liste.",
+                    tmdbId: context.tmdbId,
+                    href: `/${context.mediaType}/${context.tmdbId}`
+                  })),
+                  nextStep:
+                    locale === "en"
+                      ? "If you want, I can now open the matching detail page or compare these variants."
+                      : "Wenn du möchtest, öffne ich dir jetzt direkt die passende Detailseite oder vergleiche die Varianten."
+                }
+              });
+            }
           }
         }
 
