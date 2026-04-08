@@ -194,6 +194,94 @@ function getText(locale: Locale) {
       };
 }
 
+function mapAssistantRuntimeError(error: unknown, locale: Locale) {
+  const message = error instanceof Error ? error.message : "";
+  const normalized = message.toLowerCase();
+
+  if (error instanceof ZodError || normalized.includes("valid json") || normalized.includes("schema")) {
+    return {
+      status: 502,
+      error:
+        locale === "en"
+          ? "The AI returned an unusable answer format. Please try the request again."
+          : "Die KI hat kein brauchbares Antwortformat geliefert. Bitte versuche die Anfrage erneut."
+    };
+  }
+
+  if (normalized.includes("timed out")) {
+    return {
+      status: 504,
+      error:
+        locale === "en"
+          ? "The AI request took too long. Try a shorter or more specific request."
+          : "Die KI-Anfrage hat zu lange gedauert. Versuche eine kuerzere oder konkretere Anfrage."
+    };
+  }
+
+  if (normalized.includes("openrouter request failed: 429")) {
+    return {
+      status: 429,
+      error:
+        locale === "en"
+          ? "The AI service is currently busy. Please try again in a moment."
+          : "Der KI-Dienst ist gerade ausgelastet. Bitte versuche es gleich noch einmal."
+    };
+  }
+
+  if (
+    normalized.includes("openrouter request failed: 401") ||
+    normalized.includes("openrouter request failed: 403") ||
+    normalized.includes("openrouter_api_key fehlt") ||
+    normalized.includes("openrouter request failed: 404")
+  ) {
+    return {
+      status: 503,
+      error:
+        locale === "en"
+          ? "The AI service is currently not configured correctly."
+          : "Der KI-Dienst ist aktuell nicht korrekt konfiguriert."
+    };
+  }
+
+  if (normalized.includes("openrouter request failed")) {
+    return {
+      status: 502,
+      error:
+        locale === "en"
+          ? "The AI service could not complete the request right now."
+          : "Der KI-Dienst konnte die Anfrage gerade nicht abschliessen."
+    };
+  }
+
+  if (normalized.includes("tmdb request failed: 401") || normalized.includes("tmdb request failed: 403")) {
+    return {
+      status: 503,
+      error:
+        locale === "en"
+          ? "Movie and series data are currently not configured correctly."
+          : "Die Film- und Seriendaten sind aktuell nicht korrekt konfiguriert."
+    };
+  }
+
+  if (normalized.includes("tmdb request failed")) {
+    return {
+      status: 502,
+      error:
+        locale === "en"
+          ? "Movie and series data could not be loaded right now."
+          : "Film- und Seriendaten konnten gerade nicht geladen werden."
+    };
+  }
+
+  return {
+    status: 500,
+    error:
+      locale === "en"
+        ? "The AI request failed unexpectedly. Please try again."
+        : "Die KI-Anfrage ist unerwartet fehlgeschlagen. Bitte versuche es erneut."
+  };
+}
+
 function isNoveltyRequest(input: {
   prompt?: string;
   conversation?: Array<{ content: string }>;
@@ -3083,17 +3171,14 @@ export async function POST(request: Request) {
       }
     }
   } catch (error) {
-    if (error instanceof ZodError) {
-      return NextResponse.json({ error: text.aiActionFailedFriendly }, { status: 502 });
-    }
-
     console.error("[api/ai/assistant] failed:", error);
+    const mapped = mapAssistantRuntimeError(error, locale);
 
     return NextResponse.json(
       {
-        error: text.aiActionFailedFriendly
+        error: mapped.error
       },
-      { status: 500 }
+      { status: mapped.status }
     );
   }
 }

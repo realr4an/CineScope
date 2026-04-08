@@ -53,13 +53,26 @@ async function readError(response: Response, fallback: string) {
 }
 
 export async function postAIAction<T>(body: unknown, fallbackMessage: string) {
-  const response = await fetch("/api/ai/assistant", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify(body)
-  });
+  let response: Response;
+
+  try {
+    response = await fetch("/api/ai/assistant", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(body)
+    });
+  } catch {
+    const isGerman =
+      typeof document !== "undefined" &&
+      document?.documentElement?.lang?.toLowerCase().startsWith("de");
+    throw new Error(
+      isGerman
+        ? "Die Anfrage konnte nicht gesendet werden. Bitte pruefe deine Verbindung."
+        : "The request could not be sent. Please check your connection."
+    );
+  }
 
   if (!response.ok) {
     throw new Error(await readError(response, fallbackMessage));
