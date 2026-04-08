@@ -216,7 +216,7 @@ function mapAssistantRuntimeError(error: unknown, locale: Locale) {
       error:
         locale === "en"
           ? "The AI request took too long. Try a shorter or more specific request."
-          : "Die KI-Anfrage hat zu lange gedauert. Versuche eine kuerzere oder konkretere Anfrage."
+          : "Die KI-Anfrage hat zu lange gedauert. Versuche eine kürzere oder konkretere Anfrage."
     };
   }
 
@@ -251,7 +251,7 @@ function mapAssistantRuntimeError(error: unknown, locale: Locale) {
       error:
         locale === "en"
           ? "The AI service could not complete the request right now."
-          : "Der KI-Dienst konnte die Anfrage gerade nicht abschliessen."
+          : "Der KI-Dienst konnte die Anfrage gerade nicht abschließen."
     };
   }
 

@@ -475,15 +475,15 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
             activeRegion: `Land: ${activeRegionName}`,
             activeGenre: selectedGenreName ? `Genre: ${selectedGenreName}` : "Genre: Alle Genres",
             totalResults: `${discoverResult.totalResults.toLocaleString("de-DE")} Discover-Treffer`,
-            discoverLabel: selectedGenreName ? `${selectedGenreName} VorschlÃ¤ge` : "Genre-VorschlÃ¤ge",
+            discoverLabel: selectedGenreName ? `${selectedGenreName} Vorschläge` : "Genre-Vorschläge",
             discoverSubtitle: `Seite ${discoverResult.page} von ${totalPages}. Diese Seite zeigt bis zu 60 Titel.`,
             page: "Seite",
             of: "von",
-            previous: "ZurÃ¼ck",
+            previous: "Zurück",
             next: "Weiter",
-            noResultsTitle: "Keine Discover-Treffer fÃ¼r diese Filter",
+            noResultsTitle: "Keine Discover-Treffer für diese Filter",
             noResultsDescription:
-              "Probiere ein anderes Genre, einen grÃ¶ÃŸeren Zeitraum, ein niedrigeres Mindest-Rating oder ein anderes Land."
+              "Probiere ein anderes Genre, einen größeren Zeitraum, ein niedrigeres Mindest-Rating oder ein anderes Land."
           };
 
     return (
