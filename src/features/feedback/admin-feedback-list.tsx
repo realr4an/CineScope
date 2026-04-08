@@ -20,24 +20,36 @@ export function AdminFeedbackList({
   const text =
     locale === "en"
       ? {
-          empty: "No approved feedback has been stored yet.",
+          empty: "No feedback has been stored yet.",
           sender: "Sender",
           page: "Page",
-          note: "Moderation note",
+          note: "AI summary",
+          aiCheck: "AI checked",
+          constructive: "Constructive",
+          yes: "Yes",
+          no: "No",
+          unavailable: "Unavailable",
+          anonymous: "Anonymous",
           delete: "Delete",
           deleteConfirm: "Delete this feedback entry permanently?",
           deleteSuccess: "Feedback entry deleted.",
           deleteError: "Feedback entry could not be deleted."
         }
       : {
-          empty: "Es wurden noch keine freigegebenen Feedback-Einträge gespeichert.",
+          empty: "Es wurden noch keine Feedback-Eintraege gespeichert.",
           sender: "Absender",
           page: "Seite",
-          note: "Moderationshinweis",
-          delete: "Löschen",
-          deleteConfirm: "Diesen Feedback-Eintrag endgültig löschen?",
-          deleteSuccess: "Feedback-Eintrag wurde gelöscht.",
-          deleteError: "Feedback-Eintrag konnte nicht gelöscht werden."
+          note: "KI-Zusammenfassung",
+          aiCheck: "KI geprueft",
+          constructive: "Konstruktiv",
+          yes: "Ja",
+          no: "Nein",
+          unavailable: "Nicht verfuegbar",
+          anonymous: "Anonym",
+          delete: "Loeschen",
+          deleteConfirm: "Diesen Feedback-Eintrag endgueltig loeschen?",
+          deleteSuccess: "Feedback-Eintrag wurde geloescht.",
+          deleteError: "Feedback-Eintrag konnte nicht geloescht werden."
         };
 
   const handleDelete = async (entryId: string) => {
@@ -102,12 +114,12 @@ export function AdminFeedbackList({
                 {text.delete}
               </Button>
             </div>
-            <div className="mt-4 grid gap-3 text-sm md:grid-cols-3">
+            <div className="mt-4 grid gap-3 text-sm md:grid-cols-5">
               <div>
                 <div className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
                   {text.sender}
                 </div>
-                <div className="mt-1 break-words">{entry.displayName ?? entry.email ?? "Anonymous"}</div>
+                <div className="mt-1 break-words">{entry.displayName ?? entry.email ?? text.anonymous}</div>
               </div>
               <div>
                 <div className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
@@ -120,6 +132,22 @@ export function AdminFeedbackList({
                   {text.note}
                 </div>
                 <div className="mt-1 break-words">{entry.moderationSummary ?? "-"}</div>
+              </div>
+              <div>
+                <div className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
+                  {text.aiCheck}
+                </div>
+                <div className="mt-1 break-words">
+                  {entry.aiChecked ? `${text.yes}${entry.aiModel ? ` (${entry.aiModel})` : ""}` : text.unavailable}
+                </div>
+              </div>
+              <div>
+                <div className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
+                  {text.constructive}
+                </div>
+                <div className="mt-1 break-words">
+                  {entry.isConstructive === null ? text.unavailable : entry.isConstructive ? text.yes : text.no}
+                </div>
               </div>
             </div>
             <p className="mt-4 whitespace-pre-line break-words text-sm leading-7 text-foreground">

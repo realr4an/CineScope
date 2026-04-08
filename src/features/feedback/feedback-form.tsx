@@ -26,7 +26,7 @@ export function FeedbackForm({ viewer }: { viewer: Viewer | null }) {
       ? {
           title: "Send feedback",
           description:
-            "Feedback is checked server-side before it is stored for the admin inbox.",
+            "Feedback is checked by AI before it is stored. It is only saved if it looks constructive.",
           category: "Category",
           displayName: "Name",
           email: "Email",
@@ -45,14 +45,12 @@ export function FeedbackForm({ viewer }: { viewer: Viewer | null }) {
           submit: "Send feedback",
           sending: "Sending...",
           success: "Thanks, your feedback was saved.",
-          rejected:
-            "This feedback could not be accepted in its current wording. Please keep it factual and app-related.",
           failure: "Feedback could not be sent."
         }
       : {
           title: "Feedback senden",
           description:
-            "Feedback wird serverseitig geprüft, bevor es für das Admin-Postfach gespeichert wird.",
+            "Feedback wird vor dem Speichern per KI geprueft und nur gespeichert, wenn es eher konstruktiv wirkt.",
           category: "Kategorie",
           displayName: "Name",
           email: "E-Mail",
@@ -67,12 +65,10 @@ export function FeedbackForm({ viewer }: { viewer: Viewer | null }) {
           namePlaceholder: "Optionaler Anzeigename",
           emailPlaceholder: "Optionale Kontakt-E-Mail",
           messagePlaceholder:
-            "Was sollte verbessert, repariert oder ergänzt werden? Je klarer dein Feedback ist, desto besser kann darauf reagiert werden.",
+            "Was sollte verbessert, repariert oder ergaenzt werden? Je klarer dein Feedback ist, desto besser kann darauf reagiert werden.",
           submit: "Feedback senden",
           sending: "Wird gesendet...",
           success: "Danke, dein Feedback wurde gespeichert.",
-          rejected:
-            "Dieses Feedback konnte in der aktuellen Form nicht übernommen werden. Bitte formuliere es sachlich und app-bezogen.",
           failure: "Feedback konnte nicht gesendet werden."
         };
 
@@ -111,7 +107,7 @@ export function FeedbackForm({ viewer }: { viewer: Viewer | null }) {
       router.refresh();
     } catch (error) {
       const messageText = error instanceof Error ? error.message : text.failure;
-      toast.error(messageText.includes("nicht übernommen") || messageText.includes("could not be accepted") ? messageText : messageText || text.failure);
+      toast.error(messageText || text.failure);
     } finally {
       setSaving(false);
     }

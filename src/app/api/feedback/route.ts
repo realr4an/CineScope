@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { moderateFeedback } from "@/lib/ai/feedback-moderation";
-import { isUnsafeFeedbackMessage } from "@/lib/security/prompt-injection";
 import { checkRateLimit } from "@/lib/security/rate-limit";
 import { getRateLimitIdentityKey, getRequestIp, isSameOriginRequest } from "@/lib/security/request";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -15,22 +14,6 @@ const feedbackSchema = z.object({
   message: z.string().trim().min(3).max(2000),
   pagePath: z.string().trim().max(200).optional().or(z.literal(""))
 });
-
-const OFF_TOPIC_REASON_PATTERNS = [
-  /\boff[\s-]?topic\b/i,
-  /\bunrelated\b/i,
-  /\bnot\s+related\b/i,
-  /\bnot\s+about\b/i,
-  /\bkein(?:e|en|er)?\s+bezug\b/i
-] as const;
-
-const NON_CONSTRUCTIVE_REASON_PATTERNS = [
-  /\bnot\s+constructive\b/i,
-  /\bnot\s+actionable\b/i,
-  /\bconstructive\b/i,
-  /\bumsetzbar\b/i,
-  /\bnicht\s+konstruktiv\b/i
-] as const;
 
 export async function POST(request: Request) {
   if (!isSameOriginRequest(request)) {
@@ -55,17 +38,6 @@ export async function POST(request: Request) {
   try {
     const payload = feedbackSchema.parse(await request.json());
 
-    if (isUnsafeFeedbackMessage(payload.message)) {
-      return NextResponse.json(
-        {
-          approved: false,
-          message:
-            "Dein Feedback konnte in dieser Form nicht übernommen werden. Bitte formuliere es sachlich und app-bezogen."
-        },
-        { status: 400 }
-      );
-    }
-
     const supabase = await createSupabaseServerClient();
     const authResult = supabase ? await supabase.auth.getUser() : { data: { user: null } };
     const user = authResult.data.user;
@@ -75,20 +47,22 @@ export async function POST(request: Request) {
       message: payload.message
     });
 
-    if (!moderation.allowed) {
-      const isOffTopic = OFF_TOPIC_REASON_PATTERNS.some((pattern) => pattern.test(moderation.reason));
-      const isNonConstructive = NON_CONSTRUCTIVE_REASON_PATTERNS.some((pattern) =>
-        pattern.test(moderation.reason)
-      );
-
+    if (!moderation.aiChecked) {
       return NextResponse.json(
         {
           approved: false,
-          message: isOffTopic
-            ? "Bitte sende Feedback mit klarem Bezug zur App (Funktionen, Inhalte, UX oder Fehler)."
-            : isNonConstructive
-              ? "Bitte formuliere dein Feedback konkret und umsetzbar (z. B. Problem, Ort in der App, gewünschte Änderung)."
-              : "Dein Feedback konnte in dieser Form nicht übernommen werden. Bitte formuliere es sachlich und app-bezogen."
+          message: "Die KI-Pruefung ist gerade nicht verfuegbar. Bitte versuche es gleich erneut."
+        },
+        { status: 503 }
+      );
+    }
+
+    if (!moderation.isConstructive) {
+      return NextResponse.json(
+        {
+          approved: false,
+          message:
+            "Bitte formuliere dein Feedback moeglichst konkret und umsetzbar, damit es gespeichert werden kann."
         },
         { status: 400 }
       );
@@ -102,7 +76,10 @@ export async function POST(request: Request) {
       category: payload.category,
       message: payload.message,
       page_path: payload.pagePath || null,
-      moderation_summary: moderation.summary
+      moderation_summary: moderation.summary,
+      ai_checked: moderation.aiChecked,
+      is_constructive: moderation.isConstructive,
+      ai_model: moderation.aiModel
     });
 
     if (error) {
@@ -116,7 +93,7 @@ export async function POST(request: Request) {
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: error.issues[0]?.message ?? "Ungültige Eingabe." },
+        { error: error.issues[0]?.message ?? "Ungueltige Eingabe." },
         { status: 400 }
       );
     }

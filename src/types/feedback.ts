@@ -7,5 +7,8 @@ export interface FeedbackEntry {
   message: string;
   pagePath: string | null;
   moderationSummary: string | null;
+  aiChecked: boolean;
+  isConstructive: boolean | null;
+  aiModel: string | null;
   createdAt: string;
 }

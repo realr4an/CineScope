@@ -96,6 +96,9 @@ export interface Database {
           message: string;
           page_path: string | null;
           moderation_summary: string | null;
+          ai_checked: boolean;
+          is_constructive: boolean | null;
+          ai_model: string | null;
           created_at: string;
         };
         Insert: {
@@ -106,6 +109,9 @@ export interface Database {
           message: string;
           page_path?: string | null;
           moderation_summary?: string | null;
+          ai_checked?: boolean;
+          is_constructive?: boolean | null;
+          ai_model?: string | null;
         };
         Update: {
           email?: string | null;
@@ -114,6 +120,9 @@ export interface Database {
           message?: string;
           page_path?: string | null;
           moderation_summary?: string | null;
+          ai_checked?: boolean;
+          is_constructive?: boolean | null;
+          ai_model?: string | null;
         };
         Relationships: [];
       };

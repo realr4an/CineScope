@@ -38,6 +38,7 @@ type AskOpenRouterOptions = {
   systemPrompt?: string;
   maxTokens?: number;
   temperature?: number;
+  model?: string;
 };
 
 export async function askOpenRouter(prompt: string, options: AskOpenRouterOptions = {}) {
@@ -60,7 +61,7 @@ export async function askOpenRouter(prompt: string, options: AskOpenRouterOption
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        model: env.data.OPENROUTER_MODEL ?? "openai/gpt-4o-mini",
+        model: options.model ?? env.data.OPENROUTER_MODEL ?? "openai/gpt-4o-mini",
         temperature: options.temperature ?? 0.2,
         max_tokens: options.maxTokens ?? 700,
         messages: [
@@ -110,6 +111,7 @@ export async function askOpenRouterJsonWithOptions<T>(
   options?: {
     temperature?: number;
     maxTokens?: number;
+    model?: string;
   }
 ) {
   const systemPrompt = `${DEFAULT_SYSTEM_PROMPT} Output must be strict JSON and nothing else.`;
@@ -117,7 +119,8 @@ export async function askOpenRouterJsonWithOptions<T>(
   const raw = await askOpenRouter(prompt, {
     systemPrompt,
     temperature: primaryTemperature,
-    maxTokens: options?.maxTokens ?? 1000
+    maxTokens: options?.maxTokens ?? 1000,
+    model: options?.model
   });
 
   const tryParse = (input: string) => {
@@ -133,7 +136,8 @@ export async function askOpenRouterJsonWithOptions<T>(
       const retryRaw = await askOpenRouter(prompt, {
         systemPrompt,
         temperature: 0.25,
-        maxTokens: options?.maxTokens ?? 1000
+        maxTokens: options?.maxTokens ?? 1000,
+        model: options?.model
       });
 
       try {

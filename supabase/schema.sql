@@ -95,8 +95,20 @@ create table if not exists public.feedback_entries (
   message text not null,
   page_path text,
   moderation_summary text,
+  ai_checked boolean not null default false,
+  is_constructive boolean,
+  ai_model text,
   created_at timestamptz not null default timezone('utc', now())
 );
+
+alter table public.feedback_entries
+  add column if not exists ai_checked boolean not null default false;
+
+alter table public.feedback_entries
+  add column if not exists is_constructive boolean;
+
+alter table public.feedback_entries
+  add column if not exists ai_model text;
 
 alter table public.profiles enable row level security;
 alter table public.watchlist_items enable row level security;
