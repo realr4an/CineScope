@@ -209,6 +209,7 @@ export const dictionaries = {
       ]
     },
     detail: {
+      back: "Zurück",
       backHome: "Zur Startseite",
       titleBlocked: "Dieser Titel ist für dein Alter gesperrt",
       blockedHigherRating: "einer höheren Altersfreigabe",
@@ -437,6 +438,7 @@ export const dictionaries = {
       ]
     },
     detail: {
+      back: "Back",
       backHome: "Back to home",
       titleBlocked: "This title is blocked for your age",
       blockedHigherRating: "a higher age rating",

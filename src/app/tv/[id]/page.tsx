@@ -1,9 +1,9 @@
-import Link from "next/link";
-import { ArrowLeft, Calendar, Layers, ShieldAlert, Star, Tv } from "lucide-react";
+import { Calendar, Layers, ShieldAlert, Star, Tv } from "lucide-react";
 
 import { AppShell } from "@/components/layout/app-shell";
 import { CastSection, InfoPanel, TrailerSection } from "@/components/sections/detail-components";
 import { HorizontalMediaRow } from "@/components/sections/media-sections";
+import { BackNavigationButton } from "@/components/shared/back-navigation-button";
 import { GenreList, RatingBadge, StatPill } from "@/components/shared/ui-components";
 import { ErrorState } from "@/components/states/state-components";
 import { AIGeneratedBadge, AITagList } from "@/features/ai/ai-primitives";
@@ -81,13 +81,7 @@ export default async function TvPage({ params }: TvPageProps) {
             <div className="absolute inset-0 bg-gradient-to-r from-background via-background/70 to-background/30" />
             <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent" />
             <div className="relative z-10 min-h-[56vh] p-5 sm:min-h-[60vh] sm:p-8 lg:p-12">
-              <Link
-                href="/"
-                className="mb-8 inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
-              >
-                <ArrowLeft className="size-4" />
-                {dictionary.detail.backHome}
-              </Link>
+              <BackNavigationButton label={dictionary.detail.back} />
               <div className="grid min-w-0 gap-5 sm:gap-6 lg:grid-cols-[260px_minmax(0,1fr)] lg:items-end lg:gap-8">
                 <div className="hidden overflow-hidden rounded-3xl border border-border/50 shadow-2xl shadow-black/40 lg:block">
                   <img src={series.posterUrl ?? ""} alt={series.title} className="w-full" />
