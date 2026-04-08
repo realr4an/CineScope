@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { createContext, useContext, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { toast } from "sonner";
 
@@ -32,6 +32,7 @@ function mapWatchlistRow(data: any): WatchlistItem {
 }
 
 export function WatchlistProvider({ children, initialUser, initialWatchlist }: { children: React.ReactNode; initialUser: Viewer | null; initialWatchlist: WatchlistItem[] }) {
+  const [user, setUser] = useState(initialUser);
   const [items, setItems] = useState(initialWatchlist);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
@@ -58,11 +59,19 @@ export function WatchlistProvider({ children, initialUser, initialWatchlist }: {
       };
   const supabase = useMemo(() => (isSupabaseConfigured() ? createSupabaseBrowserClient() : null), []);
 
+  useEffect(() => {
+    setUser(initialUser);
+  }, [initialUser]);
+
+  useEffect(() => {
+    setItems(initialWatchlist);
+  }, [initialWatchlist]);
+
   const isSaved = (tmdbId: number, mediaType: MediaType) => items.some(item => item.tmdbId === tmdbId && item.mediaType === mediaType);
   const getItem = (tmdbId: number, mediaType: MediaType) => items.find(item => item.tmdbId === tmdbId && item.mediaType === mediaType);
 
   const ensureAuthenticated = () => {
-    if (initialUser) {
+    if (user) {
       return true;
     }
 
@@ -102,7 +111,7 @@ export function WatchlistProvider({ children, initialUser, initialWatchlist }: {
 
   const toggleItem = async (item: MediaListItem | WatchlistTogglePayload) => {
     if (!ensureAuthenticated()) return;
-    if (!supabase || !initialUser) { toast.error(dictionary.auth.supabaseNotConfigured); return; }
+    if (!supabase || !user) { toast.error(dictionary.auth.supabaseNotConfigured); return; }
 
     const payload = toTogglePayload(item);
     const existing = items.find(entry => entry.tmdbId === payload.tmdbId && entry.mediaType === payload.mediaType);
@@ -117,11 +126,11 @@ export function WatchlistProvider({ children, initialUser, initialWatchlist }: {
       return;
     }
 
-    const optimisticItem: WatchlistItem = { id: `${payload.mediaType}-${payload.tmdbId}`, userId: initialUser.id, tmdbId: payload.tmdbId, mediaType: payload.mediaType, title: payload.title, posterUrl: payload.posterUrl, backdropUrl: payload.backdropUrl, releaseDate: payload.releaseDate, voteAverage: payload.voteAverage, watched: false, liked: null, createdAt: new Date().toISOString() };
+    const optimisticItem: WatchlistItem = { id: `${payload.mediaType}-${payload.tmdbId}`, userId: user.id, tmdbId: payload.tmdbId, mediaType: payload.mediaType, title: payload.title, posterUrl: payload.posterUrl, backdropUrl: payload.backdropUrl, releaseDate: payload.releaseDate, voteAverage: payload.voteAverage, watched: false, liked: null, createdAt: new Date().toISOString() };
     const previous = items;
     setItems(current => [optimisticItem, ...current]);
 
-    const { data, error } = await (supabase.from("watchlist_items") as any).insert({ user_id: initialUser.id, tmdb_id: payload.tmdbId, media_type: payload.mediaType, title: payload.title, poster_path: payload.posterUrl, backdrop_path: payload.backdropUrl, release_date: payload.releaseDate, vote_average: payload.voteAverage, watched: false, liked: null }).select().single();
+    const { data, error } = await (supabase.from("watchlist_items") as any).insert({ user_id: user.id, tmdb_id: payload.tmdbId, media_type: payload.mediaType, title: payload.title, poster_path: payload.posterUrl, backdrop_path: payload.backdropUrl, release_date: payload.releaseDate, vote_average: payload.voteAverage, watched: false, liked: null }).select().single();
 
     if (error || !data) {
       setItems(previous);
@@ -136,7 +145,7 @@ export function WatchlistProvider({ children, initialUser, initialWatchlist }: {
     setLoading(false);
   };
 
-  return <WatchlistContext.Provider value={{ user: initialUser, items, loading, isSaved, getItem, toggleItem, updateFeedback }}>{children}</WatchlistContext.Provider>;
+  return <WatchlistContext.Provider value={{ user, items, loading, isSaved, getItem, toggleItem, updateFeedback }}>{children}</WatchlistContext.Provider>;
 }
 
 export function useWatchlist() {
