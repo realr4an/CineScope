@@ -24,7 +24,7 @@ import {
   WATCH_REGION_COOKIE_NAME,
   normalizeWatchRegionCode
 } from "@/lib/tmdb/watch-provider-preference";
-import { askOpenRouterJson } from "@/lib/ai/openrouter";
+import { askOpenRouterJson, askOpenRouterJsonWithOptions } from "@/lib/ai/openrouter";
 import { runAssistantSafetyGate, sanitizeAssistantInputText } from "@/lib/ai/assistant-guard";
 import {
   assistantPrompt,
@@ -1560,6 +1560,31 @@ function isDirectLinkRequest(prompt: string) {
   return asksForLink || (hasDeicticReference && /\b(link|url|seite|page)\b/.test(normalized));
 }
 
+function extractDirectLinkTargetTitle(prompt: string) {
+  const normalized = prompt.trim();
+
+  if (!normalized) {
+    return null;
+  }
+
+  const patterns = [
+    /(?:gib|schick|zeige|zeig)\s+mir\s+(?:den|die)?\s*(?:link|url|seite|detailseite)\s+(?:zu|für|fuer)\s+["„“]?(.+?)["“”]?\s*[.!?]?$/i,
+    /(?:send|give|show)\s+me\s+(?:the\s+)?(?:link|url|page)\s+(?:to|for)\s+["“”]?(.+?)["“”]?\s*[.!?]?$/i,
+    /(?:link|url|seite|page)\s+(?:zu|für|fuer|to|for)\s+["„“]?(.+?)["“”]?\s*[.!?]?$/i
+  ] as const;
+
+  for (const pattern of patterns) {
+    const match = normalized.match(pattern);
+    const candidate = match?.[1]?.trim();
+
+    if (candidate && candidate.length >= 2) {
+      return candidate.replace(/^[\s"'`„“]+|[\s"'`“”]+$/g, "").trim();
+    }
+  }
+
+  return null;
+}
+
 function extractAssistantLeadTitle(content: string) {
   const normalized = content.trim();
 
@@ -2488,6 +2513,7 @@ export async function POST(request: Request) {
 
         if (isDirectLinkRequest(safePrompt)) {
           const recentSuggestedTitles = extractMostRecentSuggestedTitles(safeConversation);
+          const directLinkTitleQuery = extractDirectLinkTargetTitle(safePrompt);
           const implicitSuggestedTitle = findSuggestedTitleMentionInPrompt(
             safePrompt,
             recentSuggestedTitles
@@ -2497,9 +2523,10 @@ export async function POST(request: Request) {
             parsed.data.mediaType
           );
           const inferredLinkTitleQuery =
-            implicitSuggestedTitle ??
+            directLinkTitleQuery ??
             extractLikelyTitleQuery(safePrompt) ??
             extractStandaloneTitleCandidate(safePrompt) ??
+            implicitSuggestedTitle ??
             extractRecentConversationTitleCandidate(safeConversation) ??
             extractRecentAssistantTitleCandidate(safeConversation) ??
             recentSuggestedTitles[0] ??
@@ -2632,7 +2659,7 @@ export async function POST(request: Request) {
           }
         }
 
-        const data = await askOpenRouterJson(
+        const data = await askOpenRouterJsonWithOptions(
           assistantPrompt(
             {
               prompt: safePrompt,
@@ -2651,7 +2678,11 @@ export async function POST(request: Request) {
             },
             locale
           ),
-          aiAssistantResponseSchema
+          aiAssistantResponseSchema,
+          {
+            temperature: 0.75,
+            maxTokens: 1200
+          }
         );
 
         let normalizedLead = data.lead;

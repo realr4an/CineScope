@@ -101,21 +101,51 @@ export async function askOpenRouter(prompt: string, options: AskOpenRouterOption
 }
 
 export async function askOpenRouterJson<T>(prompt: string, schema: ZodType<T>) {
+  return askOpenRouterJsonWithOptions(prompt, schema);
+}
+
+export async function askOpenRouterJsonWithOptions<T>(
+  prompt: string,
+  schema: ZodType<T>,
+  options?: {
+    temperature?: number;
+    maxTokens?: number;
+  }
+) {
+  const systemPrompt = `${DEFAULT_SYSTEM_PROMPT} Output must be strict JSON and nothing else.`;
+  const primaryTemperature = options?.temperature ?? 0;
   const raw = await askOpenRouter(prompt, {
-    systemPrompt: `${DEFAULT_SYSTEM_PROMPT} Output must be strict JSON and nothing else.`,
-    temperature: 0,
-    maxTokens: 1000
+    systemPrompt,
+    temperature: primaryTemperature,
+    maxTokens: options?.maxTokens ?? 1000
   });
 
-  const payload = extractJsonPayload(raw);
-
-  let parsed: unknown;
+  const tryParse = (input: string) => {
+    const payload = extractJsonPayload(input);
+    const parsed = JSON.parse(payload);
+    return schema.parse(parsed);
+  };
 
   try {
-    parsed = JSON.parse(payload);
-  } catch {
+    return tryParse(raw);
+  } catch (error) {
+    if (primaryTemperature > 0.35) {
+      const retryRaw = await askOpenRouter(prompt, {
+        systemPrompt,
+        temperature: 0.25,
+        maxTokens: options?.maxTokens ?? 1000
+      });
+
+      try {
+        return tryParse(retryRaw);
+      } catch {
+        // fall through to throw original error
+      }
+    }
+
+    if (error instanceof Error) {
+      throw error;
+    }
     throw new Error("OpenRouter response was not valid JSON.");
   }
-
-  return schema.parse(parsed);
 }
