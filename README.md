@@ -4,6 +4,8 @@ CineScope ist eine produktionsnahe Film- und Serien-Explorer-Web-App auf Basis v
 
 Produktiver Link: `https://cine-scope-realr4an.vercel.app/`
 
+Hinweis: Alle Pfadverweise in dieser README sind als relative Repository-Verweise formuliert und passen zum aktuellen Stand des `main`-Branches.
+
 ## Kurzbeschreibung und gewähltes Thema
 
 - Thema: `Film- & Serien-Explorer`
@@ -188,7 +190,7 @@ supabase/schema.sql
 ### Wie die Modellnutzung technisch umgesetzt ist
 
 - ausschließlich serverseitige OpenRouter-Nutzung
-- zentrale Kapselung in [`src/lib/ai/openrouter.ts`](/C:/Users/1/Documents/GitHub/CineScope/src/lib/ai/openrouter.ts)
+- zentrale Kapselung in [`src/lib/ai/openrouter.ts`](./src/lib/ai/openrouter.ts)
 - JSON-orientierte Antworten für strukturierte KI-Features
 - kontrollierte Temperatur pro Use Case
 - Retry mit konservativerer Temperatur, wenn ein JSON-Format nicht stabil geliefert wird
@@ -206,7 +208,7 @@ Die Anwendung wurde nicht nur funktional, sondern bewusst defensiv aufgebaut.
 - Secrets werden ausschließlich über Environment Variables bezogen.
 - `SUPABASE_SERVICE_ROLE_KEY`, `TMDB_API_KEY`, `TMDB_ACCESS_TOKEN` und `OPENROUTER_API_KEY` werden nicht im Client verwendet.
 - Öffentlich exponiert werden nur `NEXT_PUBLIC_*`-Variablen.
-- Umgebungsvariablen werden über Zod validiert in [`src/lib/env.ts`](/C:/Users/1/Documents/GitHub/CineScope/src/lib/env.ts).
+- Umgebungsvariablen werden über Zod validiert in [`src/lib/env.ts`](./src/lib/env.ts).
 
 ### 2. Supabase Security und RLS
 
@@ -227,7 +229,7 @@ Umgesetzt ist unter anderem:
 - Chat-Sessions nur für den eigenen Account
 - Feedback-Lesen und -Löschen nur für Admins über `is_admin`
 
-Schema: [schema.sql](/C:/Users/1/Documents/GitHub/CineScope/supabase/schema.sql)
+Schema: [`supabase/schema.sql`](./supabase/schema.sql)
 
 ### 3. Same-Origin-Schutz für schreibende Routen
 
@@ -239,7 +241,7 @@ Mutierende Routen prüfen die Request-Origin serverseitig:
 - `/api/admin/feedback/[id]`
 - Legacy Pages APIs für KI-Zusammenfassung und Empfehlungen
 
-Die Prüfung liegt in [`src/lib/security/request.ts`](/C:/Users/1/Documents/GitHub/CineScope/src/lib/security/request.ts).
+Die Prüfung liegt in [`src/lib/security/request.ts`](./src/lib/security/request.ts).
 
 ### 4. Rate Limiting
 
@@ -254,7 +256,7 @@ Empfindliche Routen haben IP-basierte Rate Limits:
 
 Aktueller technischer Stand:
 
-- leichtgewichtiges In-Memory-Bucket-Limit in [`src/lib/security/rate-limit.ts`](/C:/Users/1/Documents/GitHub/CineScope/src/lib/security/rate-limit.ts)
+- leichtgewichtiges In-Memory-Bucket-Limit in [`src/lib/security/rate-limit.ts`](./src/lib/security/rate-limit.ts)
 - gut für lokale Entwicklung und Basisschutz
 - für horizontale Skalierung wäre ein zentraler Store wie Redis der nächste saubere Schritt
 
@@ -279,8 +281,8 @@ Die App enthält explizite Schutzlogik gegen missbräuchliche KI-Eingaben:
 
 Relevante Dateien:
 
-- [prompt-injection.ts](/C:/Users/1/Documents/GitHub/CineScope/src/lib/security/prompt-injection.ts)
-- [assistant-guard.ts](/C:/Users/1/Documents/GitHub/CineScope/src/lib/ai/assistant-guard.ts)
+- [`src/lib/security/prompt-injection.ts`](./src/lib/security/prompt-injection.ts)
+- [`src/lib/ai/assistant-guard.ts`](./src/lib/ai/assistant-guard.ts)
 
 ### 7. Feedback-Härtung
 
@@ -297,7 +299,7 @@ Relevante Dateien:
 - Passwort-Reset läuft über Supabase und den Confirm-Step der App.
 - Geschützte Seiten wie Watchlist, Account oder Admin-Feedback leiten korrekt um.
 
-Middleware: [middleware.ts](/C:/Users/1/Documents/GitHub/CineScope/middleware.ts)
+Middleware: [`middleware.ts`](./middleware.ts)
 
 ### 9. Jugendschutz und Altersfilter
 
@@ -500,12 +502,24 @@ Dieses Projekt wurde in einem bewusst mehrstufigen agentischen Workflow umgesetz
 
 ### Was manuell entschieden und überprüft wurde
 
-- welche UI-Teile übernommen oder neu aufgebaut werden
-- welche Refactorings echten technischen Nutzen haben
-- wie Services, Features und Datenzugriffe getrennt werden
-- wie Guardrails gegen Prompt Injection und Datenexfiltration gesetzt werden
-- wie Nutzerfeedback, Altersfilter und Watchlist-Signale produktlogisch zusammenpassen
-- wo KI frei antworten darf und wo strukturierte Antworten robuster sind
+- welche UI-Teile aus dem ersten Frontend-Stand beibehalten werden und welche bewusst neu gebaut oder refaktoriert werden
+- dass der Ziel-Stack konsequent auf Next.js App Router, TypeScript, Tailwind, Supabase, TMDB und OpenRouter ausgerichtet bleibt
+- welche Features produktrelevant priorisiert werden und welche bewusst nicht weiter ausgebaut werden
+- wie Services, Features, Presentational Components und Persistenz logisch getrennt werden
+- wo strukturierte KI-Antworten robuster sind und wo dem Assistenten bewusst mehr Freiheit gegeben wird
+- wie Guardrails gegen Prompt Injection, Datenexfiltration und Missbrauch gesetzt werden, ohne die Produktnutzung unnötig zu verschlechtern
+- wie Nutzerfeedback, Altersfilter, Watchlist-Signale und persönliche Präferenzen sinnvoll zusammenspielen
+- welche Fehlerbilder iterativ nachgeschärft wurden, zum Beispiel fehlerhafte Verlinkungen, unpassende KI-Treffer, fragile Follow-ups oder uneinheitliche UI-Texte
+
+### Eigener Steuerungsanteil
+
+Die zentralen Entscheidungen dieses Projekts wurden nicht an Agenten delegiert, sondern aktiv gesteuert und bewertet. Dazu gehörten insbesondere:
+
+- die Auswahl und Schärfung der Agentenprompts
+- die Entscheidung, welche generierten Vorschläge übernommen, verworfen oder technisch neu umgesetzt werden
+- die Definition der Sicherheitsgrenzen für API-Routen, KI-Nutzung und Datenzugriffe
+- die Priorisierung von Qualität, Wartbarkeit und Interview-Erklärbarkeit vor maximaler Feature-Menge
+- die laufende Korrektur von Produktdetails auf Basis echter Nutzung, Fehlverhalten und UX-Beobachtungen
 
 ## Trade-offs
 
