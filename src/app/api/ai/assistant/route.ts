@@ -2930,11 +2930,10 @@ export async function POST(request: Request) {
 
         if (recentListQualifier && isRecentListDecisionFollowUp(safePrompt)) {
           const recentSuggestedTitles = extractMostRecentSuggestedTitles(safeConversation);
-          const recentCandidates = Array.from(
-            new Set([
-              ...recentSuggestedTitles,
-              ...references.map(reference => reference.title)
-            ])
+          const recentCandidates = (
+            recentSuggestedTitles.length
+              ? recentSuggestedTitles
+              : references.map(reference => reference.title)
           ).slice(0, 8);
 
           if (recentCandidates.length) {
