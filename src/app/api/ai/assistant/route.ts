@@ -394,6 +394,7 @@ async function topUpAssistantPicks(input: {
   animeIntent: boolean;
   noveltyRequested: boolean;
   episodeRuntimePreference?: EpisodeRuntimePreference | null;
+  requestedSeasonCount?: number | null;
   blockedTitles: Set<string>;
   locale: Locale;
 }) {
@@ -415,7 +416,9 @@ async function topUpAssistantPicks(input: {
   }
 
   const candidateTypes: Array<"movie" | "tv"> =
-    input.episodeRuntimePreference
+    input.requestedSeasonCount !== null && input.requestedSeasonCount !== undefined
+      ? ["tv"]
+      : input.episodeRuntimePreference
       ? ["tv"]
       : input.mediaType === "all"
       ? input.animeIntent
@@ -468,12 +471,25 @@ async function topUpAssistantPicks(input: {
           continue;
         }
 
-        if (input.episodeRuntimePreference && item.mediaType === "tv") {
+        if (
+          (input.episodeRuntimePreference ||
+            (input.requestedSeasonCount !== null && input.requestedSeasonCount !== undefined)) &&
+          item.mediaType === "tv"
+        ) {
           const tvContext = await getMediaAIContext("tv", item.tmdbId, input.locale);
-          const runtime = tvContext.runtime;
-
-          if (!runtime || !matchesEpisodeRuntime(runtime, input.episodeRuntimePreference)) {
+          if (
+            input.requestedSeasonCount !== null &&
+            input.requestedSeasonCount !== undefined &&
+            tvContext.numberOfSeasons !== input.requestedSeasonCount
+          ) {
             continue;
+          }
+
+          if (input.episodeRuntimePreference) {
+            const runtime = tvContext.runtime;
+            if (!runtime || !matchesEpisodeRuntime(runtime, input.episodeRuntimePreference)) {
+              continue;
+            }
           }
         }
 
@@ -1532,7 +1548,7 @@ function isPersonInfoIntent(prompt: string) {
     /\b(schauspieler|schauspielerin|schaupieler|darsteller|person|regisseur|director|actor|actress|cast member)\b/.test(
       normalized
     ) ||
-    /\b(wo\s+spielt?|wo\s+spielt?\s+.+\s+mit|where\s+does\s+.+\s+(play|star)|mitspielt?)\b/.test(
+    /\b(wo\s+spielt?|wo\s+spiel(?:t)?\s+.+\s+mit|where\s+does\s+.+\s+(play|star)|mitspielt?)\b/.test(
       normalized
     ) ||
     /\b(über\s+den\s+schauspieler|ueber den schauspieler|about the actor|about dwayne johnson)\b/.test(
@@ -1592,7 +1608,7 @@ function extractLikelyPersonQuery(prompt: string) {
     /(?:über|ueber)\s+den\s+schauspieler\s+["„“]?(.+?)["“”]?\s*[.!?]?$/i,
     /(?:über|ueber)\s+die\s+schauspielerin\s+["„“]?(.+?)["“”]?\s*[.!?]?$/i,
     /(?:mehr\s+über|infos?\s+zu)\s+dem\s+schauspieler\s+["„“]?(.+?)["“”]?\s*[.!?]?$/i,
-    /\bwo\s+spielt?\s+["„“]?(.+?)["“”]?\s+mit\b/i,
+    /\bwo\s+spiel(?:t)?\s+["„“]?(.+?)["“”]?\s+mit\b/i,
     /(?:filme?|serien?|movies?|shows?)\s+mit\s+["„“]?(.+?)["“”]?\s*[.!?]?$/i,
     /(?:tell\s+me\s+about|more\s+about)\s+(?:the\s+actor|actor)\s+["“”]?(.+?)["“”]?\s*[.!?]?$/i,
     /\bwhere\s+does\s+["“”]?(.+?)["“”]?\s+(?:play|star)\b/i,
@@ -1815,15 +1831,17 @@ function formatEpisodeRuntimePreference(preference: EpisodeRuntimePreference, lo
     : `Folgen etwa ${preference.minutes} Minuten`;
 }
 
-async function filterAssistantPicksByEpisodeRuntime(
-  picks: Array<{
+async function filterAssistantPicksByEpisodeRuntime<
+  T extends {
     title: string;
     mediaType: "movie" | "tv";
     reason: string;
     comparableTitle?: string;
     tmdbId?: number;
     href?: string;
-  }>,
+  }
+>(
+  picks: T[],
   preference: EpisodeRuntimePreference,
   locale: Locale
 ) {
@@ -1833,7 +1851,7 @@ async function filterAssistantPicksByEpisodeRuntime(
   );
 
   if (!tvCandidates.length) {
-    return [] as typeof picks;
+    return [] as T[];
   }
 
   const contexts = await getManyMediaAIContexts(
@@ -1857,7 +1875,7 @@ async function filterAssistantPicksByEpisodeRuntime(
       .map(context => context.tmdbId)
   );
 
-  return tvCandidates.filter(candidate => allowedIds.has(candidate.tmdbId));
+  return tvCandidates.filter(candidate => allowedIds.has(candidate.tmdbId)) as T[];
 }
 
 function getRequestedSeasonCount(input: {
@@ -1990,9 +2008,29 @@ export async function POST(request: Request) {
             sanitizedBody.mode === "assistant" &&
             Array.isArray(sanitizedBody.conversation)
           ) {
-            sanitizedBody.conversation = sanitizedBody.conversation.slice(
-              -MAX_ASSISTANT_CONTEXT_MESSAGES
-            );
+            sanitizedBody.conversation = sanitizedBody.conversation
+              .slice(-MAX_ASSISTANT_CONTEXT_MESSAGES)
+              .map(entry => {
+                if (!entry || typeof entry !== "object") {
+                  return entry;
+                }
+
+                const typed = entry as { role?: unknown; content?: unknown };
+                return {
+                  role: typed.role,
+                  content:
+                    typeof typed.content === "string"
+                      ? typed.content.slice(0, 500)
+                      : typed.content
+                };
+              });
+          }
+
+          if (
+            sanitizedBody.mode === "assistant" &&
+            typeof sanitizedBody.prompt === "string"
+          ) {
+            sanitizedBody.prompt = sanitizedBody.prompt.slice(0, 400);
           }
 
           return sanitizedBody;
@@ -2219,6 +2257,15 @@ export async function POST(request: Request) {
           conversation: safeConversation
         });
         const animeIntent = isAnimeIntent({
+          prompt: safePrompt,
+          conversation: safeConversation
+        });
+        const episodeRuntimePreference = getRequestedEpisodeRuntime({
+          prompt: safePrompt,
+          conversation: safeConversation,
+          mediaType: parsed.data.mediaType
+        });
+        const requestedSeasonCount = getRequestedSeasonCount({
           prompt: safePrompt,
           conversation: safeConversation
         });
@@ -2478,46 +2525,33 @@ export async function POST(request: Request) {
             }
           }
 
-          if (!titleContext) {
+          if (titleContext) {
+            const detailLead = await buildTitleDetailLead(
+              titleContext,
+              safePrompt,
+              locale,
+              requestedWatchRegion
+            );
+            const lead =
+              detailLead ??
+              (isComprehensiveTitleInfoRequest(safePrompt) || isTitleInfoFollowUpIntent(safePrompt)
+                ? await buildComprehensiveTitleInfoLead(
+                    titleContext,
+                    locale,
+                    requestedWatchRegion
+                  )
+                : buildTitleInfoLead(titleContext, locale));
+
             return NextResponse.json({
               mode: "assistant",
               data: {
-                intent: "clarify",
-                lead: text.titleInfoClarify,
+                intent: "title_info",
+                lead,
                 picks: [],
-                nextStep:
-                  locale === "en"
-                    ? "Name the exact movie or series title you mean."
-                    : "Nenne bitte den genauen Film- oder Serientitel."
+                nextStep: text.titleInfoNext
               }
             });
           }
-
-          const detailLead = await buildTitleDetailLead(
-            titleContext,
-            safePrompt,
-            locale,
-            requestedWatchRegion
-          );
-          const lead =
-            detailLead ??
-            (isComprehensiveTitleInfoRequest(safePrompt) || isTitleInfoFollowUpIntent(safePrompt)
-              ? await buildComprehensiveTitleInfoLead(
-                  titleContext,
-                  locale,
-                  requestedWatchRegion
-                )
-              : buildTitleInfoLead(titleContext, locale));
-
-          return NextResponse.json({
-            mode: "assistant",
-            data: {
-              intent: "title_info",
-              lead,
-              picks: [],
-              nextStep: text.titleInfoNext
-            }
-          });
         }
 
         const data = await askOpenRouterJson(
@@ -2528,6 +2562,9 @@ export async function POST(request: Request) {
               desiredPickCount: requestedPickCount,
               timeBudget: safeTimeBudget,
               mood: safeMood,
+              episodeRuntimePreference: episodeRuntimePreference
+                ? formatEpisodeRuntimePreference(episodeRuntimePreference, locale)
+                : undefined,
               intensity: parsed.data.intensity,
               socialContext: parsed.data.socialContext,
               references,
@@ -2613,9 +2650,52 @@ export async function POST(request: Request) {
             )
           : resolvedPicks;
 
+        let normalizedRecommendPicks: Array<{
+          title: string;
+          mediaType: "movie" | "tv";
+          reason: string;
+          comparableTitle?: string;
+          tmdbId?: number;
+          href?: string;
+        }> = data.intent === "recommend" ? noveltyFilteredPicks : [];
+
+        if (data.intent === "recommend" && requestedSeasonCount !== null) {
+          const seasonCandidates = normalizedRecommendPicks.filter(
+            pick => pick.mediaType === "tv" && typeof pick.tmdbId === "number"
+          ) as Array<(typeof normalizedRecommendPicks)[number] & { tmdbId: number; mediaType: "tv" }>;
+          const seasonFiltered = await filterAIPicksBySeasonCount(
+            seasonCandidates,
+            requestedSeasonCount,
+            locale
+          );
+          normalizedRecommendPicks = seasonFiltered;
+        }
+
+        if (data.intent === "recommend" && episodeRuntimePreference) {
+          normalizedRecommendPicks = await filterAssistantPicksByEpisodeRuntime(
+            normalizedRecommendPicks,
+            episodeRuntimePreference,
+            locale
+          );
+        }
+
+        if (data.intent === "recommend" && normalizedRecommendPicks.length < requestedPickCount) {
+          normalizedRecommendPicks = await topUpAssistantPicks({
+            picks: normalizedRecommendPicks,
+            requestedPickCount,
+            mediaType: parsed.data.mediaType,
+            animeIntent,
+            noveltyRequested,
+            episodeRuntimePreference,
+            requestedSeasonCount,
+            blockedTitles,
+            locale
+          });
+        }
+
         const assistantPicks =
           data.intent === "recommend"
-            ? noveltyFilteredPicks.slice(0, requestedPickCount)
+            ? normalizedRecommendPicks.slice(0, requestedPickCount)
             : [];
         const partialRecommendResult =
           data.intent === "recommend" &&
@@ -2623,20 +2703,29 @@ export async function POST(request: Request) {
           assistantPicks.length < requestedPickCount;
         const noRecommendPicks =
           data.intent === "recommend" && assistantPicks.length === 0;
-        const lead = noRecommendPicks
-          ? text.noSafePicksLead
-          : data.intent === "recommend" && cappedBySystem
-            ? text.cappedSuggestionsLead(requestedRaw, requestedPickCount, assistantPicks.length)
-            : data.intent === "recommend" && partialRecommendResult
-              ? text.partialSuggestionsLead(assistantPicks.length, requestedPickCount)
-              : normalizedLead;
-        const nextStep = noRecommendPicks
-          ? text.noSafePicksNext
-          : data.intent === "recommend" && cappedBySystem
-            ? text.cappedSuggestionsNext
-            : data.intent === "recommend" && partialRecommendResult
-              ? text.partialSuggestionsNext
-              : normalizedNextStep;
+
+        const parsedLeadCount =
+          data.intent === "recommend" ? parseLeadCount(normalizedLead ?? "") : null;
+        const lead = data.intent !== "recommend"
+          ? normalizedLead
+          : noRecommendPicks
+            ? normalizedLead || text.noSafePicksLead
+            : cappedBySystem
+              ? text.cappedSuggestionsLead(requestedRaw, requestedPickCount, assistantPicks.length)
+              : partialRecommendResult
+                ? text.partialSuggestionsLead(assistantPicks.length, requestedPickCount)
+                : parsedLeadCount !== null && parsedLeadCount !== assistantPicks.length
+                  ? text.exactSuggestionsLead(assistantPicks.length)
+                  : normalizedLead;
+        const nextStep = data.intent !== "recommend"
+          ? normalizedNextStep
+          : noRecommendPicks
+            ? normalizedNextStep || text.noSafePicksNext
+            : cappedBySystem
+              ? text.cappedSuggestionsNext
+              : partialRecommendResult
+                ? text.partialSuggestionsNext
+                : normalizedNextStep;
 
         return NextResponse.json({
           mode: "assistant",
