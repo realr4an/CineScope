@@ -8,7 +8,6 @@ import {
   RefreshCw,
   Save,
   SendHorizontal,
-  SlidersHorizontal,
   Trash2,
   User2
 } from "lucide-react";
@@ -50,12 +49,6 @@ type ChatMessage = {
 
 type ContextDraft = {
   prompt: string;
-  mediaType: "all" | "movie" | "tv";
-  timeBudget: string;
-  mood: string;
-  intensity: "easy" | "balanced" | "intense";
-  socialContext: "solo" | "parents" | "friends" | "date" | "family" | "";
-  referenceTitles: string;
 };
 
 type SavedChat = {
@@ -255,30 +248,13 @@ export function AIAssistantPanel() {
           loadError: "The AI assistant could not be loaded.",
           title: "Assistant chat",
           description:
-            "A conversational AI layer for mood, time, social context, and your personal taste.",
+            "A conversational AI layer for recommendations, follow-up questions and your personal taste.",
           inputPlaceholder: "Write what you want to watch.",
           send: "Send",
-          context: "Context",
-          typeAll: "Movie or series",
-          typeMovie: "Movies only",
-          typeTv: "Series only",
-          timePlaceholder: "Time budget, e.g. 90 minutes",
-          moodPlaceholder: "Mood, e.g. dark but accessible",
-          easy: "Lighter",
-          balanced: "Balanced",
-          intense: "More intense",
-          social: "Social context",
-          solo: "Solo",
-          parents: "With parents",
-          friends: "With friends",
-          date: "Date night",
-          family: "Family",
-          referencePlaceholder: "Reference titles, comma-separated",
           intro:
             "Hi, I can help you decide what to watch. Tell me what mood, time budget, or occasion you have in mind, and I will guide you from there.",
           chipsLabel: "You can start with one of these prompts:",
           typing: "Typing...",
-          clearContext: "Clear context",
           clearChat: "New chat",
           saveChat: "Save chat",
           savedChats: "Saved chats",
@@ -356,13 +332,7 @@ export function AIAssistantPanel() {
 
   const defaultDraft = useMemo<ContextDraft>(
     () => ({
-      prompt: "",
-      mediaType: "all",
-      timeBudget: "",
-      mood: "",
-      intensity: "balanced",
-      socialContext: "",
-      referenceTitles: ""
+      prompt: ""
     }),
     []
   );
@@ -370,14 +340,6 @@ export function AIAssistantPanel() {
   const hydratedRef = useRef(false);
   const [messages, setMessages] = useState<ChatMessage[]>([introMessage]);
   const [prompt, setPrompt] = useState(defaultDraft.prompt);
-  const [mediaType, setMediaType] = useState<"all" | "movie" | "tv">(defaultDraft.mediaType);
-  const [timeBudget, setTimeBudget] = useState(defaultDraft.timeBudget);
-  const [mood, setMood] = useState(defaultDraft.mood);
-  const [intensity, setIntensity] = useState<"easy" | "balanced" | "intense">(defaultDraft.intensity);
-  const [socialContext, setSocialContext] = useState<
-    "solo" | "parents" | "friends" | "date" | "family" | ""
-  >(defaultDraft.socialContext);
-  const [referenceTitles, setReferenceTitles] = useState(defaultDraft.referenceTitles);
   const [savedChats, setSavedChats] = useState<SavedChat[]>([]);
   const [selectedSavedChatId, setSelectedSavedChatId] = useState("");
   const [storageReady, setStorageReady] = useState(false);
@@ -387,35 +349,11 @@ export function AIAssistantPanel() {
 
   const applyDraft = (draft: ContextDraft) => {
     setPrompt(draft.prompt);
-    setMediaType(draft.mediaType);
-    setTimeBudget(draft.timeBudget);
-    setMood(draft.mood);
-    setIntensity(draft.intensity);
-    setSocialContext(draft.socialContext);
-    setReferenceTitles(draft.referenceTitles);
   };
 
   const getCurrentDraft = (): ContextDraft => ({
-    prompt,
-    mediaType,
-    timeBudget,
-    mood,
-    intensity,
-    socialContext,
-    referenceTitles
+    prompt
   });
-
-  const resetContext = () => {
-    applyDraft({
-      prompt,
-      mediaType: "all",
-      timeBudget: "",
-      mood: "",
-      intensity: "balanced",
-      socialContext: "",
-      referenceTitles: ""
-    });
-  };
 
   const resetConversation = () => {
     setMessages([introMessage]);
@@ -477,12 +415,6 @@ export function AIAssistantPanel() {
   }, [
     messages,
     prompt,
-    mediaType,
-    timeBudget,
-    mood,
-    intensity,
-    socialContext,
-    referenceTitles,
     storageReady
   ]);
 
@@ -604,17 +536,6 @@ export function AIAssistantPanel() {
         {
           mode: "assistant",
           prompt: content,
-          mediaType,
-          timeBudget: timeBudget || undefined,
-          mood: mood || undefined,
-          intensity,
-          socialContext: socialContext || undefined,
-          referenceTitles: referenceTitles
-            .split(",")
-            .map(value => value.trim())
-            .filter(Boolean)
-            .slice(0, 3)
-            .map(title => ({ query: title, mediaType: "all" })),
           feedback,
           conversation
         },
@@ -756,77 +677,6 @@ export function AIAssistantPanel() {
 
           <div className="border-t border-border/50 bg-card/20 p-4 sm:p-5">
             <div className="space-y-4">
-              <details className="group rounded-2xl border border-border/50 bg-background/40">
-                <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm">
-                  <span className="inline-flex items-center gap-2">
-                    <SlidersHorizontal className="size-4 text-primary" />
-                    {text.context}
-                  </span>
-                  <span className="text-xs text-muted-foreground group-open:hidden">
-                    {text.send}
-                  </span>
-                </summary>
-                <div className="grid gap-3 border-t border-border/50 px-4 py-4 md:grid-cols-2 lg:grid-cols-3">
-                  <select
-                    value={mediaType}
-                    onChange={event => setMediaType(event.target.value as "all" | "movie" | "tv")}
-                    className="h-11 rounded-xl border border-border/60 bg-background px-3 text-sm"
-                  >
-                    <option value="all">{text.typeAll}</option>
-                    <option value="movie">{text.typeMovie}</option>
-                    <option value="tv">{text.typeTv}</option>
-                  </select>
-                  <input
-                    value={timeBudget}
-                    onChange={event => setTimeBudget(event.target.value)}
-                    placeholder={text.timePlaceholder}
-                    className="h-11 rounded-xl border border-border/60 bg-background px-3 text-sm"
-                  />
-                  <input
-                    value={mood}
-                    onChange={event => setMood(event.target.value)}
-                    placeholder={text.moodPlaceholder}
-                    className="h-11 rounded-xl border border-border/60 bg-background px-3 text-sm"
-                  />
-                  <select
-                    value={intensity}
-                    onChange={event =>
-                      setIntensity(event.target.value as "easy" | "balanced" | "intense")
-                    }
-                    className="h-11 rounded-xl border border-border/60 bg-background px-3 text-sm"
-                  >
-                    <option value="easy">{text.easy}</option>
-                    <option value="balanced">{text.balanced}</option>
-                    <option value="intense">{text.intense}</option>
-                  </select>
-                  <select
-                    value={socialContext}
-                    onChange={event =>
-                      setSocialContext(
-                        event.target.value as "solo" | "parents" | "friends" | "date" | "family" | ""
-                      )
-                    }
-                    className="h-11 rounded-xl border border-border/60 bg-background px-3 text-sm"
-                  >
-                    <option value="">{text.social}</option>
-                    <option value="solo">{text.solo}</option>
-                    <option value="parents">{text.parents}</option>
-                    <option value="friends">{text.friends}</option>
-                    <option value="date">{text.date}</option>
-                    <option value="family">{text.family}</option>
-                  </select>
-                  <input
-                    value={referenceTitles}
-                    onChange={event => setReferenceTitles(event.target.value)}
-                    placeholder={text.referencePlaceholder}
-                    className="h-11 rounded-xl border border-border/60 bg-background px-3 text-sm"
-                  />
-                  <Button type="button" variant="outline" onClick={resetContext} className="md:col-span-2 lg:col-span-3">
-                    {text.clearContext}
-                  </Button>
-                </div>
-              </details>
-
               <form
                 onSubmit={event => {
                   event.preventDefault();
