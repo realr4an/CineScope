@@ -84,6 +84,7 @@ Nutzerkonto und Persistenz:
 - Persistente Watchlist pro User mit RLS-Schutz
 - Watchlist-Status je Titel: `gesehen`, `gefaellt`, `gefaellt nicht`
 - Account- und Praeferenzdaten (z. B. bevorzugte Region/Jugendschutzrelevante Angaben)
+- Feedback-System mit Admin-Postfach
 
 KI-Features:
 
@@ -92,6 +93,7 @@ KI-Features:
 - Zeit- und situationsbasierte Vorschlaege
 - KI-gestuetzte Zusammenfassungen, Vibe-Tags und Content-Hinweise (UI-kontextbezogen)
 - KI-gestuetzte Watchlist-Priorisierung/Gruppierung
+- KI-gepruefte Feedback-Klassifizierung (`konstruktiv ja/nein`) vor dem Speichern
 
 UI/UX und Produktqualitaet:
 
@@ -108,7 +110,6 @@ Die KI ist bewusst nicht als lose Sammlung kleiner Chatbots umgesetzt, sondern a
 ### Kernfeatures
 
 - Titelvergleich
-- `Warum passt das zu mir?`
 - `Was zuerst schauen?` auf der Watchlist
 - Assistenzmodus zur Auswahlhilfe
 
@@ -137,6 +138,7 @@ Die KI ist bewusst nicht als lose Sammlung kleiner Chatbots umgesetzt, sondern a
 - TMDB-Titeldaten wie Titel, Overview, Genres, Laufzeit, Staffeln, Episoden, Cast und Release-Datum
 - Watchlist-Feedback wie `gesehen`, `gefaellt`, `gefaellt nicht`
 - Nutzerkontext wie Stimmung, Zeitbudget, Intensitaet, sozialer Kontext und Referenztitel
+- Feedback-Nachrichten fuer die AI-Klassifizierung im Admin-Flow
 
 ### Guardrails
 
@@ -145,12 +147,12 @@ Die KI ist bewusst nicht als lose Sammlung kleiner Chatbots umgesetzt, sondern a
 - Antworten werden in strukturierte, UI-taugliche JSON-Formate gezwungen
 - Prompts sind absichtlich kurz und auf erklaerende, kuratierende Antworten begrenzt
 - Unsicherheit wird konservativ formuliert statt halluziniert
-- KI wird nur auf Nutzeraktion ausgelost, nicht permanent im Hintergrund
+- interaktive KI-Aktionen werden bewusst on-demand ausgeloest; zusaetzlich werden einzelne Detailseiten-Inhalte serverseitig als AI-Kontext eingebettet
 
 ### Warum diese KI-Funktionen Mehrwert haben
 
 - erklaerend:
-  Vibe-Tags, Content-Warnings, Person-Insights, `Warum passt das zu mir?`
+  Vibe-Tags, Content-Warnings, Person-Insights
 - empfehlend:
   Assistenzmodus, Zeit- und Sozialkontext-Vorschlaege
 - kuratierend:
@@ -308,8 +310,9 @@ Mindestens umgesetzt:
 - `user_preferences`
 - `ai_chat_sessions`
 - `ai_chat_messages`
+- `feedback_entries`
 
-Die aktuell produktiv genutzte Persistenz konzentriert sich auf `watchlist_items` und `profiles`. Dort liegen persoenliches Medien-Feedback sowie das fuer den Jugendschutzfilter genutzte `birth_date`.
+Die aktuell produktiv genutzte Persistenz konzentriert sich auf `watchlist_items`, `profiles`, `user_preferences` und `feedback_entries`. Dort liegen persoenliches Medien-Feedback, regionale Praeferenzen, das fuer den Jugendschutzfilter genutzte `birth_date` sowie das adminseitig sichtbare Nutzerfeedback.
 
 ### Zusätzliche SQL-Migration fuer Watchlist-Feedback
 
@@ -363,10 +366,10 @@ Abgedeckt:
 
 Zielplattform: Vercel
 
-Aktueller Stand in diesem Workspace:
+Aktueller Stand:
 
 - die App ist fuer Vercel/Next.js strukturiert
-- ein echter Live-Link ist in dieser Umgebung nicht hinterlegt, weil keine Vercel- oder Projekt-Credentials vorliegen
+- produktiver Link: `https://cine-scope-realr4an.vercel.app/`
 - fuer Deployment muessen die oben genannten Env Vars im Vercel-Projekt gesetzt werden
 
 ## Agentic Engineering Dokumentation
