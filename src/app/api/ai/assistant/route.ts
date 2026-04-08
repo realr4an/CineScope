@@ -14,6 +14,7 @@ import {
   resolveAllowedAIPicks
 } from "@/lib/ai/formatters";
 import { getDiscoverResults } from "@/lib/tmdb/discover";
+import { searchMedia } from "@/lib/tmdb/search";
 import {
   mapWatchProvidersForRegion,
   getMovieWatchProviders,
@@ -1594,6 +1595,49 @@ function isDirectLinkRequest(prompt: string) {
   return asksForLink || (hasDeicticReference && /\b(link|url|seite|page)\b/.test(normalized));
 }
 
+function isNameContainsSearchIntent(prompt: string) {
+  const normalized = prompt.toLowerCase();
+  return (
+    /\b(im\s+namen|im\s+titel)\b/.test(normalized) ||
+    /\b(in\s+the\s+name|in\s+the\s+title)\b/.test(normalized) ||
+    /\bmit\s+.+\s+im\s+namen\b/.test(normalized) ||
+    /\bwith\s+.+\s+in\s+the\s+(?:name|title)\b/.test(normalized)
+  );
+}
+
+function extractNameContainsQuery(prompt: string) {
+  const normalized = prompt.trim().replace(/\s+/g, " ");
+  if (!normalized) {
+    return null;
+  }
+
+  const patterns = [
+    /(?:mit|with)\s+["„“]?(.+?)["“”]?\s+(?:im\s+namen|im\s+titel|in\s+the\s+(?:name|title))/i,
+    /(?:haben|have)\s+["„“]?(.+?)["“”]?\s+(?:im\s+namen|im\s+titel|in\s+the\s+(?:name|title))/i,
+    /["„“]?(.+?)["“”]?\s+(?:im\s+namen|im\s+titel|in\s+the\s+(?:name|title))/i
+  ] as const;
+
+  for (const pattern of patterns) {
+    const match = normalized.match(pattern);
+    const candidate = match?.[1]?.trim();
+    if (!candidate) {
+      continue;
+    }
+
+    const cleaned = candidate
+      .replace(/^(?:der|die|das|dem|den|the)\s+/i, "")
+      .replace(/\b(?:serie|serien|film|filme|titles?|titel|anime)\b/gi, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+
+    if (cleaned.length >= 2) {
+      return cleaned;
+    }
+  }
+
+  return null;
+}
+
 function extractDirectLinkTargetTitle(prompt: string) {
   const normalized = prompt.trim().replace(/\s+/g, " ");
 
@@ -2360,7 +2404,7 @@ export async function POST(request: Request) {
           request.headers.get("cookie")
         );
         const explicitRecommendationIntent = isExplicitRecommendationIntent(safePrompt);
-        const { requestedPickCount, requestedRaw, cappedBySystem } = getRequestedPickCount({
+        const { requestedPickCount, requestedRaw, cappedBySystem, explicitlyRequested } = getRequestedPickCount({
           prompt: safePrompt,
           conversation: safeConversation
         });
@@ -2445,6 +2489,130 @@ export async function POST(request: Request) {
             if (resolved.resolved) {
               references.push(resolved.resolved.context);
             }
+          }
+        }
+
+        const nameContainsIntent = isNameContainsSearchIntent(safePrompt);
+        if (nameContainsIntent) {
+          const nameContainsQuery =
+            extractNameContainsQuery(safePrompt) ??
+            extractLikelyTitleQuery(safePrompt) ??
+            extractStandaloneTitleCandidate(safePrompt);
+
+          if (nameContainsQuery) {
+            const searchResult = await searchMedia({
+              query: nameContainsQuery,
+              mediaType: parsed.data.mediaType,
+              locale,
+              page: 1
+            });
+
+            const normalizedQuery = normalizeTitleForLookup(nameContainsQuery);
+            const queryTokens = normalizedQuery.split(" ").filter(Boolean);
+            const strictMatches = searchResult.items.filter(item => {
+              const normalizedTitle = normalizeTitleForLookup(item.title);
+              const normalizedOriginalTitle = normalizeTitleForLookup(item.originalTitle);
+
+              const phraseMatch =
+                !!normalizedQuery &&
+                (normalizedTitle.includes(normalizedQuery) ||
+                  normalizedOriginalTitle.includes(normalizedQuery));
+              const tokenMatch =
+                queryTokens.length >= 2 &&
+                queryTokens.every(
+                  token =>
+                    normalizedTitle.includes(token) ||
+                    normalizedOriginalTitle.includes(token)
+                );
+
+              return phraseMatch || tokenMatch;
+            });
+
+            const dedupedStrictMatches = Array.from(
+              new Map(
+                strictMatches.map(item => [`${item.mediaType}-${item.tmdbId}`, item])
+              ).values()
+            ).sort((left, right) => (right.voteCount ?? 0) - (left.voteCount ?? 0));
+
+            const maxNameMatchPicks = explicitlyRequested
+              ? requestedPickCount
+              : MAX_ASSISTANT_SUGGESTIONS;
+            const candidateItems = dedupedStrictMatches.slice(
+              0,
+              Math.max(maxNameMatchPicks * 3, 24)
+            );
+            const nameContainsPicks: Array<{
+              title: string;
+              mediaType: "movie" | "tv";
+              reason: string;
+              tmdbId: number;
+              href: string;
+            }> = [];
+
+            for (const item of candidateItems) {
+              if (nameContainsPicks.length >= maxNameMatchPicks) {
+                break;
+              }
+
+              const access = await getAgeAccessForMedia(item.mediaType, item.tmdbId);
+              if (!access.allowed) {
+                continue;
+              }
+
+              nameContainsPicks.push({
+                title: item.title,
+                mediaType: item.mediaType,
+                reason:
+                  locale === "en"
+                    ? `Title contains "${nameContainsQuery}".`
+                    : `Titel enthält "${nameContainsQuery}".`,
+                tmdbId: item.tmdbId,
+                href: `/${item.mediaType}/${item.tmdbId}`
+              });
+            }
+
+            if (nameContainsPicks.length) {
+              const total = dedupedStrictMatches.length;
+              return NextResponse.json({
+                mode: "assistant",
+                data: {
+                  intent: "recommend",
+                  lead:
+                    locale === "en"
+                      ? `I found ${total} title${total === 1 ? "" : "s"} with "${nameContainsQuery}" in the title. Here are ${nameContainsPicks.length}.`
+                      : `Ich habe ${total} Titel mit "${nameContainsQuery}" im Namen gefunden. Hier sind ${nameContainsPicks.length}.`,
+                  personalNote:
+                    locale === "en"
+                      ? "These picks are strictly based on TMDB title-name matches."
+                      : "Diese Vorschläge basieren strikt auf Titel-Treffern aus TMDB.",
+                  picks: nameContainsPicks,
+                  nextStep:
+                    locale === "en"
+                      ? total > nameContainsPicks.length
+                        ? "If you want, I can continue with the next batch or narrow it to movies or series only."
+                        : "If you want, I can narrow it down to only movies or only series."
+                      : total > nameContainsPicks.length
+                        ? "Wenn du möchtest, liefere ich dir die nächste Runde oder grenze auf nur Filme oder nur Serien ein."
+                        : "Wenn du möchtest, grenze ich das auf nur Filme oder nur Serien ein."
+                }
+              });
+            }
+
+            return NextResponse.json({
+              mode: "assistant",
+              data: {
+                intent: "clarify",
+                lead:
+                  locale === "en"
+                    ? `I could not find suitable title matches for "${nameContainsQuery}".`
+                    : `Ich konnte keine passenden Titel mit "${nameContainsQuery}" im Namen finden.`,
+                picks: [],
+                nextStep:
+                  locale === "en"
+                    ? "Try a slightly shorter or alternative title phrase."
+                    : "Versuche eine etwas kürzere oder alternative Titelphrase."
+              }
+            });
           }
         }
 
