@@ -873,7 +873,10 @@ function isStreamingAvailabilityPrompt(prompt: string) {
   const normalized = prompt.toLowerCase();
 
   return (
-    /\b(streaming|streamen|streambar|watch provider|where to watch|anbieter|anbietern|wo schauen|wo gucken|verf[uü]gbar)\b/.test(
+    /\b(streaming|streamen|streambar|streaming[-\s]?dienste?|streaming services?|watch provider|where to watch|anbieter|anbietern|wo schauen|wo gucken|wo läuft|wo laeuft|verf[uü]gbar)\b/.test(
+      normalized
+    ) ||
+    /\b(wo finde ich|where can i find|where can i watch|auf welchen diensten|auf welchem dienst|which service|which platform)\b/.test(
       normalized
     ) ||
     /\b(netflix|prime video|amazon prime|disney\+|disney plus|wow|sky|apple tv|hulu|paramount\+|rtl\+)\b/.test(
@@ -960,6 +963,19 @@ async function buildWhereToWatchSummaryForTitle(
       ? "Where-to-watch data could not be loaded right now."
       : "Where-to-watch-Daten konnten gerade nicht geladen werden.";
   }
+}
+
+function buildTitleNavigationPick(title: AITitleContext, locale: Locale) {
+  return {
+    title: title.title,
+    mediaType: title.mediaType,
+    reason:
+      locale === "en"
+        ? "Open the detail page for trailers, cast, ratings, watch providers and similar picks."
+        : "Öffne die Detailseite mit Trailer, Besetzung, Bewertungen, Streaming-Anbietern und ähnlichen Titeln.",
+    tmdbId: title.tmdbId,
+    href: `/${title.mediaType}/${title.tmdbId}`
+  };
 }
 
 function buildTitleInfoLead(title: AITitleContext, locale: Locale) {
@@ -2299,6 +2315,7 @@ function extractLikelyTitleQuery(input: string) {
     /(?:worum\s+geht\s+es\s+in|worum\s+geht'?s\s+in)\s+["„“]?(.+?)["“”]?\s*[.!?]?$/i,
     /(?:was\s+passiert\s+in)\s+["„“]?(.+?)["“”]?\s*[.!?]?$/i,
     /(?:was\s+passiert\s+bei)\s+["„“]?(.+?)["“”]?\s*[.!?]?$/i,
+    /(?:zeig(?:e)?\s+mir|show\s+me)\s+["„“]?(.+?)["“”]?\s*[.!?]?$/i,
     /(?:erz[aä]hl(?:e)?\s+mir\s+(?:mehr\s+)?(?:über|zu))\s+["„“]?(.+?)["“”]?\s*[.!?]?$/i,
     /(?:wie\s+lange[^.!?\n]{0,60}(?:bei|von|in)\s*)["„“]?(.+?)["“”]?\s*[.!?]?$/i,
     /(?:wie\s+lang[^.!?\n]{0,60}(?:bei|von|in)\s*)["„“]?(.+?)["“”]?\s*[.!?]?$/i,
@@ -2316,7 +2333,17 @@ function extractLikelyTitleQuery(input: string) {
     const candidate = match?.[1]?.trim();
 
     if (candidate) {
-      return candidate.replace(/^[\s"'`„“]+|[\s"'`“”]+$/g, "").trim();
+      const cleaned = candidate.replace(/^[\s"'`„“]+|[\s"'`“”]+$/g, "").trim();
+      const lowered = cleaned.toLowerCase();
+      if (
+        cleaned &&
+        !/^\d/.test(cleaned) &&
+        !/\b(filme|film|serien|serie|shows?|movie|movies|anime|animes|vorschl[aä]ge|recommend|suggest|neueste|newest|latest)\b/.test(
+          lowered
+        )
+      ) {
+        return cleaned;
+      }
     }
   }
 
@@ -3461,7 +3488,7 @@ export async function POST(request: Request) {
               data: {
                 intent: "title_info",
                 lead,
-                picks: [],
+                picks: [buildTitleNavigationPick(titleContext, locale)],
                 nextStep: text.titleInfoNext
               }
             });
@@ -3607,10 +3634,57 @@ export async function POST(request: Request) {
           );
         }
 
+        let nonRecommendPicks =
+          data.intent === "recommend" ? [] : await resolveAllowedAIPicks(data.picks, locale);
+
+        if (
+          data.intent !== "recommend" &&
+          nonRecommendPicks.length === 0 &&
+          normalizedLead &&
+          (data.intent === "title_info" || /\b(das klingt nach|that sounds like)\b/i.test(normalizedLead))
+        ) {
+          const leadTitleCandidate =
+            extractAssistantLeadTitle(normalizedLead) ??
+            extractLikelyTitleQuery(safePrompt) ??
+            extractRecentAssistantTitleCandidate(safeConversation);
+          const preferredTitleMediaType = inferTitleInfoMediaType(
+            leadTitleCandidate ?? safePrompt,
+            parsed.data.mediaType
+          );
+
+          if (leadTitleCandidate) {
+            let titleContext = pickReferenceForTitleQuery(
+              references,
+              leadTitleCandidate,
+              preferredTitleMediaType,
+              titleResolutionHints
+            );
+
+            if (!titleContext) {
+              const resolved = await ensureResolvedMediaAllowed(
+                {
+                  query: leadTitleCandidate,
+                  mediaType: preferredTitleMediaType,
+                  hints: titleResolutionHints
+                },
+                locale
+              );
+
+              if (resolved.resolved) {
+                titleContext = resolved.resolved.context;
+              }
+            }
+
+            if (titleContext) {
+              nonRecommendPicks = [buildTitleNavigationPick(titleContext, locale)];
+            }
+          }
+        }
+
         const assistantPicks =
           data.intent === "recommend"
             ? normalizedRecommendPicks.slice(0, requestedPickCount)
-            : [];
+            : nonRecommendPicks.slice(0, 1);
         const partialRecommendResult =
           data.intent === "recommend" &&
           assistantPicks.length > 0 &&
