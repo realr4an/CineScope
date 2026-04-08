@@ -45,9 +45,8 @@ export function AIWatchlistPriorityPanel({
           button: "Help me choose",
           clear: "Clear selection",
           selectedCount: "selected in the watchlist",
-          helper: "Mark 2 to 10 titles directly on the cards below. The AI will then sort them into a sensible watch order.",
-          timePlaceholder: "Time context, e.g. two evenings or franchise marathon",
-          socialPlaceholder: "Context, e.g. with friends or in chronological order",
+          helper:
+            "Mark 2 to 10 titles directly on the cards below. The AI will then sort them into a sensible watch order.",
           empty: "No watch order available yet.",
           nothingSelected: "No titles selected yet."
         }
@@ -60,15 +59,12 @@ export function AIWatchlistPriorityPanel({
           button: "Hilfe bei der Reihenfolge",
           clear: "Auswahl leeren",
           selectedCount: "in der Watchlist ausgewählt",
-          helper: "Markiere 2 bis 10 Titel direkt an den Karten unten. Die KI sortiert sie dir dann in eine sinnvolle Reihenfolge.",
-          timePlaceholder: "Zeitkontext, z. B. zwei Abende oder Franchise-Marathon",
-          socialPlaceholder: "Kontext, z. B. mit Freunden oder in chronologischer Reihenfolge",
+          helper:
+            "Markiere 2 bis 10 Titel direkt an den Karten unten. Die KI sortiert sie dir dann in eine sinnvolle Reihenfolge.",
           empty: "Noch keine Reihenfolge verfügbar.",
           nothingSelected: "Noch keine Titel ausgewählt."
         };
 
-  const [timeContext, setTimeContext] = useState("");
-  const [socialContext, setSocialContext] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<PriorityResponse["data"] | null>(null);
@@ -83,15 +79,13 @@ export function AIWatchlistPriorityPanel({
     setError(null);
 
     try {
-      const context = [timeContext, socialContext].filter(Boolean).join(" | ");
       const response = await postAIAction<PriorityResponse>(
         {
           mode: "priority",
           items: selectedItems.map(item => ({
             tmdbId: item.tmdbId,
             mediaType: item.mediaType
-          })),
-          context: context || undefined
+          }))
         },
         text.error
       );
@@ -148,21 +142,6 @@ export function AIWatchlistPriorityPanel({
           ) : (
             <p className="mt-3 text-sm">{text.nothingSelected}</p>
           )}
-        </div>
-
-        <div className="grid gap-3 md:grid-cols-2">
-          <input
-            value={timeContext}
-            onChange={event => setTimeContext(event.target.value)}
-            placeholder={text.timePlaceholder}
-            className="h-11 rounded-xl border border-border/60 bg-background px-3 text-sm"
-          />
-          <input
-            value={socialContext}
-            onChange={event => setSocialContext(event.target.value)}
-            placeholder={text.socialPlaceholder}
-            className="h-11 rounded-xl border border-border/60 bg-background px-3 text-sm"
-          />
         </div>
 
         {error ? (
