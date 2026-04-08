@@ -63,9 +63,8 @@ export function DiscoverQuickNav({
       <div className="mt-6 space-y-3">
         <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">{genreLabel}</p>
         <div className="max-h-56 overflow-y-auto rounded-2xl border border-border/40 bg-background/35 p-3 pr-2">
-          {genreHint ? (
-            <p className="text-sm text-muted-foreground">{genreHint}</p>
-          ) : (
+          {genreHint ? <p className="mb-3 text-sm text-muted-foreground">{genreHint}</p> : null}
+          {genreLinks.length ? (
             <div className="flex flex-wrap gap-2">
               {genreLinks.map(link => (
                 <button
@@ -84,6 +83,8 @@ export function DiscoverQuickNav({
                 </button>
               ))}
             </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">{genreHint}</p>
           )}
         </div>
       </div>
