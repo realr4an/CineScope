@@ -183,7 +183,7 @@ export function isUnsafeFeedbackMessage(input: string) {
     return true;
   }
 
-  const urlMatches = trimmed.match(FEEDBACK_ABUSE_PATTERNS[1]);
+  const urlMatches = trimmed.match(FEEDBACK_ABUSE_PATTERNS[4]);
 
   if (urlMatches && urlMatches.length >= 3) {
     return true;
