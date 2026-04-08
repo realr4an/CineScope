@@ -34,12 +34,12 @@ export default async function AdminFeedbackPage() {
     locale === "en"
       ? {
           title: "Feedback inbox",
-          description: "Stored feedback entries with AI-checked constructiveness flags.",
+          description: "Stored feedback entries with AI checks and malicious-content flags.",
           empty: "No feedback has been stored yet."
         }
       : {
           title: "Feedback-Postfach",
-          description: "Gespeicherte Feedback-Einträge mit KI-geprüfter Konstruktiv-Kennzeichnung.",
+          description: "Gespeicherte Feedback-Einträge mit KI-Prüfung und Böswilligkeits-Kennzeichnung.",
           empty: "Es wurden noch keine Feedback-Einträge gespeichert."
         };
 

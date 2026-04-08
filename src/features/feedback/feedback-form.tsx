@@ -26,7 +26,7 @@ export function FeedbackForm({ viewer }: { viewer: Viewer | null }) {
       ? {
           title: "Send feedback",
           description:
-            "Feedback is checked by AI before it is stored. It is only saved if it looks constructive.",
+            "Feedback is checked by AI before storage. Only clearly malicious content is blocked.",
           category: "Category",
           displayName: "Name",
           email: "Email",
@@ -41,7 +41,7 @@ export function FeedbackForm({ viewer }: { viewer: Viewer | null }) {
           namePlaceholder: "Optional display name",
           emailPlaceholder: "Optional contact email",
           messagePlaceholder:
-            "What should be improved, fixed, or added? The clearer your feedback is, the easier it is to act on.",
+            "What should be improved, fixed, or added? Critical feedback is fine as long as it is not malicious.",
           submit: "Send feedback",
           sending: "Sending...",
           success: "Thanks, your feedback was saved.",
@@ -50,7 +50,7 @@ export function FeedbackForm({ viewer }: { viewer: Viewer | null }) {
       : {
           title: "Feedback senden",
           description:
-            "Feedback wird vor dem Speichern per KI geprüft und nur gespeichert, wenn es eher konstruktiv wirkt.",
+            "Feedback wird vor dem Speichern per KI geprüft. Nur klar böswillige Inhalte werden blockiert.",
           category: "Kategorie",
           displayName: "Name",
           email: "E-Mail",
@@ -65,7 +65,7 @@ export function FeedbackForm({ viewer }: { viewer: Viewer | null }) {
           namePlaceholder: "Optionaler Anzeigename",
           emailPlaceholder: "Optionale Kontakt-E-Mail",
           messagePlaceholder:
-            "Was sollte verbessert, repariert oder ergänzt werden? Je klarer dein Feedback ist, desto besser kann darauf reagiert werden.",
+            "Was sollte verbessert, repariert oder ergänzt werden? Auch kritisches Feedback ist okay, solange es nicht böswillig ist.",
           submit: "Feedback senden",
           sending: "Wird gesendet...",
           success: "Danke, dein Feedback wurde gespeichert.",

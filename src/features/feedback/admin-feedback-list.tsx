@@ -24,8 +24,9 @@ export function AdminFeedbackList({
           sender: "Sender",
           page: "Page",
           note: "AI summary",
+          reason: "AI reason",
           aiCheck: "AI checked",
-          constructive: "Constructive",
+          malicious: "Malicious",
           yes: "Yes",
           no: "No",
           unavailable: "Unavailable",
@@ -40,8 +41,9 @@ export function AdminFeedbackList({
           sender: "Absender",
           page: "Seite",
           note: "KI-Zusammenfassung",
+          reason: "KI-Begründung",
           aiCheck: "KI geprüft",
-          constructive: "Konstruktiv",
+          malicious: "Böswillig",
           yes: "Ja",
           no: "Nein",
           unavailable: "Nicht verfügbar",
@@ -114,7 +116,7 @@ export function AdminFeedbackList({
                 {text.delete}
               </Button>
             </div>
-            <div className="mt-4 grid gap-3 text-sm md:grid-cols-5">
+            <div className="mt-4 grid gap-3 text-sm md:grid-cols-6">
               <div>
                 <div className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
                   {text.sender}
@@ -135,6 +137,12 @@ export function AdminFeedbackList({
               </div>
               <div>
                 <div className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
+                  {text.reason}
+                </div>
+                <div className="mt-1 break-words">{entry.moderationReason ?? "-"}</div>
+              </div>
+              <div>
+                <div className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
                   {text.aiCheck}
                 </div>
                 <div className="mt-1 break-words">
@@ -143,10 +151,10 @@ export function AdminFeedbackList({
               </div>
               <div>
                 <div className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
-                  {text.constructive}
+                  {text.malicious}
                 </div>
                 <div className="mt-1 break-words">
-                  {entry.isConstructive === null ? text.unavailable : entry.isConstructive ? text.yes : text.no}
+                  {entry.isMalicious === null ? text.unavailable : entry.isMalicious ? text.yes : text.no}
                 </div>
               </div>
             </div>

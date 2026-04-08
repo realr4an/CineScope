@@ -127,8 +127,10 @@ export const getFeedbackEntriesForAdmin = cache(async (): Promise<FeedbackEntry[
     message: item.message,
     pagePath: item.page_path,
     moderationSummary: item.moderation_summary,
+    moderationReason: item.moderation_reason ?? null,
     aiChecked: item.ai_checked ?? false,
     isConstructive: item.is_constructive ?? null,
+    isMalicious: item.is_malicious ?? null,
     aiModel: item.ai_model ?? null,
     createdAt: item.created_at
   }));

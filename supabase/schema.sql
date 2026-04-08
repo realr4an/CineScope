@@ -95,8 +95,10 @@ create table if not exists public.feedback_entries (
   message text not null,
   page_path text,
   moderation_summary text,
+  moderation_reason text,
   ai_checked boolean not null default false,
   is_constructive boolean,
+  is_malicious boolean,
   ai_model text,
   created_at timestamptz not null default timezone('utc', now())
 );
@@ -106,6 +108,12 @@ alter table public.feedback_entries
 
 alter table public.feedback_entries
   add column if not exists is_constructive boolean;
+
+alter table public.feedback_entries
+  add column if not exists moderation_reason text;
+
+alter table public.feedback_entries
+  add column if not exists is_malicious boolean;
 
 alter table public.feedback_entries
   add column if not exists ai_model text;

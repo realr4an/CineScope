@@ -96,8 +96,10 @@ export interface Database {
           message: string;
           page_path: string | null;
           moderation_summary: string | null;
+          moderation_reason: string | null;
           ai_checked: boolean;
           is_constructive: boolean | null;
+          is_malicious: boolean | null;
           ai_model: string | null;
           created_at: string;
         };
@@ -109,8 +111,10 @@ export interface Database {
           message: string;
           page_path?: string | null;
           moderation_summary?: string | null;
+          moderation_reason?: string | null;
           ai_checked?: boolean;
           is_constructive?: boolean | null;
+          is_malicious?: boolean | null;
           ai_model?: string | null;
         };
         Update: {
@@ -120,8 +124,10 @@ export interface Database {
           message?: string;
           page_path?: string | null;
           moderation_summary?: string | null;
+          moderation_reason?: string | null;
           ai_checked?: boolean;
           is_constructive?: boolean | null;
+          is_malicious?: boolean | null;
           ai_model?: string | null;
         };
         Relationships: [];

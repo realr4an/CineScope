@@ -47,24 +47,13 @@ export async function POST(request: Request) {
       message: payload.message
     });
 
-    if (!moderation.aiChecked) {
+    if (moderation.aiChecked && moderation.isMalicious) {
       return NextResponse.json(
         {
           approved: false,
-          message: "Die KI-Prüfung ist gerade nicht verfügbar. Bitte versuche es gleich erneut."
+          message: "Dieses Feedback wurde als böswillig eingestuft und deshalb nicht gespeichert."
         },
-        { status: 503 }
-      );
-    }
-
-    if (!moderation.isConstructive) {
-      return NextResponse.json(
-        {
-          approved: false,
-          message:
-            "Bitte formuliere dein Feedback möglichst konkret und umsetzbar, damit es gespeichert werden kann."
-        },
-        { status: 400 }
+        { status: 403 }
       );
     }
 
@@ -77,8 +66,10 @@ export async function POST(request: Request) {
       message: payload.message,
       page_path: payload.pagePath || null,
       moderation_summary: moderation.summary,
+      moderation_reason: moderation.reason,
       ai_checked: moderation.aiChecked,
-      is_constructive: moderation.isConstructive,
+      is_constructive: null,
+      is_malicious: moderation.isMalicious,
       ai_model: moderation.aiModel
     });
 
