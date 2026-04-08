@@ -24,7 +24,7 @@ import {
   WATCH_REGION_COOKIE_NAME,
   normalizeWatchRegionCode
 } from "@/lib/tmdb/watch-provider-preference";
-import { askOpenRouterJson, askOpenRouterJsonWithOptions } from "@/lib/ai/openrouter";
+import { askOpenRouter, askOpenRouterJson, askOpenRouterJsonWithOptions } from "@/lib/ai/openrouter";
 import { runAssistantSafetyGate, sanitizeAssistantInputText } from "@/lib/ai/assistant-guard";
 import {
   assistantPrompt,
@@ -281,6 +281,66 @@ function mapAssistantRuntimeError(error: unknown, locale: Locale) {
         ? "The AI request failed unexpectedly. Please try again."
         : "Die KI-Anfrage ist unerwartet fehlgeschlagen. Bitte versuche es erneut."
   };
+}
+
+function isStructuredAssistantFormatError(error: unknown) {
+  const message = error instanceof Error ? error.message.toLowerCase() : "";
+
+  return (
+    error instanceof ZodError ||
+    message.includes("valid json") ||
+    message.includes("schema") ||
+    message.includes("unexpected token") ||
+    message.includes("json")
+  );
+}
+
+async function getAssistantStructuredOrFallback(input: {
+  prompt: string;
+  locale: Locale;
+  requestedPickCount: number;
+}) {
+  try {
+    return await askOpenRouterJsonWithOptions(
+      input.prompt,
+      aiAssistantResponseSchema,
+      {
+        temperature: 0.6,
+        maxTokens: 1200
+      }
+    );
+  } catch (error) {
+    if (!isStructuredAssistantFormatError(error)) {
+      throw error;
+    }
+
+    const fallbackText = await askOpenRouter(
+      [
+        input.prompt,
+        "",
+        input.locale === "en"
+          ? "Fallback mode: structured JSON failed. Answer as plain helpful chat text only."
+          : "Fallback-Modus: Das strukturierte JSON ist fehlgeschlagen. Antworte nur als hilfreicher normaler Chat-Text.",
+        input.locale === "en"
+          ? `Do not output JSON. Do not invent pick cards. Keep it concise and natural. If you would normally give a list, summarize it in text and ask one focused follow-up question. Requested suggestion count: ${input.requestedPickCount}.`
+          : `Gib kein JSON aus. Erfinde keine Kartenstruktur. Antworte knapp und natürlich. Wenn du normalerweise eine Liste geben würdest, fasse sie in Textform zusammen und stelle genau eine gezielte Rückfrage. Gewünschte Anzahl an Vorschlägen: ${input.requestedPickCount}.`
+      ].join("\n"),
+      {
+        temperature: 0.45,
+        maxTokens: 700
+      }
+    );
+
+    return {
+      intent: "chat" as const,
+      lead: fallbackText.trim(),
+      picks: [],
+      nextStep:
+        input.locale === "en"
+          ? "If you want, I can narrow this down by genre, mood, runtime, or a reference title."
+          : "Wenn du möchtest, grenze ich das nach Genre, Stimmung, Laufzeit oder einem Referenztitel weiter ein."
+    };
+  }
 }
 
 function isNoveltyRequest(input: {
@@ -3023,8 +3083,8 @@ export async function POST(request: Request) {
           }
         }
 
-        const data = await askOpenRouterJsonWithOptions(
-          assistantPrompt(
+        const data = await getAssistantStructuredOrFallback({
+          prompt: assistantPrompt(
             {
               prompt: safePrompt,
               mediaType: parsed.data.mediaType,
@@ -3042,12 +3102,9 @@ export async function POST(request: Request) {
             },
             locale
           ),
-          aiAssistantResponseSchema,
-          {
-            temperature: 0.9,
-            maxTokens: 1200
-          }
-        );
+          locale,
+          requestedPickCount
+        });
 
         let normalizedLead = data.lead;
         let normalizedNextStep = data.nextStep;
