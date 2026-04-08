@@ -54,6 +54,7 @@ export async function getDiscoverResults(input: {
   yearFrom?: number;
   yearTo?: number;
   rating?: number;
+  voteCount?: number;
   page: number;
   sort: string;
   region?: string;
@@ -84,6 +85,7 @@ export async function getDiscoverResults(input: {
           sort_by: input.sort,
           page,
           "vote_average.gte": input.rating,
+          "vote_count.gte": input.voteCount,
           watch_region: input.region,
           with_watch_providers: providerFilter,
           ...dateRangeParams

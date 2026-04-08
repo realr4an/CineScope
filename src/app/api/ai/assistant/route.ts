@@ -803,6 +803,31 @@ function isLatestReleaseIntent(prompt: string) {
   );
 }
 
+function extractRequestedReleaseYear(prompt: string) {
+  const normalized = prompt.toLowerCase();
+  const currentYear = new Date().getUTCFullYear();
+
+  if (
+    /\b(diesem jahr|dieses jahr|aus diesem jahr|im aktuellen jahr|current year|this year|from this year)\b/.test(
+      normalized
+    )
+  ) {
+    return currentYear;
+  }
+
+  const explicitYear = normalized.match(/\b(19\d{2}|20\d{2}|21\d{2})\b/);
+  if (!explicitYear) {
+    return null;
+  }
+
+  const parsedYear = Number(explicitYear[1]);
+  if (Number.isNaN(parsedYear)) {
+    return null;
+  }
+
+  return parsedYear;
+}
+
 function inferDiscoverMediaType(
   prompt: string,
   preferred: "all" | "movie" | "tv"
@@ -2829,7 +2854,9 @@ export async function POST(request: Request) {
           }
         }
 
-        if (isLatestReleaseIntent(safePrompt)) {
+        const requestedReleaseYear = extractRequestedReleaseYear(safePrompt);
+
+        if (isLatestReleaseIntent(safePrompt) || requestedReleaseYear) {
           const discoverMediaType = inferDiscoverMediaType(safePrompt, parsed.data.mediaType);
           const today = new Date().toISOString().slice(0, 10);
           const targetCount = Math.min(requestedPickCount, MAX_ASSISTANT_SUGGESTIONS);
@@ -2839,12 +2866,16 @@ export async function POST(request: Request) {
               mediaType === "movie" ? "primary_release_date.desc" : "first_air_date.desc";
             const collected: Array<(Awaited<ReturnType<typeof getDiscoverResults>>)["items"][number]> = [];
             const seen = new Set<string>();
+            const minimumVoteCount = mediaType === "movie" ? 50 : 20;
 
             for (let page = 1; page <= 5; page += 1) {
               const result = await getDiscoverResults({
                 mediaType,
                 page,
                 sort,
+                yearFrom: requestedReleaseYear ?? undefined,
+                yearTo: requestedReleaseYear ?? undefined,
+                voteCount: minimumVoteCount,
                 locale
               });
 
@@ -2909,20 +2940,36 @@ export async function POST(request: Request) {
                 intent: "recommend",
                 lead:
                   locale === "en"
-                    ? discoverMediaType === "movie"
-                      ? `Here are the ${dedupedLatestItems.length} newest released movies I found in TMDB.`
-                      : discoverMediaType === "tv"
-                        ? `Here are the ${dedupedLatestItems.length} newest released series I found in TMDB.`
-                        : `Here are the ${dedupedLatestItems.length} newest released titles I found in TMDB.`
-                    : discoverMediaType === "movie"
-                      ? `Hier sind die ${dedupedLatestItems.length} neuesten veröffentlichten Filme, die ich in TMDB gefunden habe.`
-                      : discoverMediaType === "tv"
-                        ? `Hier sind die ${dedupedLatestItems.length} neuesten veröffentlichten Serien, die ich in TMDB gefunden habe.`
-                        : `Hier sind die ${dedupedLatestItems.length} neuesten veröffentlichten Titel, die ich in TMDB gefunden habe.`,
+                    ? requestedReleaseYear
+                      ? discoverMediaType === "movie"
+                        ? `Here are ${dedupedLatestItems.length} released movies from ${requestedReleaseYear} that I found in TMDB.`
+                        : discoverMediaType === "tv"
+                          ? `Here are ${dedupedLatestItems.length} released series from ${requestedReleaseYear} that I found in TMDB.`
+                          : `Here are ${dedupedLatestItems.length} released titles from ${requestedReleaseYear} that I found in TMDB.`
+                      : discoverMediaType === "movie"
+                        ? `Here are the ${dedupedLatestItems.length} newest released movies I found in TMDB.`
+                        : discoverMediaType === "tv"
+                          ? `Here are the ${dedupedLatestItems.length} newest released series I found in TMDB.`
+                          : `Here are the ${dedupedLatestItems.length} newest released titles I found in TMDB.`
+                    : requestedReleaseYear
+                      ? discoverMediaType === "movie"
+                        ? `Hier sind ${dedupedLatestItems.length} veröffentlichte Filme aus dem Jahr ${requestedReleaseYear}, die ich in TMDB gefunden habe.`
+                        : discoverMediaType === "tv"
+                          ? `Hier sind ${dedupedLatestItems.length} veröffentlichte Serien aus dem Jahr ${requestedReleaseYear}, die ich in TMDB gefunden habe.`
+                          : `Hier sind ${dedupedLatestItems.length} veröffentlichte Titel aus dem Jahr ${requestedReleaseYear}, die ich in TMDB gefunden habe.`
+                      : discoverMediaType === "movie"
+                        ? `Hier sind die ${dedupedLatestItems.length} neuesten veröffentlichten Filme, die ich in TMDB gefunden habe.`
+                        : discoverMediaType === "tv"
+                          ? `Hier sind die ${dedupedLatestItems.length} neuesten veröffentlichten Serien, die ich in TMDB gefunden habe.`
+                          : `Hier sind die ${dedupedLatestItems.length} neuesten veröffentlichten Titel, die ich in TMDB gefunden habe.`,
                 personalNote:
                   locale === "en"
-                    ? "This list is sorted by release date, not by popularity."
-                    : "Diese Liste ist nach Veröffentlichungsdatum sortiert, nicht nach Popularität.",
+                    ? requestedReleaseYear
+                      ? "This list is filtered to the requested release year and then sorted by release date."
+                      : "This list is sorted by release date, not by popularity."
+                    : requestedReleaseYear
+                      ? "Diese Liste ist auf das gewünschte Veröffentlichungsjahr gefiltert und danach nach Datum sortiert."
+                      : "Diese Liste ist nach Veröffentlichungsdatum sortiert, nicht nach Popularität.",
                 picks: dedupedLatestItems.map(item => ({
                   title: item.title,
                   mediaType: item.mediaType,
@@ -2940,6 +2987,26 @@ export async function POST(request: Request) {
               }
             });
           }
+
+          return NextResponse.json({
+            mode: "assistant",
+            data: {
+              intent: "clarify",
+              lead:
+                locale === "en"
+                  ? requestedReleaseYear
+                    ? `I could not find enough released titles from ${requestedReleaseYear} in TMDB right now.`
+                    : "I could not find enough recent released titles in TMDB right now."
+                  : requestedReleaseYear
+                    ? `Ich konnte in TMDB gerade nicht genug veröffentlichte Titel aus dem Jahr ${requestedReleaseYear} finden.`
+                    : "Ich konnte in TMDB gerade nicht genug aktuelle veröffentlichte Titel finden.",
+              picks: [],
+              nextStep:
+                locale === "en"
+                  ? "Try another year, or ask for a genre like animation, thriller, or sci-fi."
+                  : "Versuche ein anderes Jahr oder nenne zusätzlich ein Genre wie Animation, Thriller oder Sci-Fi."
+            }
+          });
         }
 
         if (recentListQualifier && isRecentListDecisionFollowUp(safePrompt)) {
