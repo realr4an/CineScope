@@ -1,6 +1,6 @@
 # CineScope
 
-CineScope ist eine produktionsnahe Film- und Serien-Explorer-Web-App auf Basis von TMDB, Supabase und OpenRouter. Die App verbindet klassische Discovery-Features wie Suche, Trends, Popular-Listen und Detailseiten mit einer persistenten Watchlist, Authentifizierung, Jugendschutz-Logik und einem integrierten KI-Layer für Empfehlungen, Einordnung und Auswahlhilfe.
+CineScope ist eine produktionsnahe Film- und Serien-Explorer-Web-App auf Basis von TMDB, Supabase und OpenRouter. Die Anwendung verbindet klassische Discovery-Features wie Suche, Trends, Popular-Listen und Detailseiten mit einer persistenten Watchlist, Authentifizierung, Jugendschutz-Logik, Streaming-Verfügbarkeit pro Land und einem integrierten KI-Layer für Empfehlungen, Einordnung und Auswahlhilfe.
 
 Produktiver Link: `https://cine-scope-realr4an.vercel.app/`
 
@@ -8,10 +8,22 @@ Hinweis: Alle Pfadverweise in dieser README sind als relative Repository-Verweis
 
 ## Kurzbeschreibung und gewähltes Thema
 
-- Thema: `Film- & Serien-Explorer`
-- Ziel: Nutzer:innen sollen Filme und Serien suchen, entdecken, filtern, vergleichen, merken und mit KI-Unterstützung besser einordnen können.
-- Datenquellen: TMDB für Medieninhalte und Watch-Provider, Supabase für Auth und Persistenz, OpenRouter für KI-Features.
-- Ausrichtung: Die App ist nicht als Demo-Klickstrecke gebaut, sondern als erweiterbare Fullstack-Anwendung mit klarer Trennung zwischen UI, Services, Validierung, Persistenz und KI-Routen.
+Gewähltes Thema: `Film- & Serien-Explorer`
+
+Ziel des Projekts:
+
+- Filme und Serien suchen, entdecken und filtern
+- Trends und populäre Titel sichtbar machen
+- Detailseiten mit Cast, Trailer, Bewertungen, Sprachen, Streaming-Anbietern und ähnlichen Titeln bereitstellen
+- Inhalte in einer Watchlist speichern und persönlich bewerten
+- einen KI-Assistenten für Auswahlhilfe, Vergleiche und Einordnung anbieten
+
+Diese README deckt die vier geforderten Punkte explizit ab:
+
+1. Kurzbeschreibung des Projekts und des gewählten Themas
+2. Anleitung zum lokalen Setup
+3. Beschreibung der implementierten Features
+4. Dokumentation des Agentic-Engineering-Ansatzes
 
 ## Implementierte Features
 
@@ -19,39 +31,40 @@ Hinweis: Alle Pfadverweise in dieser README sind als relative Repository-Verweis
 
 - Startseite mit `Trending Movies`, `Trending TV`, `Popular Movies` und `Popular TV`
 - Suchseite mit Textsuche, Filtern und paginierten Ergebnissen
-- Genre-basierte Entdeckungsseite mit eigener Filterlogik
+- genrebasierte Entdeckungsseite mit eigener Discover-Logik
 - Detailseiten für Filme und Serien mit:
-  - KI-generierter Kurzüberblick
+  - KI-generiertem Kurzüberblick
   - Cast
   - Trailer
   - Similar Titles
   - erweiterten Metadaten
-  - Sprachen
+  - verfügbaren Sprachen
   - Altersfreigabe
-  - Streaming-Verfügbarkeit
+  - Streaming-Verfügbarkeit pro Land
 - Personenseiten mit Filmografie und KI-Einordnung
+- Sammlungsseiten für Startseiten-Bereiche wie Trends und Popular-Listen
 
-### Nutzerkonto und Persistenz
+### Nutzerkonto, Persistenz und Personalisierung
 
 - Supabase Auth mit Login, Signup, Logout und Passwort-Reset
 - persistente Watchlist pro Nutzer:in
 - Watchlist-Feedback pro Titel:
   - `gesehen`
-  - `gefällt`
-  - `gefällt nicht`
-- gespeicherte Präferenzen wie bevorzugte Region
+  - `gefällt mir`
+  - `gefällt mir nicht`
+- gespeicherte Präferenzen wie bevorzugte Streaming-Region
 - Account-Einstellungen für persönliche Angaben und jugendschutzrelevante Daten
-- gespeicherte KI-Chat-Sessions
+- Altersfilter für Gäste per Cookie und für eingeloggte Accounts zusätzlich über das Profil
 
 ### KI-Features
 
 - KI-Assistent für freie Medienanfragen und Auswahlhilfe
 - Titelvergleich
-- geführte Auswahlhilfe auf Basis von Stimmung, Zeitbudget und Anlass
+- geführte Auswahlhilfe auf Basis von Stimmung, Anlass und Follow-up-Fragen
 - KI-Zusammenfassungen auf Detailseiten
 - KI-Vibe-Tags und Content-Hinweise
 - KI-gestützte Watchlist-Priorisierung und Gruppierung
-- KI-klassifiziertes Feedback mit Speicherung nur bei konstruktiven Einträgen
+- KI-klassifiziertes Feedback mit Blockierung nur klar böswilliger Einträge
 
 ### UX und Produktqualität
 
@@ -60,30 +73,39 @@ Hinweis: Alle Pfadverweise in dieser README sind als relative Repository-Verweis
 - Lade-, Fehler- und Leerzustände
 - klickbare KI-Empfehlungen
 - horizontale Content-Bereiche mit Maus- und Touch-Nutzung
-- Where-to-watch mit Länderwahl
-- Jugendschutz-Gate mit Altersfilterung
+- `Where to watch` mit Länderwahl
+- rechtliche Seiten für Impressum und Datenschutz
 
-## Architekturübersicht
+## Architekturüberblick
 
 ```mermaid
 flowchart TD
     U[Benutzer:in] --> N[Next.js App Router UI]
-    N --> P[Feature-Komponenten]
-    P --> T[TMDB Service Layer]
-    P --> S[Supabase Layer]
-    P --> A[AI API Routes]
+    N --> F[Feature-Komponenten]
+    F --> T[TMDB Service Layer]
+    F --> S[Supabase Layer]
+    F --> A[AI API Routes]
 
     T --> TMDB[TMDB API]
-    S --> SB[(Supabase Auth + DB)]
+    S --> SB[(Supabase Auth + Postgres)]
     A --> OR[OpenRouter]
 
-    A --> G[Guardrails<br/>Zod · Prompt-Checks · Rate Limits]
+    A --> G[Guardrails<br/>Zod · Request-Prüfung · Rate Limits]
     S --> RLS[RLS Policies]
     N --> M[Middleware / Session Refresh]
 
     G --> OR
     M --> SB
 ```
+
+Kernidee der Architektur:
+
+- App Router für Seiten, Layouts und API-Routen
+- Feature-Ordner für UI- und Produktlogik
+- dedizierter TMDB-Service-Layer
+- dedizierte Supabase-Utilities für Auth, Server-Clients und Queries
+- dedizierte KI-Schicht mit Prompts, Schemas, Guardrails und serverseitiger OpenRouter-Anbindung
+- Zod für Input-Validierung und strukturierte KI-Antworten
 
 ## Projektstruktur
 
@@ -108,8 +130,8 @@ src/
     layout/
     cards/
     sections/
-    states/
     shared/
+    states/
     ui/
   features/
     ai/
@@ -117,12 +139,15 @@ src/
     auth/
     discover/
     feedback/
+    i18n/
     search/
     watch-providers/
     watchlist/
   lib/
+    age-gate/
     ai/
     env.ts
+    format.ts
     i18n/
     security/
     supabase/
@@ -146,8 +171,7 @@ supabase/schema.sql
 | Motion | Framer Motion | `12.x` | Übergänge und Animationen |
 | Icons | lucide-react | `0.453.x` | konsistente Icon-Sprache |
 | Theme | next-themes | `0.4.x` | Light-/Dark-Mode |
-| Forms | react-hook-form + zod | `7.x` / `4.x` | Formzustand und Validierung |
-| UI Utilities | class-variance-authority, clsx, tailwind-merge | aktuell | Varianten, Klassenlogik |
+| Form Handling | react-hook-form + zod | `7.x` / `4.x` | Formzustand und Validierung |
 | Notifications | sonner | `2.x` | Toasts |
 
 ### Daten, Auth und Persistenz
@@ -155,18 +179,18 @@ supabase/schema.sql
 | Bereich | Technologie | Zweck |
 | --- | --- | --- |
 | Auth | Supabase Auth | Login, Signup, Passwort-Reset, Session-Verwaltung |
-| Datenbank | Supabase Postgres | Watchlist, Profile, Präferenzen, Chat-Sessions, Feedback |
+| Datenbank | Supabase Postgres | Watchlist, Profile, Präferenzen, Feedback |
 | SSR Auth | `@supabase/ssr` | Server- und Middleware-kompatibler Session-Zugriff |
-| Security | Supabase RLS | mandantenfähiger Datenschutz auf Tabellenebene |
+| Security | Supabase RLS | nutzerbezogene Zugriffskontrolle auf Tabellenebene |
 
 ### Medien- und KI-Integration
 
 | Bereich | Technologie | Zweck |
 | --- | --- | --- |
 | Medienkatalog | TMDB API | Suche, Trends, Popular, Details, Credits, Videos, Discover |
-| Watch Availability | TMDB Watch Providers | Streaming-/Kauf-/Leih-Verfügbarkeit je Region |
+| Watch Availability | TMDB Watch Providers | Streaming-, Kauf- und Leih-Verfügbarkeit je Region |
 | KI-Gateway | OpenRouter | serverseitige Anbindung an Sprachmodelle |
-| Standardmodell | `openai/gpt-4o-mini` | Empfehlungen, Zusammenfassungen, Feedback-Klassifizierung |
+| Standardmodell | `openai/gpt-4o-mini` | Empfehlungen, Zusammenfassungen, Vergleich, Feedback-Klassifizierung |
 | Modellkonfiguration | `OPENROUTER_MODEL` | austauschbares Modell per Environment Variable |
 
 ## Detailliertes KI-Setup
@@ -185,25 +209,20 @@ supabase/schema.sql
 - Vibe-Tags und Content-Hinweise
 - Watchlist-Priorisierung
 - Person-Insights
-- Klassifizierung von Feedback als konstruktiv / nicht konstruktiv
+- Feedback-Klassifizierung als böswillig / unkritisch
 
 ### Wie die Modellnutzung technisch umgesetzt ist
 
 - ausschließlich serverseitige OpenRouter-Nutzung
 - zentrale Kapselung in [`src/lib/ai/openrouter.ts`](./src/lib/ai/openrouter.ts)
-- JSON-orientierte Antworten für strukturierte KI-Features
-- kontrollierte Temperatur pro Use Case
+- strukturierte JSON-Antworten für deterministischere Features
+- kontrollierte Temperatur je Use Case
 - Retry mit konservativerer Temperatur, wenn ein JSON-Format nicht stabil geliefert wird
-- systemseitige Vorgaben wie:
-  - keine Offenlegung interner Prompts
-  - keine Secret-Ausgabe
-  - kein ungeprüftes Befolgen von Nutzerinstruktionen innerhalb von Nutzdaten
+- serverseitige Guardrails gegen Prompt Injection und Datenexfiltration
 
 ## Sicherheits- und Härtungsmaßnahmen
 
-Die Anwendung wurde nicht nur funktional, sondern bewusst defensiv aufgebaut.
-
-### 1. Secret-Handling und Trennung von Client/Server
+### 1. Secret-Handling und Trennung von Client und Server
 
 - Secrets werden ausschließlich über Environment Variables bezogen.
 - `SUPABASE_SERVICE_ROLE_KEY`, `TMDB_API_KEY`, `TMDB_ACCESS_TOKEN` und `OPENROUTER_API_KEY` werden nicht im Client verwendet.
@@ -221,19 +240,18 @@ Die Datenbank nutzt Row Level Security für alle nutzerspezifischen Tabellen:
 - `ai_chat_messages`
 - `feedback_entries`
 
-Umgesetzt ist unter anderem:
+Umgesetzt sind unter anderem:
 
 - Watchlist nur für `auth.uid() = user_id`
 - Profile nur für den eigenen Datensatz
 - Präferenzen nur für den eigenen Datensatz
-- Chat-Sessions nur für den eigenen Account
 - Feedback-Lesen und -Löschen nur für Admins über `is_admin`
 
 Schema: [`supabase/schema.sql`](./supabase/schema.sql)
 
 ### 3. Same-Origin-Schutz für schreibende Routen
 
-Mutierende Routen prüfen die Request-Origin serverseitig:
+Mutierende Routen prüfen die Request-Origin serverseitig, unter anderem:
 
 - `/api/account/settings`
 - `/api/ai/assistant`
@@ -241,7 +259,7 @@ Mutierende Routen prüfen die Request-Origin serverseitig:
 - `/api/admin/feedback/[id]`
 - Legacy Pages APIs für KI-Zusammenfassung und Empfehlungen
 
-Die Prüfung liegt in [`src/lib/security/request.ts`](./src/lib/security/request.ts).
+Die Request-Prüfung liegt in [`src/lib/security/request.ts`](./src/lib/security/request.ts).
 
 ### 4. Rate Limiting
 
@@ -254,30 +272,27 @@ Empfindliche Routen haben IP-basierte Rate Limits:
 - KI-Zusammenfassungen
 - Admin-Feedback-Löschung
 
-Aktueller technischer Stand:
+Technischer Stand:
 
 - leichtgewichtiges In-Memory-Bucket-Limit in [`src/lib/security/rate-limit.ts`](./src/lib/security/rate-limit.ts)
 - gut für lokale Entwicklung und Basisschutz
-- für horizontale Skalierung wäre ein zentraler Store wie Redis der nächste saubere Schritt
+- für horizontale Skalierung wäre ein zentraler Store wie Redis oder Upstash der nächste saubere Schritt
 
 ### 5. Input-Validierung
 
 - Request-Payloads werden mit Zod validiert.
 - Environment Variables werden mit Zod validiert.
 - KI-JSON-Antworten werden gegen Schemas geprüft, bevor sie in die UI gelangen.
-- Benutzerkritische Felder wie Geburtsdatum, Feedback, Watchlist-Feedback und AI-Inputs werden nicht ungeprüft durchgereicht.
+- sicherheitsrelevante Felder wie Geburtsdatum, Feedback und KI-Inputs werden nicht ungeprüft verarbeitet.
 
-### 6. Prompt-Injection-Schutz und AI Guardrails
+### 6. Prompt-Injection-Schutz und KI-Guardrails
 
 Die App enthält explizite Schutzlogik gegen missbräuchliche KI-Eingaben:
 
 - Regex-basierte Erkennung starker und schwacher Prompt-Injection-Muster
-- Blockade sensibler Daten-Exfiltration wie:
-  - Token- oder Secret-Leaks
-  - Aufforderungen zum Dump von Nutzer- oder Profildaten
-  - Aufforderungen, Sicherheitsregeln zu umgehen
+- Blockade sensibler Daten-Exfiltration
 - Sanitizing von Chat-Eingaben für den Assistenten
-- Begrenzung der Textlänge für sicherheitsrelevante Prüfpfade
+- Begrenzung von Längen und Formaten auf besonders kritischen Pfaden
 
 Relevante Dateien:
 
@@ -287,9 +302,10 @@ Relevante Dateien:
 ### 7. Feedback-Härtung
 
 - Feedback wird nicht blind gespeichert.
-- Vor dem Persistieren wird es per KI als konstruktiv / nicht konstruktiv klassifiziert.
-- Missbräuchliche oder unproduktive Einträge werden verworfen.
-- Gespeicherte Feedback-Einträge werden als `ai_checked`, `is_constructive` und `ai_model` markiert.
+- Vor dem Persistieren wird es per KI darauf geprüft, ob es klar böswillig ist.
+- Nur eindeutig missbräuchliche, beleidigende oder destruktive Einträge werden blockiert.
+- Normales, kurzes, unperfektes oder hart formuliertes Produktfeedback wird weiterhin gespeichert.
+- Gespeicherte Feedback-Einträge werden als `ai_checked`, `is_malicious`, `moderation_reason` und `ai_model` markiert.
 - Feedback kann nur im Admin-Bereich vollständig eingesehen und gelöscht werden.
 
 ### 8. Auth- und Session-Härtung
@@ -297,7 +313,7 @@ Relevante Dateien:
 - Supabase SSR wird im Server-Kontext und in der Middleware verwendet.
 - Die Middleware aktualisiert Sessions serverseitig.
 - Passwort-Reset läuft über Supabase und den Confirm-Step der App.
-- Geschützte Seiten wie Watchlist, Account oder Admin-Feedback leiten korrekt um.
+- geschützte Seiten wie Watchlist, Account oder Admin-Feedback leiten korrekt um.
 
 Middleware: [`middleware.ts`](./middleware.ts)
 
@@ -346,21 +362,6 @@ Middleware: [`middleware.ts`](./middleware.ts)
 - `preferred_region`
 - `updated_at`
 
-### `ai_chat_sessions`
-
-- `id`
-- `user_id`
-- `title`
-- `created_at`
-
-### `ai_chat_messages`
-
-- `id`
-- `session_id`
-- `role`
-- `content`
-- `created_at`
-
 ### `feedback_entries`
 
 - `id`
@@ -371,10 +372,16 @@ Middleware: [`middleware.ts`](./middleware.ts)
 - `message`
 - `page_path`
 - `moderation_summary`
+- `moderation_reason`
 - `ai_checked`
-- `is_constructive`
+- `is_malicious`
 - `ai_model`
 - `created_at`
+
+Hinweis:
+
+- `is_constructive` existiert aktuell noch als Legacy-Spalte im Schema, wird für die aktive Moderationsentscheidung aber nicht mehr verwendet.
+- `ai_chat_sessions` und `ai_chat_messages` sind im Schema vorbereitet; die aktuelle gespeicherte Chat-UI des Assistenten nutzt jedoch browserseitiges `localStorage`.
 
 ## Lokales Setup
 
@@ -401,24 +408,46 @@ npm install
 cp .env.example .env.local
 ```
 
-4. Supabase-Schema ausführen
+4. `.env.local` mit den benötigten Werten füllen
 
-```sql
--- Datei: supabase/schema.sql
-```
+Mindestens benötigt:
 
-5. Entwicklungsserver starten
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `TMDB_API_KEY` oder `TMDB_ACCESS_TOKEN`
+- `OPENROUTER_API_KEY`
+
+5. Supabase-Schema ausführen
+
+Die SQL-Datei liegt unter [`supabase/schema.sql`](./supabase/schema.sql). Den Inhalt im SQL-Editor des Supabase-Projekts ausführen, damit Tabellen, Trigger, Funktionen und RLS-Policies angelegt werden.
+
+6. Entwicklungsserver starten
 
 ```bash
 npm run dev
 ```
 
-6. Typecheck und Build prüfen
+7. Typecheck und Build prüfen
 
 ```bash
 npm run check
 npm run build
 ```
+
+8. Optional: Admin-Zugriff aktivieren
+
+Falls der Admin-Feedback-Bereich genutzt werden soll, muss im Supabase-Profil für den gewünschten Account `is_admin = true` gesetzt sein.
+
+Damit ist die lokale App vollständig lauffähig mit:
+
+- Suche
+- Discover
+- Detailseiten
+- Watchlist
+- Account
+- Feedback
+- KI-Features
 
 ## Environment Variables
 
@@ -481,6 +510,8 @@ Dieses Projekt wurde in einem bewusst mehrstufigen agentischen Workflow umgesetz
    - Deployment-Reife
 4. Danach wurde iterativ mit Codex gearbeitet, inklusive laufendem menschlichem Feedback und Korrekturen.
 
+Das Entscheidende daran: Die Agenten wurden nicht einfach nur nacheinander benutzt, sondern mit klar getrennten Rollen. Dadurch wurden visuelle Basis, Integrationslogik, Sicherheitsanforderungen und Feinschliff nicht vermischt.
+
 ### Rollen der Agenten
 
 - ChatGPT:
@@ -511,6 +542,8 @@ Dieses Projekt wurde in einem bewusst mehrstufigen agentischen Workflow umgesetz
 - wie Nutzerfeedback, Altersfilter, Watchlist-Signale und persönliche Präferenzen sinnvoll zusammenspielen
 - welche Fehlerbilder iterativ nachgeschärft wurden, zum Beispiel fehlerhafte Verlinkungen, unpassende KI-Treffer, fragile Follow-ups oder uneinheitliche UI-Texte
 
+Diese Punkte sind wichtig, weil sie zeigen, dass KI hier nicht als unkontrollierter Generator eingesetzt wurde, sondern als Beschleuniger innerhalb eines bewusst gesteuerten Engineering-Prozesses.
+
 ### Eigener Steuerungsanteil
 
 Die zentralen Entscheidungen dieses Projekts wurden nicht an Agenten delegiert, sondern aktiv gesteuert und bewertet. Dazu gehörten insbesondere:
@@ -518,19 +551,22 @@ Die zentralen Entscheidungen dieses Projekts wurden nicht an Agenten delegiert, 
 - die Auswahl und Schärfung der Agentenprompts
 - die Entscheidung, welche generierten Vorschläge übernommen, verworfen oder technisch neu umgesetzt werden
 - die Definition der Sicherheitsgrenzen für API-Routen, KI-Nutzung und Datenzugriffe
-- die Priorisierung von Qualität, Wartbarkeit und Interview-Erklärbarkeit vor maximaler Feature-Menge
+- die Priorisierung von Qualität, Wartbarkeit und Erklärbarkeit vor maximaler Feature-Menge
 - die laufende Korrektur von Produktdetails auf Basis echter Nutzung, Fehlverhalten und UX-Beobachtungen
+
+Kurz gesagt: Die Agenten haben Struktur, Varianten und Implementierung beschleunigt. Die inhaltliche Verantwortung für Architektur, Produktlogik, Qualitätsniveau und Sicherheitsgrenzen lag aber durchgehend in manueller Steuerung.
 
 ## Trade-offs
 
 - Das Rate Limiting ist aktuell bewusst einfach gehalten und nutzt In-Memory-Buckets statt eines zentralen externen Stores.
-- Der KI-Layer ist absichtlich serverseitig und guarded aufgebaut; das reduziert Risiko, macht den Chat aber strukturierter als ein völlig freies Chatfenster.
-- Die App priorisiert saubere Integrationsfähigkeit und Produktqualität vor maximaler Feature-Breite.
+- Der KI-Layer ist bewusst serverseitig und guarded aufgebaut; das reduziert Risiko, macht strukturierte Flows aber kontrollierter als ein völlig freies Chatfenster.
+- Gespeicherte Assistant-Chats liegen aktuell lokal im Browser und nicht serverseitig in Supabase.
 
 ## Nächste sinnvolle Ausbaustufen
 
 - zentrales Rate Limiting mit Redis oder Upstash
 - automatisierte Tests für Mapper, Zod-Schemas und Security-Helfer
 - tiefere Observability für produktive Fehlerpfade
+- serverseitige Persistenz für Assistant-Chats
 - noch feinere Disambiguierung bei gleichnamigen Titeln im KI-Assistenten
 - stärker personalisierte Home-Recommendations auf Basis von Watchlist-Signalen
