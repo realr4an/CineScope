@@ -2515,6 +2515,10 @@ export async function POST(request: Request) {
         if (isDirectLinkRequest(safePrompt)) {
           const recentSuggestedTitles = extractMostRecentSuggestedTitles(safeConversation);
           const directLinkTitleQuery = extractDirectLinkTargetTitle(safePrompt);
+          const explicitLinkTitleQuery =
+            directLinkTitleQuery ??
+            extractLikelyTitleQuery(safePrompt) ??
+            extractStandaloneTitleCandidate(safePrompt);
           const implicitSuggestedTitle = findSuggestedTitleMentionInPrompt(
             safePrompt,
             recentSuggestedTitles
@@ -2524,9 +2528,7 @@ export async function POST(request: Request) {
             parsed.data.mediaType
           );
           const inferredLinkTitleQuery =
-            directLinkTitleQuery ??
-            extractLikelyTitleQuery(safePrompt) ??
-            extractStandaloneTitleCandidate(safePrompt) ??
+            explicitLinkTitleQuery ??
             implicitSuggestedTitle ??
             extractRecentConversationTitleCandidate(safeConversation) ??
             extractRecentAssistantTitleCandidate(safeConversation) ??
@@ -2534,20 +2536,50 @@ export async function POST(request: Request) {
             references[0]?.title ??
             null;
 
-          let linkContext = pickReferenceForTitleQuery(
-            references,
-            inferredLinkTitleQuery,
-            preferredTitleMediaType
-          );
+          let linkContext: AITitleContext | null = null;
 
-          if (!linkContext && inferredLinkTitleQuery) {
+          if (explicitLinkTitleQuery) {
             const resolved = await ensureResolvedMediaAllowed(
-              { query: inferredLinkTitleQuery, mediaType: preferredTitleMediaType },
+              { query: explicitLinkTitleQuery, mediaType: preferredTitleMediaType },
               locale
             );
 
             if (resolved.resolved) {
               linkContext = resolved.resolved.context;
+            }
+
+            if (!linkContext) {
+              const explicitQuery = normalizeTitleForLookup(explicitLinkTitleQuery);
+              linkContext =
+                references.find(reference => {
+                  const title = normalizeTitleForLookup(reference.title);
+                  const originalTitle = normalizeTitleForLookup(reference.originalTitle);
+                  return (
+                    !!explicitQuery &&
+                    (title.includes(explicitQuery) ||
+                      explicitQuery.includes(title) ||
+                      originalTitle.includes(explicitQuery))
+                  );
+                }) ?? null;
+            }
+          }
+
+          if (!linkContext && inferredLinkTitleQuery) {
+            linkContext = pickReferenceForTitleQuery(
+              references,
+              inferredLinkTitleQuery,
+              preferredTitleMediaType
+            );
+
+            if (!linkContext) {
+              const resolved = await ensureResolvedMediaAllowed(
+                { query: inferredLinkTitleQuery, mediaType: preferredTitleMediaType },
+                locale
+              );
+
+              if (resolved.resolved) {
+                linkContext = resolved.resolved.context;
+              }
             }
           }
 
