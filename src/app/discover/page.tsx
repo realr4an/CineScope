@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 
 import { AppShell } from "@/components/layout/app-shell";
 import { MediaGrid } from "@/components/sections/media-sections";
@@ -153,6 +153,11 @@ function interleaveItems(movieItems: MediaListItem[], tvItems: MediaListItem[]) 
   return items.slice(0, 60);
 }
 
+function getSharedGenres(movieGenres: Genre[], tvGenres: Genre[]) {
+  const tvGenreIds = new Set(tvGenres.map(genre => genre.id));
+  return movieGenres.filter(genre => tvGenreIds.has(genre.id));
+}
+
 function getVisiblePages(currentPage: number, totalPages: number) {
   const start = Math.max(1, currentPage - 2);
   const end = Math.min(totalPages, currentPage + 2);
@@ -267,7 +272,7 @@ function ActiveGenreSection({
           tv: "Series",
           genreLabel: "Then pick a genre",
           resetGenre: "All genres",
-          allHint: "Genre selection is available after switching to Movies or Series."
+          allHint: "Only genres shared by movies and series are shown in All."
         }
       : {
           mediaLabel: "Zuerst Medientyp wählen",
@@ -276,7 +281,7 @@ function ActiveGenreSection({
           tv: "Serien",
           genreLabel: "Dann ein Genre auswählen",
           resetGenre: "Alle Genres",
-          allHint: "Genre-Auswahl ist verfügbar, sobald du auf Filme oder Serien wechselst."
+          allHint: "Bei Alle werden nur Genres angezeigt, die Filme und Serien gemeinsam haben."
         };
 
   return (
@@ -307,26 +312,22 @@ function ActiveGenreSection({
             active: mediaType === "tv"
           }
         ]}
-        genreLinks={
-          mediaType === "all"
-            ? []
-            : [
-                {
-                  label: text.resetGenre,
-                  href: buildGenreResetHref({ type: mediaType, ...baseFilters }),
-                  active: selectedGenre === undefined
-                },
-                ...genres.map(genre => ({
-                  label: genre.name,
-                  href: buildGenrePickHref({
-                    type: mediaType,
-                    genre: genre.id,
-                    ...baseFilters
-                  }),
-                  active: selectedGenre === genre.id
-                }))
-              ]
-        }
+        genreLinks={[
+          {
+            label: text.resetGenre,
+            href: buildGenreResetHref({ type: mediaType, ...baseFilters }),
+            active: selectedGenre === undefined
+          },
+          ...genres.map(genre => ({
+            label: genre.name,
+            href: buildGenrePickHref({
+              type: mediaType,
+              genre: genre.id,
+              ...baseFilters
+            }),
+            active: selectedGenre === genre.id
+          }))
+        ]}
       />
     </section>
   );
@@ -364,13 +365,19 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
       getGenreMaps(locale)
     ]);
     const activeRegion = resolveRegionCode(parsedFilters.region ?? requestedRegion, availableRegions);
-    const activeGenre = mediaType === "all" ? undefined : parsedFilters.genre;
+    const sharedGenres = getSharedGenres(genreMaps.movieList, genreMaps.tvList);
+    const activeGenre =
+      mediaType === "all" && parsedFilters.genre
+        ? sharedGenres.some(genre => genre.id === parsedFilters.genre)
+          ? parsedFilters.genre
+          : undefined
+        : parsedFilters.genre;
     const mediaTypeGenres =
       mediaType === "movie"
         ? genreMaps.movieList
         : mediaType === "tv"
           ? genreMaps.tvList
-          : [];
+          : sharedGenres;
     const selectedGenreName = activeGenre
       ? mediaTypeGenres.find(genre => genre.id === activeGenre)?.name
       : undefined;
@@ -383,7 +390,7 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
             const [movieResults, tvResults] = await Promise.all([
               getDiscoverResults({
                 mediaType: "movie",
-                genre: undefined,
+                genre: activeGenre,
                 yearFrom: parsedFilters.yearFrom,
                 yearTo: parsedFilters.yearTo,
                 rating: parsedFilters.rating,
@@ -396,7 +403,7 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
               }),
               getDiscoverResults({
                 mediaType: "tv",
-                genre: undefined,
+                genre: activeGenre,
                 yearFrom: parsedFilters.yearFrom,
                 yearTo: parsedFilters.yearTo,
                 rating: parsedFilters.rating,
@@ -468,15 +475,15 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
             activeRegion: `Land: ${activeRegionName}`,
             activeGenre: selectedGenreName ? `Genre: ${selectedGenreName}` : "Genre: Alle Genres",
             totalResults: `${discoverResult.totalResults.toLocaleString("de-DE")} Discover-Treffer`,
-            discoverLabel: selectedGenreName ? `${selectedGenreName} Vorschläge` : "Genre-Vorschläge",
+            discoverLabel: selectedGenreName ? `${selectedGenreName} VorschlÃ¤ge` : "Genre-VorschlÃ¤ge",
             discoverSubtitle: `Seite ${discoverResult.page} von ${totalPages}. Diese Seite zeigt bis zu 60 Titel.`,
             page: "Seite",
             of: "von",
-            previous: "Zurück",
+            previous: "ZurÃ¼ck",
             next: "Weiter",
-            noResultsTitle: "Keine Discover-Treffer für diese Filter",
+            noResultsTitle: "Keine Discover-Treffer fÃ¼r diese Filter",
             noResultsDescription:
-              "Probiere ein anderes Genre, einen größeren Zeitraum, ein niedrigeres Mindest-Rating oder ein anderes Land."
+              "Probiere ein anderes Genre, einen grÃ¶ÃŸeren Zeitraum, ein niedrigeres Mindest-Rating oder ein anderes Land."
           };
 
     return (
@@ -652,3 +659,4 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
     );
   }
 }
+

@@ -31,6 +31,11 @@ export interface SearchDraftState {
   providers: number[];
 }
 
+function getSharedGenres(movieGenres: Genre[], tvGenres: Genre[]) {
+  const tvGenreIds = new Set(tvGenres.map(genre => genre.id));
+  return movieGenres.filter(genre => tvGenreIds.has(genre.id));
+}
+
 export function SearchSidebarFilters({
   movieGenres,
   tvGenres,
@@ -123,7 +128,12 @@ export function SearchSidebarFilters({
     setProviderSearchQuery("");
   }, [providerType, value.region]);
 
-  const genres = value.type === "movie" ? movieGenres : value.type === "tv" ? tvGenres : [];
+  const genres =
+    value.type === "movie"
+      ? movieGenres
+      : value.type === "tv"
+        ? tvGenres
+        : getSharedGenres(movieGenres, tvGenres);
   const yearToOptions = useMemo(
     () => YEAR_OPTIONS.filter(year => !value.yearFrom || year >= value.yearFrom),
     [value.yearFrom]
@@ -198,7 +208,7 @@ export function SearchSidebarFilters({
                     onChange({
                       ...value,
                       type: nextType,
-                      genre: nextType === "all" ? undefined : value.genre,
+                      genre: value.genre,
                       providers: []
                     })
                   }
@@ -231,10 +241,9 @@ export function SearchSidebarFilters({
               })
             }
             className="h-10 w-full rounded-xl border border-border/50 bg-background px-3 text-sm"
-            disabled={value.type === "all"}
           >
             <option value="">
-              {value.type === "all" ? text.chooseTypeFirst : dictionary.discoverFilters.allCategories}
+              {genres.length ? dictionary.discoverFilters.allCategories : text.chooseTypeFirst}
             </option>
             {genres.map(item => (
               <option key={item.id} value={item.id}>
