@@ -125,8 +125,18 @@ function getTitleMatchScore(item: MediaListItem, rawQuery: string) {
 
     let score = 0;
 
+    const candidateTokens = tokenize(candidate);
+
     if (candidate === query) {
       score += 130;
+
+      // Avoid overfitting to obscure exact alias matches for short generic queries
+      // (e.g. "Demon Slayer" matching a low-signal B-movie instead of the well-known series).
+      if (queryTokens.length <= 2 && candidateTokens.length <= 2) {
+        if ((item.voteCount ?? 0) < 120) {
+          score -= 70;
+        }
+      }
     } else if (candidate.startsWith(query) || query.startsWith(candidate)) {
       score += 90;
     } else if (candidate.includes(query) || query.includes(candidate)) {
@@ -134,7 +144,6 @@ function getTitleMatchScore(item: MediaListItem, rawQuery: string) {
     }
 
     if (queryTokens.length) {
-      const candidateTokens = tokenize(candidate);
       const exactOverlap = queryTokens.filter(token => candidateTokens.includes(token)).length;
       const fuzzyOverlap = fuzzyTokenOverlap(queryTokens, candidateTokens);
       score += Math.round((exactOverlap / queryTokens.length) * 40);
@@ -165,7 +174,8 @@ function getTitleMatchScore(item: MediaListItem, rawQuery: string) {
   }
 
   if (best > 0) {
-    best += Math.min(8, Math.floor((item.voteCount ?? 0) / 2_500));
+    const voteCount = item.voteCount ?? 0;
+    best += Math.min(60, Math.round(Math.log10(voteCount + 1) * 18));
   }
 
   return best;

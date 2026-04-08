@@ -1561,7 +1561,7 @@ function isDirectLinkRequest(prompt: string) {
 }
 
 function extractDirectLinkTargetTitle(prompt: string) {
-  const normalized = prompt.trim();
+  const normalized = prompt.trim().replace(/\s+/g, " ");
 
   if (!normalized) {
     return null;
@@ -1979,13 +1979,14 @@ function getRequestedSeasonCount(input: {
 }
 
 function extractLikelyTitleQuery(input: string) {
-  const normalized = input.trim();
+  const normalized = input.trim().replace(/\s+/g, " ");
 
   if (!normalized) {
     return null;
   }
 
   const patterns = [
+    /(?:ich\s+meinte|gemeint\s+ist|nein,\s*ich\s+meinte|no,\s*i\s+meant|i\s+meant)\s+["„“]?(.+?)["“”]?\s*[.!?]?$/i,
     /(?:mehr\s+über|infos?\s+zu|info\s+zu|was\s+wei[sß]t\s+du\s+über)\s+["„“]?(.+?)["“”]?(?:\s+(?:wissen|erfahren))?\s*[.!?]?$/i,
     /(?:worum\s+geht\s+es\s+in|worum\s+geht'?s\s+in)\s+["„“]?(.+?)["“”]?\s*[.!?]?$/i,
     /(?:was\s+passiert\s+in)\s+["„“]?(.+?)["“”]?\s*[.!?]?$/i,
@@ -2680,7 +2681,7 @@ export async function POST(request: Request) {
           ),
           aiAssistantResponseSchema,
           {
-            temperature: 0.75,
+            temperature: 0.9,
             maxTokens: 1200
           }
         );
