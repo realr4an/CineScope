@@ -51,7 +51,7 @@ import type { Locale } from "@/lib/i18n/types";
 import { containsPromptInjection } from "@/lib/security/prompt-injection";
 import { checkRateLimit } from "@/lib/security/rate-limit";
 import { getRateLimitIdentityKey, getRequestIp, isSameOriginRequest } from "@/lib/security/request";
-import { ZodError } from "zod";
+import { z, ZodError } from "zod";
 import type { AITitleContext } from "@/lib/ai/types";
 
 const MAX_ASSISTANT_SUGGESTIONS = 8;
@@ -1595,6 +1595,36 @@ function isDirectLinkRequest(prompt: string) {
   return asksForLink || (hasDeicticReference && /\b(link|url|seite|page)\b/.test(normalized));
 }
 
+function extractCharacterQuestion(prompt: string) {
+  const normalized = prompt.trim().replace(/\s+/g, " ");
+  if (!normalized) {
+    return null;
+  }
+
+  const patterns = [
+    /(?:welche\s+rolle\s+hat|wer\s+ist|was\s+ist)\s+["„“]?(.+?)["“”]?\s+(?:in|bei)\s+["„“]?(.+?)["“”]?\s*[.!?]?$/i,
+    /(?:what\s+role\s+does|who\s+is|what\s+is)\s+["“”]?(.+?)["“”]?\s+(?:in|on)\s+["“”]?(.+?)["“”]?\s*[.!?]?$/i,
+    /(?:welche\s+rolle\s+hat|wer\s+ist|was\s+ist)\s+["„“]?(.+?)["“”]?\s+(?:darin|dort)\s*[.!?]?$/i,
+    /(?:what\s+role\s+does|who\s+is|what\s+is)\s+["“”]?(.+?)["“”]?\s+(?:there|in it)\s*[.!?]?$/i,
+    /(?:kennst\s+du|do\s+you\s+know)\s+["„“]?(.+?)["“”]?\s*[.!?]?$/i
+  ] as const;
+
+  for (const pattern of patterns) {
+    const match = normalized.match(pattern);
+    const character = match?.[1]?.trim();
+    const title = match?.[2]?.trim() ?? null;
+
+    if (character && character.length >= 2) {
+      return {
+        character: character.replace(/^[\s"'`„“]+|[\s"'`“”]+$/g, "").trim(),
+        title: title?.replace(/^[\s"'`„“]+|[\s"'`“”]+$/g, "").trim() ?? null
+      };
+    }
+  }
+
+  return null;
+}
+
 function isNameContainsSearchIntent(prompt: string) {
   const normalized = prompt.toLowerCase();
   return (
@@ -2611,6 +2641,98 @@ export async function POST(request: Request) {
                   locale === "en"
                     ? "Try a slightly shorter or alternative title phrase."
                     : "Versuche eine etwas kürzere oder alternative Titelphrase."
+              }
+            });
+          }
+        }
+
+        const characterQuestion = extractCharacterQuestion(safePrompt);
+        if (characterQuestion) {
+          const recentSuggestedTitles = extractMostRecentSuggestedTitles(safeConversation);
+          const preferredTitleMediaType = inferTitleInfoMediaType(
+            characterQuestion.title ?? safePrompt,
+            parsed.data.mediaType
+          );
+          const characterTitleQuery =
+            characterQuestion.title ??
+            extractLikelyTitleQuery(safePrompt) ??
+            extractRecentConversationTitleCandidate(safeConversation) ??
+            extractRecentAssistantTitleCandidate(safeConversation) ??
+            recentSuggestedTitles[0] ??
+            references[0]?.title ??
+            null;
+
+          let titleContext = pickReferenceForTitleQuery(
+            references,
+            characterTitleQuery,
+            preferredTitleMediaType
+          );
+
+          if (!titleContext && characterTitleQuery) {
+            const resolved = await ensureResolvedMediaAllowed(
+              { query: characterTitleQuery, mediaType: preferredTitleMediaType },
+              locale
+            );
+            if (resolved.resolved) {
+              titleContext = resolved.resolved.context;
+            }
+          }
+
+          if (titleContext) {
+            const characterResponseSchema = z.object({
+              lead: z.string().min(1),
+              nextStep: z.string().min(1).optional()
+            });
+
+            const characterPrompt =
+              locale === "en"
+                ? [
+                    "You answer one focused question about a character inside a movie or series.",
+                    "Use the provided title as the anchor context.",
+                    "Do not switch to a different title.",
+                    "If the question mentions a character, answer directly in 1-3 sentences.",
+                    "Be concise, user-facing, and avoid spoilers beyond basic role description.",
+                    'Respond as strict JSON: {"lead":"string","nextStep":"string optional"}',
+                    `Title context: ${titleContext.title} (${titleContext.mediaType})`,
+                    `Overview: ${titleContext.overview ?? "unknown"}`,
+                    `Genres: ${titleContext.genres.join(", ") || "unknown"}`,
+                    `Cast: ${titleContext.cast?.join(", ") || "unknown"}`,
+                    `Question about character "${characterQuestion.character}": ${safePrompt}`
+                  ].join("\n")
+                : [
+                    "Du beantwortest eine fokussierte Frage zu einer Figur innerhalb eines Films oder einer Serie.",
+                    "Nutze den bereitgestellten Titel als festen Ankerkontext.",
+                    "Wechsle dabei niemals zu einem anderen Titel.",
+                    "Wenn nach einer Figur gefragt wird, antworte direkt in 1-3 Sätzen.",
+                    "Antworte knapp, nutzerfreundlich und ohne unnötige Spoiler über die Grundrolle hinaus.",
+                    'Antworte als striktes JSON: {"lead":"string","nextStep":"string optional"}',
+                    `Titelkontext: ${titleContext.title} (${titleContext.mediaType === "tv" ? "Serie" : "Film"})`,
+                    `Inhalt: ${titleContext.overview ?? "unbekannt"}`,
+                    `Genres: ${titleContext.genres.join(", ") || "unbekannt"}`,
+                    `Besetzung: ${titleContext.cast?.join(", ") || "unbekannt"}`,
+                    `Frage zur Figur "${characterQuestion.character}": ${safePrompt}`
+                  ].join("\n");
+
+            const characterAnswer = await askOpenRouterJsonWithOptions(
+              characterPrompt,
+              characterResponseSchema,
+              {
+                temperature: 0.35,
+                maxTokens: 350
+              }
+            );
+
+            return NextResponse.json({
+              mode: "assistant",
+              data: {
+                intent: "title_info",
+                lead: characterAnswer.lead,
+                picks: [],
+                nextStep:
+                  characterAnswer.nextStep ??
+                  (locale === "en"
+                    ? "If you want, I can also explain another character from this title."
+                    : "Wenn du möchtest, erkläre ich dir auch noch eine andere Figur aus diesem Titel.")
               }
             });
           }
