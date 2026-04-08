@@ -13,6 +13,7 @@ import {
   resolveAIPicks,
   resolveAllowedAIPicks
 } from "@/lib/ai/formatters";
+import { getDiscoverResults } from "@/lib/tmdb/discover";
 import { searchMedia } from "@/lib/tmdb/search";
 import {
   mapWatchProvidersForRegion,
@@ -789,6 +790,38 @@ function inferTitleResolutionHints(
     preferLiveAction,
     preferJapanese
   };
+}
+
+function isLatestReleaseIntent(prompt: string) {
+  const normalized = prompt.toLowerCase();
+
+  return (
+    /\b(neuste[nrsm]?|neueste[nrsm]?|aktuellste[nrsm]?|ganz neue[nrsm]?|brandneue[nrsm]?)\b/.test(
+      normalized
+    ) ||
+    /\b(latest|newest|most recent|recently released)\b/.test(normalized)
+  );
+}
+
+function inferDiscoverMediaType(
+  prompt: string,
+  preferred: "all" | "movie" | "tv"
+) {
+  if (preferred !== "all") {
+    return preferred;
+  }
+
+  const normalized = prompt.toLowerCase();
+
+  if (/\b(film|filme|movie|movies|kino)\b/.test(normalized)) {
+    return "movie" as const;
+  }
+
+  if (/\b(serie|serien|show|shows|tv)\b/.test(normalized)) {
+    return "tv" as const;
+  }
+
+  return "all" as const;
 }
 
 function buildMediaKey(mediaType: "movie" | "tv", tmdbId: number) {
@@ -2791,6 +2824,105 @@ export async function POST(request: Request) {
                   locale === "en"
                     ? "Try a slightly shorter or alternative title phrase."
                     : "Versuche eine etwas kürzere oder alternative Titelphrase."
+              }
+            });
+          }
+        }
+
+        if (isLatestReleaseIntent(safePrompt)) {
+          const discoverMediaType = inferDiscoverMediaType(safePrompt, parsed.data.mediaType);
+          const today = new Date().toISOString().slice(0, 10);
+          const targetCount = Math.min(requestedPickCount, MAX_ASSISTANT_SUGGESTIONS);
+
+          const loadLatestForType = async (mediaType: "movie" | "tv") => {
+            const sort =
+              mediaType === "movie" ? "primary_release_date.desc" : "first_air_date.desc";
+            const result = await getDiscoverResults({
+              mediaType,
+              page: 1,
+              sort,
+              locale
+            });
+
+            const filtered: typeof result.items = [];
+            for (const item of result.items) {
+              if (!item.releaseDate || item.releaseDate > today) {
+                continue;
+              }
+
+              const access = await getAgeAccessForMedia(item.mediaType, item.tmdbId);
+              if (!access.allowed) {
+                continue;
+              }
+
+              filtered.push(item);
+
+              if (filtered.length >= Math.max(targetCount * 2, 12)) {
+                break;
+              }
+            }
+
+            return filtered;
+          };
+
+          const latestItems =
+            discoverMediaType === "movie"
+              ? await loadLatestForType("movie")
+              : discoverMediaType === "tv"
+                ? await loadLatestForType("tv")
+                : (
+                    await Promise.all([loadLatestForType("movie"), loadLatestForType("tv")])
+                  )
+                    .flat()
+                    .sort((left, right) =>
+                      (right.releaseDate ?? "").localeCompare(left.releaseDate ?? "")
+                    );
+
+          const dedupedLatestItems = latestItems
+            .filter(
+              (item, index, all) =>
+                all.findIndex(
+                  candidate =>
+                    candidate.mediaType === item.mediaType && candidate.tmdbId === item.tmdbId
+                ) === index
+            )
+            .slice(0, targetCount);
+
+          if (dedupedLatestItems.length) {
+            return NextResponse.json({
+              mode: "assistant",
+              data: {
+                intent: "recommend",
+                lead:
+                  locale === "en"
+                    ? discoverMediaType === "movie"
+                      ? `Here are the ${dedupedLatestItems.length} newest released movies I found in TMDB.`
+                      : discoverMediaType === "tv"
+                        ? `Here are the ${dedupedLatestItems.length} newest released series I found in TMDB.`
+                        : `Here are the ${dedupedLatestItems.length} newest released titles I found in TMDB.`
+                    : discoverMediaType === "movie"
+                      ? `Hier sind die ${dedupedLatestItems.length} neuesten veröffentlichten Filme, die ich in TMDB gefunden habe.`
+                      : discoverMediaType === "tv"
+                        ? `Hier sind die ${dedupedLatestItems.length} neuesten veröffentlichten Serien, die ich in TMDB gefunden habe.`
+                        : `Hier sind die ${dedupedLatestItems.length} neuesten veröffentlichten Titel, die ich in TMDB gefunden habe.`,
+                personalNote:
+                  locale === "en"
+                    ? "This list is sorted by release date, not by popularity."
+                    : "Diese Liste ist nach Veröffentlichungsdatum sortiert, nicht nach Popularität.",
+                picks: dedupedLatestItems.map(item => ({
+                  title: item.title,
+                  mediaType: item.mediaType,
+                  reason:
+                    locale === "en"
+                      ? `Released on ${item.releaseDate ?? "unknown date"}.`
+                      : `Veröffentlicht am ${item.releaseDate ?? "unbekannten Datum"}.`,
+                  tmdbId: item.tmdbId,
+                  href: `/${item.mediaType}/${item.tmdbId}`
+                })),
+                nextStep:
+                  locale === "en"
+                    ? "If you want, I can narrow this down by genre, streaming provider, or only animation."
+                    : "Wenn du möchtest, grenze ich das nach Genre, Streamingdienst oder nur auf Animation ein."
               }
             });
           }
