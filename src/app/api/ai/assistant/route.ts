@@ -632,6 +632,32 @@ function normalizeTitleForLookup(value: string | null | undefined) {
     .trim();
 }
 
+function tokenizeLookupValue(value: string | null | undefined) {
+  return normalizeTitleForLookup(value)
+    .split(" ")
+    .filter(Boolean);
+}
+
+function inferTitleInfoMediaType(
+  prompt: string,
+  preferred: "all" | "movie" | "tv"
+) {
+  if (preferred !== "all") {
+    return preferred;
+  }
+
+  const normalized = prompt.toLowerCase();
+  if (/\b(serie|serien|show|shows|tv|episode|episoden?|folgen?)\b/.test(normalized)) {
+    return "tv" as const;
+  }
+
+  if (/\b(film|filme|movie|movies|kino)\b/.test(normalized)) {
+    return "movie" as const;
+  }
+
+  return "all" as const;
+}
+
 function buildMediaKey(mediaType: "movie" | "tv", tmdbId: number) {
   return `${mediaType}:${tmdbId}`;
 }
@@ -1078,7 +1104,8 @@ async function buildTitleDetailLead(
 
 function pickReferenceForTitleQuery(
   references: AITitleContext[],
-  titleQuery: string | null
+  titleQuery: string | null,
+  preferredMediaType: "all" | "movie" | "tv" = "all"
 ) {
   if (!titleQuery) {
     return references[0] ?? null;
@@ -1089,15 +1116,40 @@ function pickReferenceForTitleQuery(
     return references[0] ?? null;
   }
 
-  return (
-    references.find(reference => {
+  const queryTokens = tokenizeLookupValue(query);
+  const ranked = references
+    .map(reference => {
       const title = normalizeTitleForLookup(reference.title);
       const original = normalizeTitleForLookup(reference.originalTitle);
-      return title.includes(query) || query.includes(title) || original.includes(query);
-    }) ??
-    references[0] ??
-    null
-  );
+      const titleTokens = tokenizeLookupValue(title);
+      const originalTokens = tokenizeLookupValue(original);
+
+      let score = 0;
+      if (title === query || original === query) {
+        score += 160;
+      } else if (title.startsWith(query) || original.startsWith(query)) {
+        score += 120;
+      } else if (title.includes(query) || original.includes(query)) {
+        score += 90;
+      }
+
+      if (queryTokens.length) {
+        const titleOverlap = queryTokens.filter(token => titleTokens.includes(token)).length;
+        const originalOverlap = queryTokens.filter(token => originalTokens.includes(token)).length;
+        score += Math.round((Math.max(titleOverlap, originalOverlap) / queryTokens.length) * 70);
+      }
+
+      if (preferredMediaType !== "all" && reference.mediaType === preferredMediaType) {
+        score += 25;
+      }
+
+      score += Math.min(18, Math.floor((reference.voteCount ?? 0) / 5_000));
+
+      return { reference, score };
+    })
+    .sort((left, right) => right.score - left.score);
+
+  return ranked[0]?.reference ?? references[0] ?? null;
 }
 
 function dedupeAndNormalizePriorityGroups(
@@ -2293,10 +2345,10 @@ export async function POST(request: Request) {
             recentSuggestedTitles
           );
           const inferredCandidates = [
-            extractLikelyTitleQuery(safePrompt),
-            extractStandaloneTitleCandidate(safePrompt),
-            extractRecentConversationTitleCandidate(safeConversation),
             implicitSuggestedTitle,
+            extractRecentConversationTitleCandidate(safeConversation),
+            extractStandaloneTitleCandidate(safePrompt),
+            extractLikelyTitleQuery(safePrompt),
             recentSuggestedTitles[0] ?? null,
             ...recentSuggestedTitles.slice(0, 8),
             ...safeConversation
@@ -2436,7 +2488,16 @@ export async function POST(request: Request) {
 
         if (isDirectLinkRequest(safePrompt)) {
           const recentSuggestedTitles = extractMostRecentSuggestedTitles(safeConversation);
+          const implicitSuggestedTitle = findSuggestedTitleMentionInPrompt(
+            safePrompt,
+            recentSuggestedTitles
+          );
+          const preferredTitleMediaType = inferTitleInfoMediaType(
+            safePrompt,
+            parsed.data.mediaType
+          );
           const inferredLinkTitleQuery =
+            implicitSuggestedTitle ??
             extractLikelyTitleQuery(safePrompt) ??
             extractStandaloneTitleCandidate(safePrompt) ??
             extractRecentConversationTitleCandidate(safeConversation) ??
@@ -2445,11 +2506,15 @@ export async function POST(request: Request) {
             references[0]?.title ??
             null;
 
-          let linkContext = pickReferenceForTitleQuery(references, inferredLinkTitleQuery);
+          let linkContext = pickReferenceForTitleQuery(
+            references,
+            inferredLinkTitleQuery,
+            preferredTitleMediaType
+          );
 
           if (!linkContext && inferredLinkTitleQuery) {
             const resolved = await ensureResolvedMediaAllowed(
-              { query: inferredLinkTitleQuery, mediaType: "all" },
+              { query: inferredLinkTitleQuery, mediaType: preferredTitleMediaType },
               locale
             );
 
@@ -2504,7 +2569,16 @@ export async function POST(request: Request) {
 
         if (deterministicTitleInfoRequest) {
           const recentSuggestedTitles = extractMostRecentSuggestedTitles(safeConversation);
+          const implicitSuggestedTitle = findSuggestedTitleMentionInPrompt(
+            safePrompt,
+            recentSuggestedTitles
+          );
+          const preferredTitleMediaType = inferTitleInfoMediaType(
+            safePrompt,
+            parsed.data.mediaType
+          );
           const inferredTitleQuery =
+            implicitSuggestedTitle ??
             extractLikelyTitleQuery(safePrompt) ??
             extractStandaloneTitleCandidate(safePrompt) ??
             extractRecentConversationTitleCandidate(safeConversation) ??
@@ -2513,11 +2587,15 @@ export async function POST(request: Request) {
             references[0]?.title ??
             null;
 
-          let titleContext = pickReferenceForTitleQuery(references, inferredTitleQuery);
+          let titleContext = pickReferenceForTitleQuery(
+            references,
+            inferredTitleQuery,
+            preferredTitleMediaType
+          );
 
           if (!titleContext && inferredTitleQuery) {
             const resolved = await ensureResolvedMediaAllowed(
-              { query: inferredTitleQuery, mediaType: "all" },
+              { query: inferredTitleQuery, mediaType: preferredTitleMediaType },
               locale
             );
             if (resolved.resolved) {
@@ -2596,6 +2674,10 @@ export async function POST(request: Request) {
             recentSuggestedTitles
           );
           const inferredConversationTitle = extractRecentConversationTitleCandidate(safeConversation);
+          const preferredTitleMediaType = inferTitleInfoMediaType(
+            safePrompt,
+            parsed.data.mediaType
+          );
           const fallbackTitleQuery =
             directTitleQuery ??
             standaloneTitleCandidate ??
@@ -2604,10 +2686,14 @@ export async function POST(request: Request) {
             recentSuggestedTitles[0] ??
             null;
 
-          let titleContext = pickReferenceForTitleQuery(references, fallbackTitleQuery);
+          let titleContext = pickReferenceForTitleQuery(
+            references,
+            fallbackTitleQuery,
+            preferredTitleMediaType
+          );
           if (!titleContext && fallbackTitleQuery) {
             const resolved = await ensureResolvedMediaAllowed(
-              { query: fallbackTitleQuery, mediaType: "all" },
+              { query: fallbackTitleQuery, mediaType: preferredTitleMediaType },
               locale
             );
             if (resolved.resolved) {
