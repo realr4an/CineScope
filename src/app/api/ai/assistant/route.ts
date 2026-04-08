@@ -7,6 +7,7 @@ import {
   resolvePersonAIContext,
   resolveMediaAIContext
 } from "@/lib/ai/context";
+import type { ResolveMediaHints } from "@/lib/ai/context";
 import {
   filterAIPicksBySeasonCount,
   resolveAIPicks,
@@ -595,6 +596,46 @@ function inferTitleInfoMediaType(
   return "all" as const;
 }
 
+function inferTitleResolutionHints(
+  prompt: string,
+  conversation: Array<{ role: "user" | "assistant"; content: string }> = []
+): ResolveMediaHints | undefined {
+  const current = prompt.toLowerCase();
+  const recentConversation = conversation
+    .slice(-6)
+    .map(message => message.content.toLowerCase())
+    .join(" ");
+
+  const animationPattern =
+    /\b(anime|animation|animiert|animated|zeichentrick|trickfilm|manga)\b/;
+  const liveActionPattern =
+    /\b(live[\s-]?action|realverfilmung|mit echten menschen|echte menschen|真人)\b/;
+  const japanesePattern = /\b(japan|japanisch|japanese)\b/;
+
+  const currentWantsLiveAction = liveActionPattern.test(current);
+  const currentWantsAnimation = animationPattern.test(current);
+  const conversationSuggestsAnimation = animationPattern.test(recentConversation);
+  const conversationSuggestsJapanese = japanesePattern.test(recentConversation);
+
+  const preferLiveAction = currentWantsLiveAction;
+  const preferAnimation =
+    currentWantsAnimation || (!currentWantsLiveAction && conversationSuggestsAnimation);
+  const preferJapanese =
+    preferAnimation ||
+    japanesePattern.test(current) ||
+    (!currentWantsLiveAction && conversationSuggestsJapanese);
+
+  if (!preferAnimation && !preferLiveAction && !preferJapanese) {
+    return undefined;
+  }
+
+  return {
+    preferAnimation,
+    preferLiveAction,
+    preferJapanese
+  };
+}
+
 function buildMediaKey(mediaType: "movie" | "tv", tmdbId: number) {
   return `${mediaType}:${tmdbId}`;
 }
@@ -1042,7 +1083,8 @@ async function buildTitleDetailLead(
 function pickReferenceForTitleQuery(
   references: AITitleContext[],
   titleQuery: string | null,
-  preferredMediaType: "all" | "movie" | "tv" = "all"
+  preferredMediaType: "all" | "movie" | "tv" = "all",
+  hints?: ResolveMediaHints
 ) {
   if (!titleQuery) {
     return references[0] ?? null;
@@ -1078,6 +1120,15 @@ function pickReferenceForTitleQuery(
 
       if (preferredMediaType !== "all" && reference.mediaType === preferredMediaType) {
         score += 25;
+      }
+
+      const normalizedGenres = reference.genres.map(genre => normalizeTitleForLookup(genre));
+      if (hints?.preferAnimation) {
+        score += normalizedGenres.includes("animation") ? 45 : -35;
+      }
+
+      if (hints?.preferLiveAction) {
+        score += normalizedGenres.includes("animation") ? -55 : 18;
       }
 
       score += Math.min(18, Math.floor((reference.voteCount ?? 0) / 5_000));
@@ -2063,6 +2114,7 @@ async function ensureResolvedMediaAllowed(
   input: {
     query: string;
     mediaType?: "all" | "movie" | "tv";
+    hints?: ResolveMediaHints;
   },
   locale: Locale
 ) {
@@ -2366,6 +2418,7 @@ export async function POST(request: Request) {
 
         const safePrompt = assistantSafety.sanitizedPrompt;
         const safeConversation = assistantSafety.sanitizedConversation;
+        const titleResolutionHints = inferTitleResolutionHints(safePrompt, safeConversation);
         const requestedWatchRegion = getPreferredWatchRegionFromCookieHeader(
           request.headers.get("cookie")
         );
@@ -2398,7 +2451,15 @@ export async function POST(request: Request) {
           }))
           .filter(reference => reference.query.length > 0);
         const explicitReferenceResults = await Promise.all(
-          safeReferenceTitles.map(reference => ensureResolvedMediaAllowed(reference, locale))
+          safeReferenceTitles.map(reference =>
+            ensureResolvedMediaAllowed(
+              {
+                ...reference,
+                hints: titleResolutionHints
+              },
+              locale
+            )
+          )
         );
         const references = explicitReferenceResults
           .filter(result => result.resolved)
@@ -2443,7 +2504,8 @@ export async function POST(request: Request) {
             const resolved = await ensureResolvedMediaAllowed(
               {
                 query,
-                mediaType: "all"
+                mediaType: "all",
+                hints: titleResolutionHints
               },
               locale
             );
@@ -2597,12 +2659,17 @@ export async function POST(request: Request) {
           let titleContext = pickReferenceForTitleQuery(
             references,
             characterTitleQuery,
-            preferredTitleMediaType
+            preferredTitleMediaType,
+            titleResolutionHints
           );
 
           if (!titleContext && characterTitleQuery) {
             const resolved = await ensureResolvedMediaAllowed(
-              { query: characterTitleQuery, mediaType: preferredTitleMediaType },
+              {
+                query: characterTitleQuery,
+                mediaType: preferredTitleMediaType,
+                hints: titleResolutionHints
+              },
               locale
             );
             if (resolved.resolved) {
@@ -2796,7 +2863,11 @@ export async function POST(request: Request) {
 
           if (explicitLinkTitleQuery) {
             const resolved = await ensureResolvedMediaAllowed(
-              { query: explicitLinkTitleQuery, mediaType: preferredTitleMediaType },
+              {
+                query: explicitLinkTitleQuery,
+                mediaType: preferredTitleMediaType,
+                hints: titleResolutionHints
+              },
               locale
             );
 
@@ -2805,18 +2876,12 @@ export async function POST(request: Request) {
             }
 
             if (!linkContext) {
-              const explicitQuery = normalizeTitleForLookup(explicitLinkTitleQuery);
-              linkContext =
-                references.find(reference => {
-                  const title = normalizeTitleForLookup(reference.title);
-                  const originalTitle = normalizeTitleForLookup(reference.originalTitle);
-                  return (
-                    !!explicitQuery &&
-                    (title.includes(explicitQuery) ||
-                      explicitQuery.includes(title) ||
-                      originalTitle.includes(explicitQuery))
-                  );
-                }) ?? null;
+              linkContext = pickReferenceForTitleQuery(
+                references,
+                explicitLinkTitleQuery,
+                preferredTitleMediaType,
+                titleResolutionHints
+              );
             }
           }
 
@@ -2824,12 +2889,17 @@ export async function POST(request: Request) {
             linkContext = pickReferenceForTitleQuery(
               references,
               inferredLinkTitleQuery,
-              preferredTitleMediaType
+              preferredTitleMediaType,
+              titleResolutionHints
             );
 
             if (!linkContext) {
               const resolved = await ensureResolvedMediaAllowed(
-                { query: inferredLinkTitleQuery, mediaType: preferredTitleMediaType },
+                {
+                  query: inferredLinkTitleQuery,
+                  mediaType: preferredTitleMediaType,
+                  hints: titleResolutionHints
+                },
                 locale
               );
 
@@ -2906,12 +2976,17 @@ export async function POST(request: Request) {
           let titleContext = pickReferenceForTitleQuery(
             references,
             inferredTitleQuery,
-            preferredTitleMediaType
+            preferredTitleMediaType,
+            titleResolutionHints
           );
 
           if (!titleContext && inferredTitleQuery) {
             const resolved = await ensureResolvedMediaAllowed(
-              { query: inferredTitleQuery, mediaType: preferredTitleMediaType },
+              {
+                query: inferredTitleQuery,
+                mediaType: preferredTitleMediaType,
+                hints: titleResolutionHints
+              },
               locale
             );
             if (resolved.resolved) {
@@ -3009,11 +3084,16 @@ export async function POST(request: Request) {
           let titleContext = pickReferenceForTitleQuery(
             references,
             fallbackTitleQuery,
-            preferredTitleMediaType
+            preferredTitleMediaType,
+            titleResolutionHints
           );
           if (!titleContext && fallbackTitleQuery) {
             const resolved = await ensureResolvedMediaAllowed(
-              { query: fallbackTitleQuery, mediaType: preferredTitleMediaType },
+              {
+                query: fallbackTitleQuery,
+                mediaType: preferredTitleMediaType,
+                hints: titleResolutionHints
+              },
               locale
             );
             if (resolved.resolved) {

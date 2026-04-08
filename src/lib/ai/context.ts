@@ -10,6 +10,12 @@ import type { MediaListItem, MediaType, MovieDetail, TvDetail } from "@/types/me
 
 const MIN_CONFIDENT_MATCH_SCORE = 60;
 
+export interface ResolveMediaHints {
+  preferAnimation?: boolean;
+  preferLiveAction?: boolean;
+  preferJapanese?: boolean;
+}
+
 function normalizeTitleValue(value: string | null | undefined) {
   if (!value) {
     return "";
@@ -108,12 +114,18 @@ function normalizedStringSimilarity(left: string, right: string) {
   return 1 - distance / maxLength;
 }
 
-function getTitleMatchScore(item: MediaListItem, rawQuery: string) {
+function getTitleMatchScore(
+  item: MediaListItem,
+  rawQuery: string,
+  hints: ResolveMediaHints = {}
+) {
   const queryYear = extractYear(rawQuery);
   const queryWithoutYear = rawQuery.replace(/\b(19|20)\d{2}\b/g, " ").trim();
   const query = normalizeTitleValue(queryWithoutYear || rawQuery);
   const queryTokens = tokenize(query);
   const candidateTitles = [item.title, item.originalTitle].filter(Boolean) as string[];
+  const normalizedGenres = item.genres.map(genre => normalizeTitleValue(genre.name));
+  const normalizedOriginalLanguage = normalizeTitleValue(item.originalLanguage);
   let best = 0;
 
   for (const title of candidateTitles) {
@@ -170,6 +182,22 @@ function getTitleMatchScore(item: MediaListItem, rawQuery: string) {
       score += releaseYear === queryYear ? 35 : -12;
     }
 
+    if (hints.preferAnimation) {
+      score += normalizedGenres.includes("animation") ? 70 : -60;
+    }
+
+    if (hints.preferLiveAction) {
+      score += normalizedGenres.includes("animation") ? -85 : 28;
+    }
+
+    if (hints.preferJapanese) {
+      if (normalizedOriginalLanguage.includes("japan")) {
+        score += 24;
+      } else if (normalizedOriginalLanguage) {
+        score -= 8;
+      }
+    }
+
     best = Math.max(best, score);
   }
 
@@ -181,7 +209,7 @@ function getTitleMatchScore(item: MediaListItem, rawQuery: string) {
   return best;
 }
 
-function pickBestResolvedMatch(items: MediaListItem[], query: string) {
+function pickBestResolvedMatch(items: MediaListItem[], query: string, hints: ResolveMediaHints = {}) {
   if (!items.length) {
     return null;
   }
@@ -189,7 +217,7 @@ function pickBestResolvedMatch(items: MediaListItem[], query: string) {
   const scored = items
     .map(item => ({
       item,
-      score: getTitleMatchScore(item, query)
+      score: getTitleMatchScore(item, query, hints)
     }))
     .sort((left, right) => {
       if (right.score !== left.score) {
@@ -240,6 +268,7 @@ export async function resolveMediaAIContext(input: {
   query: string;
   mediaType?: "all" | MediaType;
   locale?: Locale;
+  hints?: ResolveMediaHints;
 }) {
   const locale = input.locale ?? "de";
   const results = await searchMediaWithFallback({
@@ -247,7 +276,7 @@ export async function resolveMediaAIContext(input: {
     mediaType: input.mediaType ?? "all",
     locale
   });
-  const match = pickBestResolvedMatch(results.items, input.query);
+  const match = pickBestResolvedMatch(results.items, input.query, input.hints);
 
   if (!match) {
     return null;
