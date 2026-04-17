@@ -17,7 +17,6 @@ export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { dictionary } = useLanguage();
-  const reason = searchParams?.get("reason");
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -74,12 +73,12 @@ export function LoginForm() {
           {dictionary.auth.forgotPassword}
         </Link>
       </div>
-      {reason === "admin_required" ? (
-        <p className="text-sm text-destructive">Nur freigeschaltete Admin-Accounts dürfen diese Anwendung nutzen.</p>
-      ) : null}
-      {reason === "admin_only" ? (
-        <p className="text-sm text-destructive">Neue Registrierungen sind deaktiviert. Zugriff nur über bestehende Admin-Accounts.</p>
-      ) : null}
+      <p className="text-sm text-muted-foreground">
+        {dictionary.auth.noAccount}{" "}
+        <Link href="/auth/signup" className="text-primary">
+          {dictionary.auth.registerNow}
+        </Link>
+      </p>
     </form>
   );
 }

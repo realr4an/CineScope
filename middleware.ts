@@ -3,10 +3,15 @@ import { type NextRequest, NextResponse } from "next/server";
 
 import { getPublicEnv } from "@/lib/env";
 
-const AUTH_PATH_PREFIXES = ["/auth/login", "/auth/forgot-password", "/auth/reset-password", "/auth/confirm"];
+const AUTH_PATH_PREFIXES = ["/auth/login", "/auth/signup", "/auth/forgot-password", "/auth/reset-password", "/auth/confirm"];
+const NON_ADMIN_ALLOWED_PATHS = ["/under-development"];
 
 function isAllowedWithoutAdmin(pathname: string) {
   return AUTH_PATH_PREFIXES.some(prefix => pathname === prefix || pathname.startsWith(`${prefix}/`));
+}
+
+function isAllowedForNonAdmin(pathname: string) {
+  return NON_ADMIN_ALLOWED_PATHS.some(prefix => pathname === prefix || pathname.startsWith(`${prefix}/`));
 }
 
 function isApiRoute(pathname: string) {
@@ -48,13 +53,6 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   if (!user) {
-    if (pathname === "/auth/signup" || pathname.startsWith("/auth/signup/")) {
-      const loginUrl = request.nextUrl.clone();
-      loginUrl.pathname = "/auth/login";
-      loginUrl.searchParams.set("reason", "admin_only");
-      return NextResponse.redirect(loginUrl);
-    }
-
     if (isAllowedWithoutAdmin(pathname)) {
       return response;
     }
@@ -69,7 +67,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  const isAuthPath = isAllowedWithoutAdmin(pathname) || pathname === "/auth/signup" || pathname.startsWith("/auth/signup/");
+  const isAuthPath = isAllowedWithoutAdmin(pathname);
 
   const { data: profile } = await supabase
     .from("profiles")
@@ -88,7 +86,7 @@ export async function middleware(request: NextRequest) {
     return response;
   }
 
-  if (isAuthPath) {
+  if (isAuthPath || isAllowedForNonAdmin(pathname)) {
     return response;
   }
 
@@ -96,10 +94,10 @@ export async function middleware(request: NextRequest) {
     return NextResponse.json({ error: "Admin account required." }, { status: 403 });
   }
 
-  const loginUrl = request.nextUrl.clone();
-  loginUrl.pathname = "/auth/login";
-  loginUrl.searchParams.set("reason", "admin_required");
-  return NextResponse.redirect(loginUrl);
+  const infoUrl = request.nextUrl.clone();
+  infoUrl.pathname = "/under-development";
+  infoUrl.search = "";
+  return NextResponse.redirect(infoUrl);
 }
 
 export const config = {
