@@ -22,7 +22,14 @@ export async function middleware(request: NextRequest) {
   const env = getPublicEnv();
 
   if (!env.success) {
-    return NextResponse.next({ request });
+    if (request.nextUrl.pathname.startsWith("/api/")) {
+      return NextResponse.json({ error: "App configuration incomplete." }, { status: 503 });
+    }
+
+    const unavailableUrl = request.nextUrl.clone();
+    unavailableUrl.pathname = "/under-development";
+    unavailableUrl.search = "";
+    return NextResponse.rewrite(unavailableUrl);
   }
 
   let response = NextResponse.next({ request });
