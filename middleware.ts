@@ -3,7 +3,7 @@ import { type NextRequest, NextResponse } from "next/server";
 
 import { getPublicEnv } from "@/lib/env";
 
-const AUTH_PATH_PREFIXES = ["/auth/login", "/auth/signup", "/auth/forgot-password", "/auth/reset-password", "/auth/confirm"];
+const AUTH_PATH_PREFIXES = ["/auth/login", "/auth/forgot-password", "/auth/reset-password", "/auth/confirm"];
 
 function isAllowedWithoutAdmin(pathname: string) {
   return AUTH_PATH_PREFIXES.some(prefix => pathname === prefix || pathname.startsWith(`${prefix}/`));
@@ -47,11 +47,18 @@ export async function middleware(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
 
-  if (isAllowedWithoutAdmin(pathname)) {
-    return response;
-  }
-
   if (!user) {
+    if (pathname === "/auth/signup" || pathname.startsWith("/auth/signup/")) {
+      const loginUrl = request.nextUrl.clone();
+      loginUrl.pathname = "/auth/login";
+      loginUrl.searchParams.set("reason", "admin_only");
+      return NextResponse.redirect(loginUrl);
+    }
+
+    if (isAllowedWithoutAdmin(pathname)) {
+      return response;
+    }
+
     if (isApiRoute(pathname)) {
       return NextResponse.json({ error: "Authentication required." }, { status: 401 });
     }
@@ -62,6 +69,8 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
+  const isAuthPath = isAllowedWithoutAdmin(pathname) || pathname === "/auth/signup" || pathname.startsWith("/auth/signup/");
+
   const { data: profile } = await supabase
     .from("profiles")
     .select("is_admin")
@@ -69,6 +78,17 @@ export async function middleware(request: NextRequest) {
     .maybeSingle();
 
   if (profile?.is_admin) {
+    if (isAuthPath) {
+      const destination = request.nextUrl.clone();
+      destination.pathname = request.nextUrl.searchParams.get("redirectTo") || "/";
+      destination.search = "";
+      return NextResponse.redirect(destination);
+    }
+
+    return response;
+  }
+
+  if (isAuthPath) {
     return response;
   }
 

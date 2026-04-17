@@ -17,6 +17,7 @@ export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { dictionary } = useLanguage();
+  const reason = searchParams?.get("reason");
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -38,7 +39,7 @@ export function LoginForm() {
     }
 
     toast.success(dictionary.auth.loginSuccess);
-    const nextPath = searchParams?.get("next") ?? "/watchlist";
+    const nextPath = searchParams?.get("redirectTo") ?? "/";
     router.push(nextPath);
     router.refresh();
   };
@@ -73,12 +74,12 @@ export function LoginForm() {
           {dictionary.auth.forgotPassword}
         </Link>
       </div>
-      <p className="text-sm text-muted-foreground">
-        {dictionary.auth.noAccount}{" "}
-        <Link href="/auth/signup" className="text-primary">
-          {dictionary.auth.registerNow}
-        </Link>
-      </p>
+      {reason === "admin_required" ? (
+        <p className="text-sm text-destructive">Nur freigeschaltete Admin-Accounts dürfen diese Anwendung nutzen.</p>
+      ) : null}
+      {reason === "admin_only" ? (
+        <p className="text-sm text-destructive">Neue Registrierungen sind deaktiviert. Zugriff nur über bestehende Admin-Accounts.</p>
+      ) : null}
     </form>
   );
 }
