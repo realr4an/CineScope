@@ -42,7 +42,7 @@ export async function middleware(request: NextRequest) {
   const hasSession = hasSupabaseSessionCookie(request);
 
   if (!hasSession) {
-    if (isAllowedWithoutAdmin(pathname)) {
+    if (isAllowedWithoutAdmin(pathname) || isAllowedForNonAdmin(pathname)) {
       return NextResponse.next({ request });
     }
 
@@ -50,10 +50,11 @@ export async function middleware(request: NextRequest) {
       return NextResponse.json({ error: "Authentication required." }, { status: 401 });
     }
 
-    const loginUrl = request.nextUrl.clone();
-    loginUrl.pathname = "/auth/login";
-    loginUrl.searchParams.set("redirectTo", pathname);
-    return NextResponse.redirect(loginUrl);
+    const infoUrl = request.nextUrl.clone();
+    infoUrl.pathname = "/under-development";
+    infoUrl.search = "";
+    infoUrl.searchParams.set("redirectTo", pathname);
+    return NextResponse.redirect(infoUrl);
   }
 
   let response = NextResponse.next({ request });
