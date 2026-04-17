@@ -20,6 +20,7 @@ interface AppProvidersProps {
   initialWatchlist: WatchlistItem[];
   initialAgeGate: AgeGateState;
   initialLocale: Locale;
+  disableAgeGate?: boolean;
 }
 
 export function AppProviders({
@@ -27,10 +28,14 @@ export function AppProviders({
   initialUser,
   initialWatchlist,
   initialAgeGate,
-  initialLocale
+  initialLocale,
+  disableAgeGate = false
 }: AppProvidersProps) {
   const pathname = usePathname() ?? "";
-  const shouldShowAgeGate = pathname !== "/under-development" && !pathname.startsWith("/auth/");
+  const shouldShowAgeGate =
+    !disableAgeGate &&
+    pathname !== "/under-development" &&
+    !pathname.startsWith("/auth/");
 
   return (
     <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>

@@ -1,6 +1,7 @@
 ﻿import type { Metadata } from "next";
 import { Inter, Outfit } from "next/font/google";
 
+import { UnderDevelopmentContent } from "@/app/under-development/page";
 import { AppProviders } from "@/components/providers/app-providers";
 import { filterMediaForViewerAge, getAgeGateState } from "@/lib/age-gate/server";
 import { getPreferredLocale } from "@/lib/i18n/server";
@@ -45,6 +46,7 @@ export default async function RootLayout({
     getPreferredLocale()
   ]);
   const safeWatchlist = await filterMediaForViewerAge(watchlist);
+  const showUnderDevelopment = Boolean(viewer && !viewer.isAdmin);
 
   return (
     <html lang={locale} suppressHydrationWarning>
@@ -54,8 +56,9 @@ export default async function RootLayout({
           initialWatchlist={safeWatchlist}
           initialAgeGate={ageGate}
           initialLocale={locale}
+          disableAgeGate={showUnderDevelopment}
         >
-          {children}
+          {showUnderDevelopment ? <UnderDevelopmentContent /> : children}
         </AppProviders>
       </body>
     </html>
