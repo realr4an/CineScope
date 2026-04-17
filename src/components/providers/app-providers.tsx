@@ -1,5 +1,6 @@
 ﻿"use client";
 
+import { usePathname } from "next/navigation";
 import { ThemeProvider } from "next-themes";
 import { Toaster } from "sonner";
 
@@ -28,6 +29,9 @@ export function AppProviders({
   initialAgeGate,
   initialLocale
 }: AppProvidersProps) {
+  const pathname = usePathname() ?? "";
+  const shouldShowAgeGate = pathname !== "/under-development" && !pathname.startsWith("/auth/");
+
   return (
     <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
       <LanguageProvider initialLocale={initialLocale}>
@@ -35,7 +39,7 @@ export function AppProviders({
           {children}
           <HorizontalScrollEnhancer />
           <CookieNotice />
-          <AgeGatePrompt initialState={initialAgeGate} user={initialUser} />
+          {shouldShowAgeGate ? <AgeGatePrompt initialState={initialAgeGate} user={initialUser} /> : null}
           <Toaster
             theme="dark"
             position="bottom-right"
